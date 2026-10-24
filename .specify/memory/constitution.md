@@ -1,50 +1,93 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report (temporary; remove before commit)
+Version change: (unratified template) → 1.0.0
+Modified principles: none (initial adoption; all principles new)
+Added sections: Core Principles I–VIII, Technology & Data Constraints, Development Workflow,
+  Governance
+Removed sections: none
+Deferred items / TODOs: none
+Notes: "Teachers" in the input is treated as the "staff" entity of the Product Agreement
+  (docs/agreement). "FR" is the functional requirement ID in feature specs (agreement feature
+  IDs such as FEE-02 seed the FR list).
+-->
+# CampusFlow Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Exact Money Arithmetic
+All monetary amounts MUST be `BigDecimal` in Java and `NUMERIC(12,2)` in the database.
+`float`, `double`, and their wrapper types MUST NOT hold or compute money anywhere, including
+tests and exports. Rounding MUST follow the rules in the Product Agreement (section 5).
+Rationale: fees and salaries must be exact to the paisa and match the school's Excel totals.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Immutable Finalized Records
+A finalized receipt or payroll month MUST NOT be updated or deleted. Corrections MUST be made
+by a reversal entry (e.g. receipt cancellation with a reason) followed by a new entry where
+needed. Later rule changes apply only from their effective month; finalized values are stored
+and never recalculated. Rationale: the ledger must be trustworthy and reproducible.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Audited Financial Writes
+Every financial write (receipts, cancellations, payroll, fund ledger, expenses, fee changes)
+MUST write an audit log entry recording who, what, when, and the before/after values, in the
+same transaction as the write. A financial write without an audit entry MUST fail.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. No Hard Deletes of People
+Students and staff (including teachers) MUST NOT be hard-deleted. Departure is modelled by
+status (Active/Left) plus history and register records (LC, staff exit). Foreign keys to
+people MUST NOT use cascade delete. Rationale: history, receipts, and payslips must stay
+resolvable.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Flyway-Only Schema Changes
+All schema changes MUST be Flyway migrations committed to the repository. Applied migrations
+MUST NOT be edited; fixes are new migrations. Hibernate/JPA schema auto-generation MUST be
+disabled (`validate` or `none`), and manual changes to a database are prohibited.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. No Real Data in the Repo
+Real student, parent, staff, bank, Aadhaar, or salary data MUST NOT appear in the repository,
+prompts to AI tools, logs, or test fixtures. Tests and examples MUST use synthetic data.
+Sensitive fields MUST be masked in lists and kept out of logs. Rationale: the data belongs to
+the school and its families; the Excel source files stay outside version control.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### VII. Modular Monolith
+CampusFlow MUST be a single deployable application organised as one top-level Java package per
+module (students, academic-year, leaving certificate, fees, staff, leave, payroll, fund and
+audit, admin setup). A module MUST be used by other modules only through its public API
+package; direct access to another module's internals or tables is prohibited. Cross-module
+dependencies MUST be acyclic. No microservices or cloud dependencies.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### VIII. Every Requirement Is Tested
+Every functional requirement (FR) in a feature spec MUST have at least one automated test that
+references its ID. A feature is not complete until all of its FRs are covered and passing.
+Calculation rules (fees, salary) MUST include tests against the reference cases in the Product
+Agreement.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Technology & Data Constraints
+
+- Stack: Java 21, Spring Boot, PostgreSQL, Maven; packaged to run on one school computer
+  with no cloud services (Docker deployment).
+- Single Admin user; no role-based access control in version 1. Passwords MUST be stored
+  hashed.
+- Product scope and business rules are defined by `docs/agreement`; feature specs refine but
+  MUST NOT contradict it without a recorded decision in `docs/decision-log.md`.
+- Backups MUST be automatic and daily, with a documented restore procedure.
+
+## Development Workflow
+
+- Work follows Spec Kit: specify → plan → tasks → implement, on a feature branch.
+- Every plan MUST include a Constitution Check against Principles I–VIII; any violation
+  MUST be justified in the plan's complexity tracking and approved before implementation.
+- A change is mergeable only when the build and all tests pass and review confirms compliance
+  with this constitution.
+- Migrations, audit behaviour, and money handling MUST be covered in review of every
+  affected change.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes other practices. Amendments MUST be proposed in writing, state
+the rationale and migration impact, be approved by the project owner, and be recorded by
+updating this file and its version. Versioning follows semantic versioning: MAJOR for removed
+or redefined principles, MINOR for added principles or materially expanded guidance, PATCH
+for clarifications. All specs, plans, and reviews MUST verify compliance; unjustified
+complexity or violations block merge.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24
