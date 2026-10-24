@@ -77,7 +77,7 @@ description: "Task list for F0 Foundation"
 - [ ] T028 [P] Create `FE/shared/forms/api-error.ts`: maps `fieldErrors` from a 422 response onto a form's controls (FR-040)
 - [ ] T029 [P] Create `frontend/playwright.config.ts` and `frontend/e2e/support/test-data.ts`: starts the backend with the `test` profile and the UI, resets the test database before the run, helper `signInAsTestAdmin()` that uses a known test-only password set by a test-profile bootstrap property
 
-- [ ] T105 Test infrastructure: `BE/shared/time/ClockConfig.java` (a `java.time.Clock` bean, zone Asia/Kolkata) with a test override that sets a fixed or movable clock; a rule in the test base classes of which tests use MockMvc and which use `RANDOM_PORT`; a `PasswordEncoder` bean (BCrypt); Playwright years are created relative to the real today, or use the test-profile clock property
+- [X] T105 Test infrastructure: `BE/shared/time/ClockConfig.java` (a `java.time.Clock` bean, zone Asia/Kolkata) with a test override that sets a fixed or movable clock; a rule in the test base classes of which tests use MockMvc and which use `RANDOM_PORT`; a `PasswordEncoder` bean (BCrypt); Playwright years are created relative to the real today, or use the test-profile clock property
 
 **Checkpoint**: Schema migrates, audit and table frameworks compile, Angular app builds. User stories can now start.
 
