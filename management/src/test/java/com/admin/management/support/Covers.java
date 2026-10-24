@@ -7,7 +7,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Links a test class or method to a functional requirement id, for example {@code @Covers("FR-011")}. */
+/** Links a test class or method to a functional requirement id, for example {@code @Covers} with the id of the requirement. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.TYPE, ElementType.METHOD })
