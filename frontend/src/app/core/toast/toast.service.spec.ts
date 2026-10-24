@@ -2,8 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { MessageService } from 'primeng/api';
 import { ToastService } from './toast.service';
 
-// FR-039
-describe('ToastService', () => {
+describe('ToastService (FR-039)', () => {
   let add: ReturnType<typeof vi.fn>;
   let toast: ToastService;
 

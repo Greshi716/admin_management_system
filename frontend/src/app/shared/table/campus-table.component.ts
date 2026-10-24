@@ -22,7 +22,7 @@ import {
 /**
  * The one list component for the whole app (FR-034). Give it the columns and the endpoint and it gets server
  * paging with page sizes 10/25/50/100, a debounced search box, per-column filters, sortable headers, skeleton
- * rows while loading, an empty state and Export to Excel (FR-027 to FR-033).
+ * rows while loading, an empty state and Export to Excel (FR-029 to FR-034, FR-038).
  *
  * `endpoint` is the list's API path, for example `/api/academic-years`; the table posts to `{endpoint}/search`
  * and `{endpoint}/export`.

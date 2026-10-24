@@ -27,8 +27,7 @@ const twoRows = {
   total: 2,
 };
 
-// FR-027, FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, FR-038
-describe('CampusTableComponent', () => {
+describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, FR-038)', () => {
   let fixture: ComponentFixture<CampusTableComponent>;
   let controller: HttpTestingController;
   let downloader: { save: ReturnType<typeof vi.fn> };

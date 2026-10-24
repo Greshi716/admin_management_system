@@ -1,6 +1,5 @@
 import { formatCell } from './format-cell';
 
-// FR-027
 describe('formatCell', () => {
   it('shows a dash for missing values', () => {
     expect(formatCell(null)).toBe('—');

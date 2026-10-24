@@ -5,8 +5,7 @@ import { Router } from '@angular/router';
 import { ToastService } from '../toast/toast.service';
 import { errorInterceptor } from './error.interceptor';
 
-// FR-039, FR-046
-describe('errorInterceptor', () => {
+describe('errorInterceptor (FR-039, FR-046)', () => {
   let http: HttpClient;
   let controller: HttpTestingController;
   let toast: { error: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn> };

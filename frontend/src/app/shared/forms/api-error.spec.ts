@@ -2,8 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { applyFieldErrors, serverMessage } from './api-error';
 
-// FR-040
-describe('applyFieldErrors', () => {
+describe('applyFieldErrors (FR-040)', () => {
   function response(body: object | null, status = 422): HttpErrorResponse {
     return new HttpErrorResponse({ status, error: body });
   }
