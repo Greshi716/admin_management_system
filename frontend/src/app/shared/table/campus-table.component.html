@@ -1,0 +1,138 @@
+<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+  <input
+    pInputText
+    type="search"
+    class="w-full sm:w-80"
+    placeholder="Search"
+    aria-label="Search this list"
+    [value]="search()"
+    (input)="onSearchInput($event)"
+  />
+  <p-button
+    label="Export to Excel"
+    severity="secondary"
+    [loading]="exporting()"
+    [disabled]="loading() || total() === 0"
+    (onClick)="exportExcel()"
+  />
+</div>
+
+<div class="overflow-x-auto rounded-xl border border-border bg-surface">
+  <p-table
+    [value]="displayRows()"
+    [lazy]="true"
+    [paginator]="true"
+    [rows]="pageSize()"
+    [(first)]="first"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="total()"
+    [showCurrentPageReport]="true"
+    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} rows"
+    [tableStyle]="{ 'min-width': '40rem' }"
+    (onLazyLoad)="onLazyLoad($event)"
+  >
+    <ng-template #header>
+      <tr>
+        @for (column of visibleColumns(); track column.field) {
+          <th [pSortableColumn]="column.field">
+            <div class="flex items-center gap-2">
+              {{ column.header }}
+              <p-sort-icon [field]="column.field" />
+              @switch (column.type) {
+                @case ('date') {
+                  <p-column-filter
+                    [field]="column.field"
+                    matchMode="dateRange"
+                    display="menu"
+                    [showMatchModes]="false"
+                    [showOperator]="false"
+                    [showAddButton]="false"
+                  >
+                    <ng-template #filter let-value let-filter="filterCallback">
+                      <div class="flex flex-col gap-2">
+                        <label class="flex flex-col gap-1 text-sm">
+                          From
+                          <input
+                            pInputText
+                            type="date"
+                            [value]="rangeEnd(value, 0)"
+                            (change)="filter(rangeValue(value, 0, $any($event.target).value))"
+                          />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                          To
+                          <input
+                            pInputText
+                            type="date"
+                            [value]="rangeEnd(value, 1)"
+                            (change)="filter(rangeValue(value, 1, $any($event.target).value))"
+                          />
+                        </label>
+                      </div>
+                    </ng-template>
+                  </p-column-filter>
+                }
+                @case ('boolean') {
+                  <p-column-filter
+                    type="boolean"
+                    [field]="column.field"
+                    matchMode="equals"
+                    display="menu"
+                    [showMatchModes]="false"
+                    [showOperator]="false"
+                    [showAddButton]="false"
+                  />
+                }
+                @case ('number') {
+                  <p-column-filter
+                    type="numeric"
+                    [field]="column.field"
+                    matchMode="equals"
+                    display="menu"
+                    [showMatchModes]="false"
+                    [showOperator]="false"
+                    [showAddButton]="false"
+                  />
+                }
+                @default {
+                  <p-column-filter
+                    type="text"
+                    [field]="column.field"
+                    matchMode="contains"
+                    display="menu"
+                    [showMatchModes]="false"
+                    [showOperator]="false"
+                    [showAddButton]="false"
+                  />
+                }
+              }
+            </div>
+          </th>
+        }
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        @for (column of visibleColumns(); track column.field) {
+          <td>
+            @if (loading()) {
+              <p-skeleton height="1.1rem" />
+            } @else {
+              {{ formatCell(row[column.field], column.type) }}
+            }
+          </td>
+        }
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td [attr.colspan]="visibleColumns().length" class="py-10 text-center text-muted">
+          <p class="font-semibold text-ink">No rows found</p>
+          <p>Try a different search, or clear the column filters.</p>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>
