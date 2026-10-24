@@ -1,1 +1,47 @@
-/* You can add global styles to this file, and also import other style files */
+@import 'tailwindcss';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/noto-sans-gujarati/400.css';
+@import '@fontsource/noto-sans-gujarati/500.css';
+@import '@fontsource/noto-sans-gujarati/600.css';
+@import '@fontsource/noto-sans-gujarati/700.css';
+
+/* Values mirror src/app/theme/campusflow-preset.ts (docs/design/ui-tokens.md). */
+@theme {
+  --color-page: #f7f5fd;
+  --color-surface: #ffffff;
+  --color-sidebar: #ede7fb;
+  --color-accent: #6d4ae0;
+  --color-accent-text: #4b2fa8;
+  --color-accent-soft: #ece6fb;
+  --color-ink: #1e1833;
+  --color-muted: #5a5075;
+  --color-border: #e6e0f5;
+  --color-input-border: #8e84ad;
+  --color-error-bg: #fdecec;
+  --color-error-text: #8a1c1c;
+  --color-warning-bg: #fff3dc;
+  --color-warning-text: #6b4200;
+
+  --font-sans: 'Plus Jakarta Sans', 'Noto Sans Gujarati', system-ui, sans-serif;
+
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --spacing-control: 44px;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--color-ink);
+    background-color: var(--color-page);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+}
