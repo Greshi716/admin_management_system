@@ -1,6 +1,7 @@
 # Data Model: Foundation (F0)
 
-Schema is created by Flyway migration `V2__foundation.sql` (V1 is the empty, already-applied
+Schema is created by Flyway migrations `V2__users_audit.sql`, `V3__master_data.sql` and
+`V4__categories.sql` (V1 is the empty, already-applied
 baseline and is not edited). Table and column codes follow agreement section 4.2 and 4.8;
 additions are marked **(added)**.
 
