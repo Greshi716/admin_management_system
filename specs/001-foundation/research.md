@@ -18,6 +18,13 @@ recorded rationale. Versions were checked against npm and Maven Central on 2026-
 - **Tokens**: primary 500 = `#6D4AE0` (scale generated around it); surface 0 = white, page `#F7F5FD`, sidebar `#EDE7FB`; text `#1E1833`, muted `#5A5075`; border `#E6E0F5`; input border `#8E84AD` (3:1 on white); radius 10-16 px; control height 44 px. Red/amber only for error/warn severities.
 - **Alternatives**: Plain CSS overrides on a stock theme (rejected: scatters colours, breaks on upgrade); Angular Material (rejected: user chose PrimeNG).
 
+- **Spike result (T008, PrimeNG 22.1.4, `@primeuix/themes` 3.1.0)**: confirmed and working.
+  - Imports: `import { definePreset } from '@primeuix/themes'`, `import Aura from '@primeuix/themes/aura'`, `import { providePrimeNG } from 'primeng/config'`.
+  - Radius is a primitive token, not a semantic one: set it under `primitive.borderRadius` (`semantic.borderRadius` fails to compile). Form fields and components read it through `{border.radius.*}`.
+  - Aura's own semantic tokens use `light-dark(...)`; overriding `semantic.colorScheme.light` still works with `darkModeSelector: false` (light only).
+  - Verified by `theme/campusflow-preset.spec.ts`: rendering a `p-button` injects styles containing `#6d4ae0`, `#8e84ad` and `10px`.
+  - PrimeNG has no height token. The 44 px minimum comes from padding: `paddingY: 0.75rem` on form fields and buttons gives about 45 px with the 14 px font, 1.5 line height and 1 px border. Confirm visually when the first screens exist.
+
 ## R3. Fonts offline
 
 - **Decision**: Self-host via `@fontsource/plus-jakarta-sans` and `@fontsource/noto-sans-gujarati`; font stack `"Plus Jakarta Sans", "Noto Sans Gujarati", system-ui, sans-serif` (FR-042).
