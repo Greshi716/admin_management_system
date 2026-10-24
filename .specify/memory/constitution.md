@@ -33,7 +33,9 @@ disabled (`validate` or `none`), and manual changes to a database are prohibited
 ### VI. No Real Data in the Repo
 Real student, parent, staff, bank, Aadhaar, or salary data MUST NOT appear in the repository,
 prompts to AI tools, logs, or test fixtures. Tests and examples MUST use synthetic data.
-Sensitive fields MUST be masked in lists and kept out of logs. Rationale: the data belongs to
+Sensitive fields MUST be masked in lists and kept out of application logs. The audit log
+stores sensitive fields only as masked values (last 4 characters visible) and never a
+password, hash or recovery code. Rationale: the data belongs to
 the school and its families; the Excel source files stay outside version control.
 
 ### VII. Modular Monolith
@@ -78,4 +80,4 @@ or redefined principles, MINOR for added principles or materially expanded guida
 for clarifications. All specs, plans, and reviews MUST verify compliance; unjustified
 complexity or violations block merge.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24
+**Version**: 1.0.1 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24

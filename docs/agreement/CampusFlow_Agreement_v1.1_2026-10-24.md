@@ -126,7 +126,7 @@ One person (the school admin) uses the system. There is **no role-based access c
 
 ## 4. Data
 
-31 tables. Field types: Text, Number, Amount (₹, exact decimal), Date, Month, Yes / No, Choice, Link (reference to another table). **Required / Optional** is for manual entry; **Auto** means filled by the system. 🔒 = sensitive (masked on lists, kept out of logs).
+31 tables. Field types: Text, Number, Amount (₹, exact decimal), Date, Month, Yes / No, Choice, Link (reference to another table). **Required / Optional** is for manual entry; **Auto** means filled by the system. 🔒 = sensitive (masked on lists, kept out of application logs; the audit log stores only a masked value with the last 4 characters visible, and never a password, hash or recovery code).
 
 ### 4.1 How the data connects
 
@@ -169,8 +169,8 @@ Each school year.
 | Year name | `name` | Text | Required | e.g. 2026-27 |
 | Start date | `start_date` | Date | Required | e.g. 01-06-2026 |
 | End date | `end_date` | Date | Required | e.g. 31-05-2027 |
-| Current year | `is_current` | Yes / No | Auto | Only one year current at a time |
-| Active | `active` | Yes / No | Auto | No = hidden from new entries, kept on existing records |
+
+The current academic year is not stored. It is the year whose start and end dates contain today's date (the school's local date). Years cannot overlap, so at most one year is current; if no year contains today's date there is no current year. A year that is in use cannot be deleted, and academic years have no inactive status.
 
 #### Standards  `standards`
 
@@ -229,9 +229,9 @@ People who can log in. Passwords stored encrypted. The default Admin gets a rand
 | Role | `role` | Choice | Required | Default and only role: Admin |
 | Active | `active` | Yes / No | Auto |  |
 | Last login | `last_login` | Date & time | Auto |  |
-| Recovery code (hashed) 🔒 | `recovery_code_hash` | Text | Auto | Created at installation, shown once |
 | Failed sign-ins | `failed_attempts` | Number | Auto | Resets after a successful sign-in |
 | Locked until | `locked_until` | Date & time | Auto | Set for 5 minutes after 5 failed sign-ins in a row |
+| Password changed | `password_changed` | Yes / No | Auto | No until the admin changes the default password; drives the change-password popup |
 
 ### 4.3 Students
 
@@ -621,7 +621,7 @@ Automatic record of every change.
 | Area | `area` | Choice | Auto | Security / Master data / Fees / Payroll / Fund |
 | Action | `action` | Choice | Auto | Create / Edit / Delete / Cancel / Finalise / Login / Import / Export |
 | Record type & ID | `entity` | Text | Auto |  |
-| Old / New value | `changes` | Text | Auto |  |
+| Old / New value | `changes` | Text | Auto | Fields marked 🔒 are stored masked (last 4 characters visible). Password and password hash are never stored; the entry only says the field changed |
 | Reason | `reason` | Text | Optional | Required for cancellations |
 
 #### Backup History  `backup_history`
@@ -881,3 +881,9 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 24-10-2026 | Client questions prepared in English and Gujarati for the remaining open items. |
 | 24-10-2026 | Audit log gets an `area` field and a Delete action. Master data (years, standards, divisions, categories) gets an `active` flag: records in use are never deleted, only marked inactive. |
 | 24-10-2026 | Sign-in: random default password shown once at installation, 10-minute idle sign-out, 5-minute pause after 5 failed attempts, recovery code created at installation. Email password reset left for a later feature. |
+| 24-10-2026 | Audit log stores a masked value (last 4 characters visible) for sensitive fields instead of leaving them out; the password, hashes and recovery code are never stored. This replaces "kept out of logs" for the audit log only; application logs still hold no sensitive values. |
+| 24-10-2026 | `password_changed` added to users, so the reminder banner shows until the admin changes the default password. |
+| 24-10-2026 | Student categories are seeded with `affects_fees` = No until the school confirms which categories carry a separate fee; the admin sets the flag in Master data. |
+| 24-10-2026 | Constitution Principle VI clarified (version 1.0.1): "logs" means application logs; the audit log may hold masked values. |
+| 24-10-2026 | Academic years have no inactive status and no stored `is_current` field. The current academic year is worked out from today's date (school's local date). This replaces the earlier row that gave academic years an `active` flag and a "make current" action. |
+| 24-10-2026 | No recovery code and no in-app password recovery. A forgotten password is reset by the developer (startup property, new random password in the credentials file). `recovery_code_hash` removed from users. The default-password reminder is a popup after each sign-in, not a banner. |
