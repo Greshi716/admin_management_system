@@ -7,8 +7,11 @@ echo "== backend: build and test =="
 (cd management && ./mvnw -B verify)
 
 if [ -f frontend/package.json ]; then
-  echo "== frontend: build =="
-  (cd frontend && npm run build)
+  echo "== frontend: install, build and test =="
+  (cd frontend && npm ci && npm run build && npm test -- --watch=false)
 fi
+
+echo "== FR coverage (report only; strict mode is switched on in T099) =="
+bash scripts/check-fr-coverage.sh
 
 echo "VERIFY OK"
