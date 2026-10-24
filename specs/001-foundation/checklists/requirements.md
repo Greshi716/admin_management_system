@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain (3 open: idle timeout, master data removal, default Admin credentials)
+- [x] No [NEEDS CLARIFICATION] markers remain (idle timeout, master data removal and default Admin credentials resolved in the spec)
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
