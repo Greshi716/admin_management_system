@@ -51,6 +51,14 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void validationExceptionBecomes422WithItsFieldErrors() throws Exception {
+		mvc.perform(get("/t/invalid"))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("rows"))
+			.andExpect(jsonPath("$.fieldErrors[0].message").value("not allowed"));
+	}
+
+	@Test
 	void staleVersionBecomes409WithCodeAndLatestRecord() throws Exception {
 		mvc.perform(get("/t/stale"))
 			.andExpect(status().isConflict())
@@ -120,6 +128,11 @@ class ApiExceptionHandlerTest {
 
 		@PostMapping("/t/validate")
 		void validate(@Valid @RequestBody Body body) {
+		}
+
+		@GetMapping("/t/invalid")
+		void invalid() {
+			throw new ValidationException("rows", "not allowed");
 		}
 
 		@GetMapping("/t/stale")

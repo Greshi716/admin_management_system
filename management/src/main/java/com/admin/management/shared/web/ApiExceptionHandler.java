@@ -57,6 +57,11 @@ public class ApiExceptionHandler {
 		return validation(errors);
 	}
 
+	@ExceptionHandler(ValidationException.class)
+	ResponseEntity<ApiProblem> invalidRequest(ValidationException ex) {
+		return validation(ex.getFieldErrors());
+	}
+
 	@ExceptionHandler(ConstraintViolationException.class)
 	ResponseEntity<ApiProblem> invalidEntity(ConstraintViolationException ex) {
 		List<ApiProblem.FieldError> errors = ex.getConstraintViolations()
