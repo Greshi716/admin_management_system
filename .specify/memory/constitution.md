@@ -1,15 +1,3 @@
-<!--
-Sync Impact Report (temporary; remove before commit)
-Version change: (unratified template) → 1.0.0
-Modified principles: none (initial adoption; all principles new)
-Added sections: Core Principles I–VIII, Technology & Data Constraints, Development Workflow,
-  Governance
-Removed sections: none
-Deferred items / TODOs: none
-Notes: "Teachers" in the input is treated as the "staff" entity of the Product Agreement
-  (docs/agreement). "FR" is the functional requirement ID in feature specs (agreement feature
-  IDs such as FEE-02 seed the FR list).
--->
 # CampusFlow Constitution
 
 ## Core Principles
