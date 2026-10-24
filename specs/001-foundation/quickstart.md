@@ -9,6 +9,10 @@ A run-and-check guide for proving F0 works end to end. Contracts are in
 - Node 22.22.3 or newer (or 24 LTS); Angular 22 will not install on 22.22.2
 - PostgreSQL 15+ running on `localhost:5432` with two empty databases:
   `admin_management_db` (dev) and `admin_management_test` (tests)
+- Verified on the dev machine (T001): Node 24.22.1, JDK 21.0.11 at `C:\Program Files\Java\jdk-21.0.11`,
+  PostgreSQL 15.6 running as the Windows service `postgresql-x64-15` (not Docker; Docker Desktop was
+  stopped), both databases present. The user-level `JAVA_HOME` still points to JDK 17 (Zulu), so set
+  `JAVA_HOME` to JDK 21 in each shell before running Maven (the `java` on `PATH` is already 21)
 - UI design reference: `docs/design/ui-tokens.md` (no mockup images are needed)
 
 ## 1. Backend checks
