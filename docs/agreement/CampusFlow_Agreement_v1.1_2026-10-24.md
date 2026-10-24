@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Client** | Birlasagar Higher Secondary School, Porbandar |
-| **Version** | 1.0 (final, ready for specification) |
+| **Version** | 1.1 (decisions of 24 Oct merged, ready for specification) |
 | **Date** | 24 Oct 2026 |
 | **Academic year in scope** | 2026-27 onward |
 | **Sources** | Agreement v0.2 (reviewed HTML), client file `FEE FORMATION.xlsx` (class formation sheet and Oct-26 salary sheet with formulas), receipt book No. 3100 |
@@ -57,7 +57,7 @@ One person (the school admin) uses the system. There is **no role-based access c
 
 | ID | Feature | Description |
 |---|---|---|
-| LC-01 | Issue LC | The admin changes the student's record from Active to Left. The system then prompts a button to prepare the LC. On save, the LC is added to the separate LC table and the LC form is preserved; every LC form stays editable. The LC number follows the LC table. The admin is warned if fees are pending or caution money is not settled. |
+| LC-01 | Issue LC | The admin changes the student's record from Active to Left. The system then prompts a button to prepare the LC. On save, the LC is added to the separate LC table and the LC form is preserved; every LC form stays editable. The LC number follows the LC table. The admin sees a warning if fees are pending; the warning does not block the LC. |
 | LC-02 | Left Students Register | A separate list of students who left. The student is removed from the active lists once the LC is saved. |
 | LC-03 | Duplicate LC | Reprint, marked as duplicate. |
 
@@ -66,10 +66,10 @@ One person (the school admin) uses the system. There is **no role-based access c
 | ID | Feature | Description |
 |---|---|---|
 | FEE-01 | Fee structure per standard & category | Set in the Admin panel per academic year (amount for each standard and category). |
-| FEE-02 | Fee collection & receipt | Receipt for the amount paid, by cash or cheque. Partial payments are allowed. |
+| FEE-02 | Fee collection & receipt | Receipt for the amount paid, by cash or cheque. Partial payments are allowed. The admin types the receipt number from the school's printed receipt book; the system adds its own serial number. |
 | FEE-03 | Paid & pending per student | Always an up-to-date balance. The displayed balance must be consistent with the ledger; because the application is eventually consistent, an inconsistency shows a pop-up with a hard-refresh option. |
 | FEE-04 | Receipt cancellation | With reason and audit trail; never deleted. |
-| FEE-05 | Due dates / installments / late fee | Follow the school's timeline rules, defined in the feature spec. |
+| FEE-05 | Due dates | The admin enters the due date in the fee data. There is no late fee. |
 | FEE-06 | Fee reminder notices | Printable notice and WhatsApp / SMS draft message, with data grouped per standard. |
 
 ### Staff
@@ -79,7 +79,7 @@ One person (the school admin) uses the system. There is **no role-based access c
 | STF-01 | New staff entry | Admin enters personal, EPF, bank and salary details with an effective month. |
 | STF-02 | Salary breakdown | Shows how gross and net are calculated (section 5.2). |
 | STF-03 | Staff leaving | Leaving register with settlement details; the staff member is removed from active lists and payroll. |
-| STF-04 | Facility charges | Monthly subscriptions and charges per staff (HR, water, electricity, clubs, mess…). |
+| STF-04 | Facility charges | Fixed monthly deductions per staff (HR, water, clubs, mess…). |
 | STF-05 | **Salary statement for a period (new)** | In a staff profile the admin picks a **From month – To month** and sees the salary received in each month (gross, deductions, net) and the total for the period. Includes an annual total option. Printable and exportable. |
 
 ### Leave
@@ -107,7 +107,7 @@ One person (the school admin) uses the system. There is **no role-based access c
 | FND-01 | Expense tracker | Other school expenses with category, voucher no. and bill photo. |
 | FND-02 | Fund ledger | Every rupee in and out in one append-only register, filterable by date, month and year. |
 | FND-03 | Monthly carry-forward | Unused balance of the month is carried to the next month. |
-| FND-04 | Salary coverage dashboard | How much more money is needed to cover the month's salary and expenses. |
+| FND-04 | Salary coverage dashboard | How much more money is needed to cover the month's salary and expenses. The salary part is calculated from the salary data entered for the staff (the draft payroll once generated). The exact formula is set in the fund feature spec. |
 | FND-05 | Audit log | Who changed what and when, for every financial transaction; filter by date, month, year. |
 | FND-06 | Global search | Find any student, staff member, receipt, LC or expense from one search box. |
 
@@ -145,6 +145,7 @@ erDiagram
   STAFF ||--o{ SALARY_STRUCTURES : "dated"
   STAFF ||--o{ LEAVE_RECORDS : takes
   STAFF ||--o{ STAFF_FACILITIES : uses
+  STAFF ||--o{ PAYROLL_INPUTS : "monthly entries"
   PAYROLL_RUNS ||--o{ PAYSLIPS : produces
   STAFF ||--o{ PAYSLIPS : receives
   STAFF ||--o| STAFF_EXITS : leaves
@@ -169,6 +170,7 @@ Each school year.
 | Start date | `start_date` | Date | Required | e.g. 01-06-2026 |
 | End date | `end_date` | Date | Required | e.g. 31-05-2027 |
 | Current year | `is_current` | Yes / No | Auto | Only one year current at a time |
+| Active | `active` | Yes / No | Auto | No = hidden from new entries, kept on existing records |
 
 #### Standards  `standards`
 
@@ -179,6 +181,7 @@ Classes taught in the school.
 | Standard name | `name` | Text | Required | e.g. 1 … 12 |
 | Display order | `display_order` | Number | Required |  |
 | Stream | `stream` | Choice | Optional | Science / Commerce for 11–12 |
+| Active | `active` | Yes / No | Auto | No = hidden from new entries, kept on existing records |
 
 #### Divisions  `divisions`
 
@@ -189,20 +192,22 @@ Divisions of each standard per year.
 | Academic year | `academic_year` | Link | Required |  |
 | Standard | `standard` | Link | Required |  |
 | Division | `name` | Text | Required | e.g. A, B |
+| Active | `active` | Yes / No | Auto | No = hidden from new entries, kept on existing records |
 
 #### Student Categories  `student_categories`
 
-CATEGORY column of class formation sheet.
+CATEGORY column of class formation sheet. The codes are the school's own; the admin sets the fee for each category in the fee structure.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
 | Code | `code` | Text | Required |  |
 | Name | `name` | Text | Required | Seed values: O/S, CEW, W, STAFF, S STAFF, RTE, CASUAL (from the class formation sheet) |
 | Affects fees | `affects_fees` | Yes / No | Required | Yes = a separate fee amount applies to this category |
+| Active | `active` | Yes / No | Auto | No = hidden from new entries, kept on existing records |
 
 #### Fee Structure  `fee_structures`
 
-Amount per standard / category / fee head per year.
+Amount per standard and category per year.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
@@ -210,12 +215,11 @@ Amount per standard / category / fee head per year.
 | Standard | `standard` | Link | Required |  |
 | Category | `category` | Link | Optional | Blank = all |
 | Amount (₹) | `amount` | Amount | Required |  |
-| Installment / due date | `due_date` | Date | Optional |  |
-| Late fee rule | `late_fee_rule` | Text | Optional |  |
+| Due date | `due_date` | Date | Optional | Entered by the admin |
 
 #### Users  `users`
 
-People who can log in. Passwords stored encrypted.
+People who can log in. Passwords stored encrypted. The default Admin gets a random password at installation, shown once.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
@@ -225,6 +229,9 @@ People who can log in. Passwords stored encrypted.
 | Role | `role` | Choice | Required | Default and only role: Admin |
 | Active | `active` | Yes / No | Auto |  |
 | Last login | `last_login` | Date & time | Auto |  |
+| Recovery code (hashed) 🔒 | `recovery_code_hash` | Text | Auto | Created at installation, shown once |
+| Failed sign-ins | `failed_attempts` | Number | Auto | Resets after a successful sign-in |
+| Locked until | `locked_until` | Date & time | Auto | Set for 5 minutes after 5 failed sign-ins in a row |
 
 ### 4.3 Students
 
@@ -298,8 +305,9 @@ Students who left; removed from active lists.
 | Date of issue | `issue_date` | Date | Required |  |
 | Std & division at leaving | `last_class` | Auto | Auto |  |
 | Reason for leaving | `reason` | Text | Required |  |
+| Conduct | `conduct` | Text | Required | e.g. Good; as written on the school's LC form |
 | Progress / last result | `progress` | Text | Optional |  |
-| Fees cleared | `fees_cleared` | Yes / No | Auto | Warns if dues pending |
+| Fees cleared | `fees_cleared` | Yes / No | Auto | Warning only; does not block the LC |
 | Duplicate LC issued | `duplicate_count` | Number | Auto |  |
 | Issued by | `issued_by` | Link | Auto |  |
 | LC form (saved copy) | `form_copy` | Document | Auto | The generated LC form is preserved and stays editable (LC-01) |
@@ -308,13 +316,12 @@ Students who left; removed from active lists.
 
 #### Student Fee Account  `fee_assessments`
 
-What each student must pay in a year per fee head.
+What each student must pay in a year: one row for the year's fee and one brought-forward row for dues of earlier years.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
 | Yearly class record | `enrollment` | Link | Required |  |
 | Amount (from structure) | `amount` | Amount | Auto |  |
-| Net payable | `net_amount` | Amount | Auto |  |
 | Due date | `due_date` | Date | Optional |  |
 | Brought forward | `carried_forward` | Yes / No | Auto | From previous year |
 
@@ -324,7 +331,8 @@ Every fee receipt, matching the receipt book.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
-| Receipt No. | `receipt_no` | Number | Auto | e.g. 3100 |
+| Receipt No. | `receipt_no` | Number | Required | Typed by the admin from the printed receipt book, e.g. 3100; duplicates are flagged |
+| Serial no. | `serial_no` | Number | Auto | The system's own running number; never reused |
 | Receipt date | `receipt_date` | Date | Required |  |
 | Academic year | `academic_year` | Link | Auto |  |
 | Received from (student) | `student` | Link | Required |  |
@@ -394,16 +402,13 @@ Fixed salary values with effective month.
 | Medical allowance (₹) | `medical` | Amount | Optional |  |
 | LTA (₹) | `lta` | Amount | Optional |  |
 | CBSE TR (₹) | `cbse_tr` | Amount | Optional | Monthly CBSE TR amount (sheet column "CBSE TR") |
-| EPF applicable | `epf_applicable` | Yes / No | Required |  |
-| Voluntary EPF (₹) | `vol_epf` | Amount | Optional |  |
+| EPF applicable | `epf_applicable` | Yes / No | Required | No = EPF columns are zero |
 | LIC premium (₹) | `lic` | Amount | Optional |  |
-| Income tax / month (₹) 🔒 | `income_tax` | Amount | Optional |  |
 | Gratuity applicable | `gratuity_applicable` | Yes / No | Required |  |
-| Deductions | `deductions` | Text | Optional | Added in v0.2 review; fixed per-staff deductions (see facility subscriptions and the salary sheet mapping) |
 
 #### Salary Rules  `salary_components`
 
-Every salary-sheet column and its calculation (section 06).
+Every salary-sheet column and its calculation (section 5.2).
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
@@ -475,14 +480,13 @@ Calculated view.
 | Allowed / Taken / Balance | `balance` | Numbers | Auto |  |
 | Unpaid days this month | `unpaid_days` | Number | Auto |  |
 
-#### Facilities & Charge Types  `facilities`
+#### Facilities & Deductions  `facilities`
 
-Facilities whose charges are deducted from salary.
+Facilities whose charges are deducted from salary. All are fixed monthly amounts.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
-| Name | `name` | Text | Required | Seed values: HR, FR, Water, Electricity, TVC, Gents Club, Ladies Club, HOLI, SMC, Club, S.Mess, Staff Club, Staff Tea Club, CBSE TR (deduction), School Fees, GRA. |
-| Charge type | `charge_type` | Choice | Required | Fixed monthly / Varies monthly |
+| Name | `name` | Text | Required | Seed values: HR, FR, Water, TVC, Gents Club, Ladies Club, HOLI, SMC, Club, S.Mess, Staff Club, Staff Tea Club, CBSE TR (deduction), School Fees, GRA. |
 | Default amount (₹) | `default_amount` | Amount | Optional |  |
 
 #### Facility Subscriptions  `staff_facilities`
@@ -497,16 +501,18 @@ Which staff uses which facility.
 | From month | `from_month` | Month | Required |  |
 | To month | `to_month` | Month | Optional |  |
 
-#### Monthly Charges  `monthly_charges`
+#### Monthly Salary Entries  `payroll_inputs`
 
-Charges that change every month.
+Amounts the admin enters for one staff member for one month, before the payroll is generated.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
 | Month | `month` | Month | Required |  |
 | Staff | `staff` | Link | Required |  |
-| Facility | `facility` | Link | Required |  |
-| Amount (₹) | `amount` | Amount | Required |  |
+| Arrears (ARR.) 🔒 | `arr` | Amount | Optional | Added to earnings; EPF on arrears is calculated from it |
+| Unpaid net arrears 🔒 | `unpaid_net_arr` | Amount | Optional | UNPAID NET ARR column |
+| Leave encashment | `encashment` | Amount | Optional | ENCHAS column (LEV-04) |
+| Income tax (₹) 🔒 | `income_tax` | Amount | Optional | Entered each month |
 | Entered by | `created_by` | Link | Auto |  |
 
 ### 4.6 Payroll
@@ -600,7 +606,7 @@ Calculated from the fund ledger.
 | Salary payable | `salary_out` | Amount | Auto |  |
 | Expenses | `expense_out` | Amount | Auto |  |
 | Closing balance | `closing` | Amount | Auto |  |
-| Shortfall / surplus | `coverage` | Amount | Auto | Amount needed to cover the month (rule in the feature spec) |
+| Shortfall / surplus | `coverage` | Amount | Auto | Amount needed to cover the month, calculated from the salary data entered (FND-04); formula in the fund feature spec |
 
 ### 4.8 System
 
@@ -612,7 +618,8 @@ Automatic record of every change.
 |---|---|---|---|---|
 | Date & time | `at` | Date & time | Auto |  |
 | User | `user` | Link | Auto |  |
-| Action | `action` | Choice | Auto | Create / Edit / Cancel / Finalise / Login / Import / Export |
+| Area | `area` | Choice | Auto | Security / Master data / Fees / Payroll / Fund |
+| Action | `action` | Choice | Auto | Create / Edit / Delete / Cancel / Finalise / Login / Import / Export |
 | Record type & ID | `entity` | Text | Auto |  |
 | Old / New value | `changes` | Text | Auto |  |
 | Reason | `reason` | Text | Optional | Required for cancellations |
@@ -657,7 +664,7 @@ Replaces the CLASSFORMATION sheet (year 2026-27). Sheet columns map as follows:
 
 ### 5.2 Salary
 
-**Inputs per month:** Monthly days (days in the month), Paid days (Monthly days − unpaid leave days), the staff's salary details, facility subscriptions, and the monthly entries (arrears, unpaid net arrears, leave encashment, income tax, electricity).
+**Inputs per month:** Monthly days (days in the month), Paid days (Monthly days − unpaid leave days), the staff's salary details, facility subscriptions, and the monthly entries (arrears, unpaid net arrears, leave encashment, income tax).
 
 **Formulas** (as in the school sheet):
 
@@ -675,14 +682,16 @@ Replaces the CLASSFORMATION sheet (year 2026-27). Sheet columns map as follows:
 | 10 | P.T. | `200` if E.P.F. Wages ≥ 12,000, otherwise `0` |
 | 11 | Income Tax | Entered by the admin each month |
 | 12 | EDUC 4% Sc. | `ROUND(Income Tax × 4%, 0)` |
-| 13 | Other deductions | L.I.C., HR, FR, Water, Elect, Tvc, Gents Club, Ladies Club, HOLI, SMC, Club, S.Mess, CBSE TR., SCHOOL FEES, GRA., Staff Club, Staff Tea Club: amounts entered per staff (electricity varies monthly) |
+| 13 | Other deductions | L.I.C., HR, FR, Water, Tvc, Gents Club, Ladies Club, HOLI, SMC, Club, S.Mess, CBSE TR., SCHOOL FEES, GRA., Staff Club, Staff Tea Club: fixed monthly amounts set per staff |
 | 14 | Total Deduction | Sum of columns 6 to 13 (E.P.F. 12% through Staff Tea Club) |
 | 15 | Net Payment | `Total (step 5) − Total Deduction` |
 | 16 | Gratuity 4.81% | `ROUND(E.P.F. Wages × 4.81%, 0)`. Employer provision, **not** deducted from the staff. |
 
+If EPF is not applicable for a staff member, steps 6 to 9 are 0. Gratuity (step 16) is calculated only when gratuity is applicable.
+
 Conveyance, Spl. All, CBSE TR, ENCHAS, Medical and LTA are added as entered; they are **not** prorated by paid days. Only the salary base (step 4) is prorated.
 
-**Reference case from the school sheet** (Oct-26, one staff member, name and account number left out; the sheet's electricity cell is a broken link, so Elect is taken as 0):
+**Reference case from the school sheet** (Oct-26, one staff member, name and account number left out; the sheet's electricity column is not carried into CampusFlow; it was 0 here):
 
 | Column | Value |
 |---|---|
@@ -694,8 +703,8 @@ Conveyance, Spl. All, CBSE TR, ENCHAS, Medical and LTA are added as entered; the
 | L.I.C. | 2,622 |
 | HR / FR / Water | 10 / 3 / 7 |
 | Gents Club / Staff Club / Staff Tea Club | 135 / 25 / 40 |
-| Total Deduction (Elect = 0) | 22,652 |
-| Net Payment (Elect = 0) | 59,058 |
+| Total Deduction | 22,652 |
+| Net Payment | 59,058 |
 | Gratuity 4.81% | 3,930 |
 
 ### 5.3 Salary sheet column mapping
@@ -730,10 +739,9 @@ Conveyance, Spl. All, CBSE TR, ENCHAS, Medical and LTA are added as entered; the
 | EDUC 4% Sc. | `EDUC` | Deduction | Step 12 |
 | L.I.C. | `LIC` | Deduction | Salary details |
 | HR, FR, Water, Tvc, Gents Club, Ladies Club, HOLI, SMC, Club, S.Mess, Staff Club, Staff Tea Club |  | Deduction | Facility subscriptions (fixed monthly) |
-| Elect Charges | `ELECT` | Deduction | Monthly charge (varies each month; today read from another workbook) |
-| CBSE TR. |  | Deduction | Facility subscription / monthly charge |
-| SCHOOL FEES |  | Deduction | Monthly charge |
-| GRA. |  | Deduction | Monthly charge |
+| CBSE TR. |  | Deduction | Facility subscription (fixed monthly) |
+| SCHOOL FEES |  | Deduction | Facility subscription (fixed monthly) |
+| GRA. |  | Deduction | Facility subscription (fixed monthly) |
 | Total Deduction | `DEDUCT` | Total | Step 14 |
 | Net Payment | `NET` | Total | Step 15 |
 | Bank A/C |  | Info | Staff record 🔒 |
@@ -752,7 +760,7 @@ Open New Student → Enter details → System checks GR No. and duplicates → S
 Student fills Google Form → Admin clicks Import → Waiting list → Duplicates highlighted → Review and approve → Becomes student with class record
 
 **Fee collection**  
-Search student → See pending balance → Enter amount, cash / cheque details → Save → Receipt number assigned → Print receipt → Fund ledger updated
+Search student → See pending balance → Enter receipt no. from the book, amount and cash / cheque details → Save (system adds a serial no.) → Print receipt → Fund ledger updated
 
 **Receipt cancellation**  
 Open receipt → Cancel with reason → Balance restored → Reverse entry in fund ledger → Audit log
@@ -764,13 +772,13 @@ Fee dashboard → Filter pending by standard → Select students → Generate no
 Create new year → Copy setup → Edit fees → Promotion wizard → Mark detained / left → Carry forward dues → Close old year
 
 **Student leaving (LC)**  
-Open student → Mark as Left → Prepare LC → Save LC (stored in LC table, form preserved) → Print → Removed from active lists
+Open student → Mark as Left → Prepare LC (warning if fees are pending) → Save LC (stored in LC table, form preserved) → Print → Removed from active lists
 
 **New staff**  
 Enter details → Salary details with effective month → Facilities → Leave balance created → Included in next payroll
 
 **Monthly payroll**  
-Enter leaves and monthly charges → Generate draft → Review → Mark checked → Finalise (locks month) → Print payslips → Ledger: salary out
+Enter leaves and monthly salary entries → Generate draft → Review → Mark checked → Finalise (locks month) → Print payslips → Ledger: salary out
 
 **Staff salary statement**  
 Open staff profile → Choose From month – To month → View monthly salary and total → Print / export
@@ -805,7 +813,7 @@ Every list screen has a search box, filters on any column, sorting and export to
 
 | Document | Notes |
 |---|---|
-| Fee receipt | Layout follows the school's receipt book (No., date, cheque no. and date, received from, standard, division, amount, amount in words). Duplicate copies are marked DUPLICATE. |
+| Fee receipt | Layout follows the school's receipt book (receipt no. typed by the admin, date, cheque no. and date, received from, standard, division, amount, amount in words). Duplicate copies are marked DUPLICATE. |
 | Payslip | Month-wise, as in the school's sample, with deductions, net payment and leave balance. |
 | Leaving Certificate | Generated on save, preserved and editable. Reprints are marked duplicate. |
 | Fee reminder notice | Printable letter and WhatsApp / SMS text, grouped per standard. |
@@ -844,8 +852,9 @@ Every list screen has a search box, filters on any column, sorting and export to
 - Parent or student login, mobile app.
 - Government portal uploads (EPF ECR, income tax returns).
 - Cloud hosting.
+- Late fees, fee concessions, caution money and monthly-varying salary deductions such as electricity.
 
-**Defined in the feature specs:** installments, due dates and late fee; concessions; receipt numbering and cancellation limits; leave types and encashment details; fund coverage formula; Gujarati / English wording of notices.
+**Defined in the feature specs:** cancellation limits for receipts; leave types and encashment details (from the client's answers); the fund coverage formula (from the salary data entered); Gujarati / English wording of notices.
 
 ---
 
@@ -861,3 +870,14 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 24-10-2026 | Salary rules filled from the client's Excel formulas. EPF has no wage ceiling; the extra EPF columns equal the EPF amounts; P.T. is 200 from wages of 12,000. |
 | 24-10-2026 | New feature STF-05: salary received for a chosen period in the staff profile, with an annual total option. |
 | 24-10-2026 | Added to support agreed features: `password_hash` (users), `form_copy` (LC records), `is_confirmed` (salary details). |
+| 24-10-2026 | v1.1. No late fee; the admin enters due dates in the fee data. `late_fee_rule` removed. |
+| 24-10-2026 | No fee concessions and no caution money. `net_amount` removed from the fee account. The LC shows a warning only when fees are pending; it does not block the LC. |
+| 24-10-2026 | Receipt number is typed by the admin from the printed receipt book; the system adds its own serial number (`serial_no`). |
+| 24-10-2026 | `conduct` added back to the LC record. |
+| 24-10-2026 | FND-04 coverage is calculated from the salary data entered; the exact formula is set in the fund feature spec. |
+| 24-10-2026 | Category codes are the school's own; the admin sets the fee rule for each category in the fee structure. |
+| 24-10-2026 | Electricity and other monthly-varying charges removed. All facility deductions are fixed monthly amounts; `monthly_charges` and `charge_type` removed. |
+| 24-10-2026 | New table `payroll_inputs` for monthly arrears, unpaid net arrears, leave encashment and income tax. `vol_epf`, `income_tax` and `deductions` removed from salary details. |
+| 24-10-2026 | Client questions prepared in English and Gujarati for the remaining open items. |
+| 24-10-2026 | Audit log gets an `area` field and a Delete action. Master data (years, standards, divisions, categories) gets an `active` flag: records in use are never deleted, only marked inactive. |
+| 24-10-2026 | Sign-in: random default password shown once at installation, 10-minute idle sign-out, 5-minute pause after 5 failed attempts, recovery code created at installation. Email password reset left for a later feature. |
