@@ -1,0 +1,96 @@
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-2xl font-bold">Divisions</h1>
+  <p-button label="Add division" (onClick)="add()" />
+</div>
+
+<campus-table [endpoint]="endpoint" [columns]="columns">
+  <ng-template #rowActions let-row>
+    <p-button label="Edit" size="small" severity="secondary" [outlined]="true" (onClick)="edit(row)" />
+    @if (row['active']) {
+      <p-button label="Mark inactive" size="small" severity="secondary" [outlined]="true" class="ml-2" (onClick)="setActive(row, false)" />
+    } @else {
+      <p-button label="Mark active" size="small" severity="secondary" [outlined]="true" class="ml-2" (onClick)="setActive(row, true)" />
+    }
+    <p-button label="Delete" size="small" severity="danger" [outlined]="true" class="ml-2" (onClick)="askDelete(row)" />
+  </ng-template>
+</campus-table>
+
+<p-dialog
+  [header]="isEdit ? 'Edit division' : 'Add division'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [visible]="formOpen()"
+  (visibleChange)="!$event && closeForm()"
+  [style]="{ width: '26rem', maxWidth: '95vw' }"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <label class="mb-1 block text-sm font-semibold" for="divisionYear">Academic year</label>
+    <select id="divisionYear" class="mb-1 w-full rounded-md border border-border bg-surface px-3 py-2" formControlName="academicYearId">
+      <option [ngValue]="null" disabled>Choose the academic year</option>
+      @for (year of years(); track year.id) {
+        <option [ngValue]="year.id">{{ year.name }}</option>
+      }
+    </select>
+    @if (serverMessage(form.controls.academicYearId); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if (form.controls.academicYearId.touched && form.controls.academicYearId.invalid) {
+      <p class="mb-3 text-sm text-error-text">Choose the academic year.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="divisionStandard">Standard</label>
+    <select id="divisionStandard" class="mb-1 w-full rounded-md border border-border bg-surface px-3 py-2" formControlName="standardId">
+      <option [ngValue]="null" disabled>Choose the standard</option>
+      @for (standard of standards(); track standard.id) {
+        <option [ngValue]="standard.id">{{ standard.name }}</option>
+      }
+    </select>
+    @if (serverMessage(form.controls.standardId); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if (form.controls.standardId.touched && form.controls.standardId.invalid) {
+      <p class="mb-3 text-sm text-error-text">Choose the standard.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="divisionName">Division</label>
+    <input pInputText id="divisionName" class="mb-1 w-full" formControlName="name" placeholder="A" />
+    @if (serverMessage(form.controls.name); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if (form.controls.name.touched && form.controls.name.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the division name.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <div class="flex justify-end gap-2">
+      <p-button type="button" label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeForm()" />
+      <p-button type="submit" label="Save" [loading]="busy()" />
+    </div>
+  </form>
+</p-dialog>
+
+<app-stale-version-dialog
+  [latest]="stale()"
+  [fields]="staleFields"
+  (useLatest)="useLatest()"
+  (keepMine)="stale.set(null)"
+/>
+
+<p-dialog
+  header="Delete division"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [visible]="deleting() !== null"
+  (visibleChange)="!$event && deleting.set(null)"
+  [style]="{ width: '26rem', maxWidth: '95vw' }"
+>
+  <p class="mb-4">Delete division {{ deleting()?.['name'] }} of {{ deleting()?.['standardName'] }}? This cannot be undone.</p>
+  <div class="flex justify-end gap-2">
+    <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="deleting.set(null)" />
+    <p-button label="Delete" severity="danger" [loading]="busy()" (onClick)="confirmDelete()" />
+  </div>
+</p-dialog>
