@@ -28,6 +28,7 @@ const ICONS = {
   layers: 'M12 2l10 5-10 5L2 7l10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
   shield: 'M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3zM9 12l2 2 4-4',
+  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
   tag: 'M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01',
 };
 
@@ -58,6 +59,8 @@ export class ShellComponent {
 
   protected readonly groups: NavGroup[] = [
     { title: 'Overview', items: [{ label: 'Home', link: '/', icon: ICONS.home }] },
+    // Temporary entry until the shell restyle (F1 T024) puts Students on the top bar.
+    { title: 'School', items: [{ label: 'Students', link: '/students', icon: ICONS.users }] },
     {
       title: 'Master data',
       items: [

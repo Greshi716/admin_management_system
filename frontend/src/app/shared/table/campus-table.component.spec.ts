@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ToastService } from '../../core/toast/toast.service';
 import { CampusTableComponent } from './campus-table.component';
@@ -421,5 +422,128 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
 
     expect(downloader.save).not.toHaveBeenCalled();
     expect((fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+@Component({
+  imports: [CampusTableComponent],
+  template: `
+    <campus-table [columns]="columns" endpoint="/api/things" searchPlaceholder="Name or code">
+      <ng-template #cell let-row let-column="column">
+        <span data-testid="custom">{{ column.field }}:{{ row['label'] }}</span>
+      </ng-template>
+    </campus-table>
+  `,
+})
+class HostComponent {
+  columns: CampusColumn[] = [
+    { field: 'photo', header: 'Photo', custom: true, sortable: false, filterable: false },
+    { field: 'label', header: 'Label' },
+    {
+      field: 'place',
+      header: 'Place',
+      dropdowns: [
+        {
+          field: 'standardId',
+          label: 'Standard',
+          options: [
+            { value: 1, label: 'Standard 1' },
+            { value: 2, label: 'Standard 2' },
+          ],
+        },
+        { field: 'divisionId', label: 'Division', options: [{ value: 7, label: 'A' }] },
+      ],
+    },
+  ];
+}
+
+describe('CampusTableComponent custom cells, dropdown filters and headings (F1 FR-008, FR-015)', () => {
+  let fixture: ComponentFixture<HostComponent>;
+  let controller: HttpTestingController;
+  let element: HTMLElement;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: FileDownloader, useValue: { save: vi.fn() } }],
+    });
+    controller = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(HostComponent);
+    element = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+  });
+
+  function latest(): TestRequest {
+    const all = controller.match('/api/things/search');
+    return all[all.length - 1];
+  }
+
+  function loaded(): void {
+    latest().flush({ rows: [{ label: 'One', place: 'x' }], total: 1 });
+    fixture.detectChanges();
+  }
+
+  it('draws a custom column through the cell template and the other columns as before', () => {
+    loaded();
+
+    expect(element.querySelector('[data-testid="custom"]')?.textContent).toBe('photo:One');
+    expect(element.textContent).toContain('One');
+    expect(element.querySelectorAll('[data-testid="custom"]').length).toBe(1);
+  });
+
+  it('takes the sort arrow and the filter button off a column that is not sortable or filterable', () => {
+    loaded();
+
+    expect(element.querySelector('button[aria-label="Filter Photo"]')).toBeNull();
+    expect(element.querySelector('button[aria-label="Filter Label"]')).not.toBeNull();
+    const headings = Array.from(element.querySelectorAll('th button')).map((b) => b.textContent?.trim());
+    expect(headings.some((text) => text?.startsWith('Photo'))).toBe(false);
+    expect(headings.some((text) => text?.startsWith('Label'))).toBe(true);
+  });
+
+  it('uses the given search hint', () => {
+    expect(element.querySelector('input[type="search"]')?.getAttribute('placeholder')).toBe('Name or code');
+  });
+
+  it('sends the id chosen in a dropdown filter as an exact match and goes back to the first page', () => {
+    loaded();
+    (element.querySelector('button[aria-label="Filter Place"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const select = element.querySelector('[role="group"] select') as HTMLSelectElement;
+    select.value = '2';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const request = latest();
+    expect(request.request.body.filters).toEqual({ standardId: { value: 2, matchMode: 'equals' } });
+    expect(request.request.body.first).toBe(0);
+    request.flush({ rows: [], total: 0 });
+  });
+
+  it('keeps two dropdown filters of one column together and clears both', () => {
+    loaded();
+    (element.querySelector('button[aria-label="Filter Place"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const selects = element.querySelectorAll<HTMLSelectElement>('[role="group"] select');
+    selects[0].value = '1';
+    selects[0].dispatchEvent(new Event('change'));
+    selects[1].value = '7';
+    selects[1].dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const both = latest();
+    expect(both.request.body.filters).toEqual({
+      standardId: { value: 1, matchMode: 'equals' },
+      divisionId: { value: 7, matchMode: 'equals' },
+    });
+    both.flush({ rows: [], total: 0 });
+    fixture.detectChanges();
+    expect(element.querySelector('button[aria-label="Filter Place"]')?.className).toContain('text-accent-text');
+
+    const clear = Array.from(element.querySelectorAll('[role="group"] button')).find((b) => b.textContent === 'Clear');
+    (clear as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(latest().request.body.filters).toEqual({});
   });
 });

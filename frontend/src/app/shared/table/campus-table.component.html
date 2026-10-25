@@ -2,7 +2,7 @@
   <input
     type="search"
     class="input w-full sm:w-80"
-    placeholder="Search"
+    [placeholder]="searchPlaceholder()"
     aria-label="Search this list"
     [value]="search()"
     (input)="onSearchInput($event)"
@@ -27,6 +27,9 @@
           @for (column of visibleColumns(); track column.field) {
             <th class="relative border-b border-border px-4 py-3.5 align-middle" [attr.aria-sort]="ariaSort(column.field)">
               <div class="flex items-center gap-1 whitespace-nowrap">
+                @if (column.sortable === false) {
+                  <span class="text-xs font-bold uppercase tracking-wider text-muted">{{ column.header }}</span>
+                } @else {
                 <button
                   type="button"
                   class="link-button flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-muted hover:text-ink"
@@ -37,22 +40,38 @@
                     {{ sortField() === column.field ? (sortOrder() === 1 ? '▲' : '▼') : '⇅' }}
                   </span>
                 </button>
+                }
+                @if (column.filterable !== false) {
                 <button
                   type="button"
                   class="link-button text-muted hover:text-ink"
-                  [class.text-accent-text]="filterActive(column.field)"
+                  [class.text-accent-text]="filterActive(column)"
                   [attr.aria-label]="'Filter ' + column.header"
                   [attr.aria-expanded]="openFilter() === column.field"
                   (click)="toggleFilter(column.field)"
                 >
                   <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" [attr.fill]="filterActive(column.field) ? 'currentColor' : 'none'" />
+                    <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" [attr.fill]="filterActive(column) ? 'currentColor' : 'none'" />
                   </svg>
                 </button>
+                }
               </div>
 
-              @if (openFilter() === column.field) {
+              @if (column.filterable !== false && openFilter() === column.field) {
                 <div class="absolute left-2 top-full z-20 mt-1 flex w-60 flex-col gap-2 rounded-card border border-border bg-surface p-3 shadow-xl normal-case tracking-normal" role="group" [attr.aria-label]="'Filter ' + column.header">
+                  @if (column.dropdowns; as dropdowns) {
+                    @for (dropdown of dropdowns; track dropdown.field) {
+                      <label class="flex flex-col gap-1 text-sm font-normal text-ink">
+                        {{ dropdown.label }}
+                        <select class="input" (change)="setDropdown(dropdown, $event)">
+                          <option value="" [selected]="dropdownValue(dropdown) === ''">All</option>
+                          @for (option of dropdown.options; track option.value) {
+                            <option [value]="option.value" [selected]="dropdownValue(dropdown) === '' + option.value">{{ option.label }}</option>
+                          }
+                        </select>
+                      </label>
+                    }
+                  } @else {
                   @switch (column.type) {
                     @case ('date') {
                       <label class="flex flex-col gap-1 text-sm font-normal text-ink">
@@ -87,6 +106,7 @@
                       </label>
                     }
                   }
+                  }
                   <button type="button" class="btn btn-outlined btn-sm" (click)="clearFilter(column)">Clear</button>
                 </div>
               }
@@ -107,6 +127,8 @@
               <td class="border-b border-border px-4 py-3">
                 @if (loading()) {
                   <div class="skeleton h-4 animate-pulse rounded bg-border" data-testid="skeleton"></div>
+                } @else if (column.custom && cell(); as customCell) {
+                  <ng-container [ngTemplateOutlet]="customCell" [ngTemplateOutletContext]="{ $implicit: row, column: column }" />
                 } @else if (column.badgeClass; as badgeClass) {
                   @if (row[column.field]) {
                     <span class="rounded-full px-3 py-1 text-sm font-semibold" [class]="badgeClass(row[column.field])">{{ row[column.field] }}</span>
