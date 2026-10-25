@@ -15,3 +15,7 @@ credentials-first-run.txt
 # Application data (first-run credentials file, generated at run time)
 management/data/
 data/
+
+# Claude Code hook marker
+.claude/.last-verified
+.claude/settings.local.json

@@ -27,6 +27,7 @@ School fees, staff payroll and fund management for Birlasagar Higher Secondary S
 - Commit after every task.
 - Starting a feature: follow `.claude/rules/git-workflow.md` (update main, create the feature branch, then run `/speckit-specify`). `/start-feature <short-name>` does it in one step.
 - Never commit directly to `main`.
+- Hooks in `.claude/hooks` (set up in `.claude/settings.json`) enforce: no commit or push on `main`, no edit of a migration that is already on `main`, and `scripts/verify.sh` plus strict FR coverage must pass before any `git push`. Force-push, `reset --hard` and reading `.env`, `backups/`, `real-data/` are denied.
 - Run one phase or story only: `/run-tests us1` (also phase-1, phase-2, us2 to us6, all).
 - Finishing a feature in one go (after all tasks are done): `/finish-feature` runs diff review (`diff-reviewer` agent), fix, tests, fix, self-review, fix, then push and tag. The individual steps below can also be run alone.
 - Finishing a feature (after all tasks are done): `/feature-tests` (test-planner, test-implementer and test-executor agents), then `/fix-findings`, then `/self-review` (repeat the last two until APPROVED), then `/push-feature` (pushes the branch and a tag like `001-foundation-v1`). Reports are in `docs/reports/<feature>/`. Agents are in `.claude/agents/`.
