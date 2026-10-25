@@ -2,7 +2,7 @@
 
 Source: `review-diff-001-foundation-2026-10-25-1328.md` (FIX FIRST). Date: 2026-10-25.
 
-Final `bash scripts/verify.sh` (JDK 21): **VERIFY OK**. Backend 181 tests, 0 failures. Frontend 78 unit tests. Playwright 68 passed (first time it ran on this branch, so FR-028, FR-041, FR-042, FR-043 and the real FR-036 check are now confirmed). FR coverage 46 of 46.
+Second round (M5, M6, M8, M10, M12) added at the end of the Fixed table. First-round verify: backend 181 tests, 0 failures. Frontend 78 unit tests. Playwright 68 passed (first time it ran on this branch, so FR-028, FR-041, FR-042, FR-043 and the real FR-036 check are now confirmed). FR coverage 46 of 46.
 
 ## Fixed
 
@@ -25,6 +25,11 @@ Final `bash scripts/verify.sh` (JDK 21): **VERIFY OK**. Backend 181 tests, 0 fai
 | M11 | Comment in `academicYearAround` explains the April-to-March choice. | 0473a3b |
 | M12 (part) | `.idea/` untracked (`git rm --cached`; files stay on disk). | 0473a3b |
 | M13 | `verify.sh` and `verify.ps1` fail early when Java is below 21. | f92553d |
+| M5 | A credentials file that cannot be deleted is logged by path as a warning and the password change still returns 204. New test in `ChangePasswordIT`. | c3e7f26 |
+| M6 | Failed sign-ins are counted with one `UPDATE` (`UserRepository.addFailedAttempt`, `pause`), so simultaneous failures cannot raise a stale-version error. New 4-thread test in `LockoutIT`. | 07e769b |
+| M8 | `V5__audit_log_no_truncate.sql` adds a statement-level trigger. New test in `AuditAppendOnlyIT`. The dev database gets it on the next start. | c2e9203 |
+| M10 | `TestProfileGuard` refuses to start under the `test` profile unless the database name ends in `_test`. The test code stays in the jar. | 669a026 |
+| M12 (rest) | Owner approval of constitution 1.0.1 recorded in the constitution and the decision log. | 08596c2 |
 
 ## Not fixed
 
@@ -32,11 +37,6 @@ Final `bash scripts/verify.sh` (JDK 21): **VERIFY OK**. Backend 181 tests, 0 fai
 |----|-----|
 | M1 | Both places mask on purpose: `ExcelExporterTest` checks the exporter masks on its own. Removing it would mean weakening that test. Masking is idempotent, so the result is right. Left as is. |
 | M3 (rest) | A filter on a sensitive column still matches the raw value. Fixing it needs a new "not filterable" flag on `ColumnDef` and the screen. No sensitive column exists in F0; do it when the first one is added (F1, Aadhaar). The export audit entry already masks filter values. |
-| M5 | Touches the sign-in/password code (auth). Needs plan mode first. |
-| M6 | Touches the failed-attempt counter (auth). Needs plan mode first. The review marks it unsure and not reproduced. |
-| M8 | Needs a new migration (V5) for a TRUNCATE trigger (schema). Needs plan mode first. The application cannot reach TRUNCATE. |
-| M10 | Changes the `test` profile guard and the test-support controller (auth config). Needs plan mode first. |
-| M12 (rest) | The constitution 1.0.1 amendment needs the owner's approval to be recorded. Not mine to decide. |
 | S7 (rest) | T101 (three timed checks by a person) and T104 (pull request, owner's go-ahead) are open on purpose. |
 
 ## Spec gaps
