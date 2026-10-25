@@ -134,6 +134,37 @@ class StudentValidator {
 		}
 	}
 
+
+	/**
+	 * The choices of a class record change: the division must belong to the record's own year and the chosen
+	 * standard; a value that is not active is accepted only when the record already holds it.
+	 */
+	void enrollmentChoice(EnrollmentInput in, StudentEnrollment record, List<FieldError> errors) {
+		if (in.standardId() == null) {
+			errors.add(new FieldError("standardId", "Choose the standard."));
+		}
+		else if (!in.standardId().equals(record.getStandardId()) && !masterData.isStandardActive(in.standardId())) {
+			errors.add(new FieldError("standardId", "Choose an active standard."));
+		}
+		if (in.divisionId() == null) {
+			errors.add(new FieldError("divisionId", "Choose the division."));
+		}
+		else if (in.standardId() != null
+				&& !masterData.divisionBelongsTo(in.divisionId(), record.getAcademicYearId(), in.standardId())) {
+			errors.add(new FieldError("divisionId",
+					"The division does not belong to the chosen standard in that academic year."));
+		}
+		else if (!in.divisionId().equals(record.getDivisionId()) && !masterData.isDivisionActive(in.divisionId())) {
+			errors.add(new FieldError("divisionId", "Choose an active division."));
+		}
+		if (in.categoryId() == null) {
+			errors.add(new FieldError("categoryId", "Choose the category."));
+		}
+		else if (!in.categoryId().equals(record.getCategoryId()) && !masterData.isCategoryActive(in.categoryId())) {
+			errors.add(new FieldError("categoryId", "Choose an active category."));
+		}
+	}
+
 	static void throwIfAny(List<FieldError> errors) {
 		if (!errors.isEmpty()) {
 			throw new ValidationException(errors);

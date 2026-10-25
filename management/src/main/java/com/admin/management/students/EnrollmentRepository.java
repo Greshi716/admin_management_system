@@ -10,6 +10,10 @@ public interface EnrollmentRepository extends Repository<StudentEnrollment, Long
 
 	<S extends StudentEnrollment> S save(S enrollment);
 
+	<S extends StudentEnrollment> S saveAndFlush(S enrollment);
+
+	Optional<StudentEnrollment> findById(Long id);
+
 	Optional<StudentEnrollment> findByStudentIdAndAcademicYearId(Long studentId, Long academicYearId);
 
 	List<StudentEnrollment> findByStudentId(Long studentId);

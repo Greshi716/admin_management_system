@@ -16,6 +16,7 @@ import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
 import com.admin.management.shared.web.ApiProblem.FieldError;
 import com.admin.management.shared.web.ConflictException;
 import com.admin.management.shared.web.NotFoundException;
+import com.admin.management.shared.web.StaleVersionException;
 import com.admin.management.shared.web.ValidationException;
 
 /**
@@ -87,6 +88,74 @@ public class StudentService {
 				s.getGender(), s.getDob(), s.getBirthPlace(), s.getFatherName(), s.getMotherName(), s.getMobile1(),
 				s.getMobile2(), s.getAddress(), s.getAadhaar(), s.getReligionCaste(), null, s.getAdmissionDate(),
 				s.getAdmissionStandardId(), s.getPreviousSchool(), null, null);
+	}
+
+
+	/**
+	 * Edits the details of a student, including a GR No. correction (FR-004, FR-017, FR-018). A new GR No. is
+	 * reserved and the old one stays reserved. The status, the serial number and the category are not changed here.
+	 */
+	@Transactional
+	public StudentDto edit(Long id, StudentInput in) {
+		Student student = students.findById(id).orElseThrow(() -> new NotFoundException("Student", id));
+		checkVersion(in.version(), student.getVersion(), () -> toDto(student));
+		List<FieldError> errors = StudentValidator.newErrors();
+		StudentDetails details = validator.details(in, student.getAdmissionStandardId(), errors);
+		StudentValidator.throwIfAny(errors);
+		boolean newKey = !StudentGrNumber.keyOf(details.grNo()).equals(StudentGrNumber.keyOf(student.getGrNo()));
+		if (newKey) {
+			checkGrNoFree(details.grNo());
+			grNumbers.save(new StudentGrNumber(details.grNo(), id, Instant.now(clock)));
+		}
+		Map<String, Object> before = student.snapshot();
+		student.apply(details);
+		Student saved = students.saveAndFlush(student);
+		audit.edited(StudentAudit.STUDENT, id, before, saved.snapshot());
+		return toDto(saved);
+	}
+
+	/** Active to Left, once and for good: there is no way back (FR-004). */
+	@Transactional
+	public StudentDto markLeft(Long id, Long version) {
+		Student student = students.findById(id).orElseThrow(() -> new NotFoundException("Student", id));
+		checkVersion(version, student.getVersion(), () -> toDto(student));
+		if (Student.LEFT.equals(student.getStatus())) {
+			throw new ValidationException("status", "This student is already marked as left.");
+		}
+		Map<String, Object> before = student.snapshot();
+		student.markLeft();
+		Student saved = students.saveAndFlush(student);
+		audit.edited(StudentAudit.STUDENT, id, before, saved.snapshot());
+		return toDto(saved);
+	}
+
+	/**
+	 * Changes standard, division and category of one year's class record (FR-006). The year cannot change and no
+	 * second record is ever made. A value that is no longer active is allowed only when the record already has it.
+	 */
+	@Transactional
+	public EnrollmentDto changeEnrollment(Long studentId, Long yearId, EnrollmentInput in) {
+		students.findById(studentId).orElseThrow(() -> new NotFoundException("Student", studentId));
+		StudentEnrollment record = enrollments.findByStudentIdAndAcademicYearId(studentId, yearId)
+			.orElseThrow(() -> new NotFoundException("Class record", yearId));
+		checkVersion(in.version(), record.getVersion(), () -> toDto(record));
+		List<FieldError> errors = StudentValidator.newErrors();
+		validator.enrollmentChoice(in, record, errors);
+		StudentValidator.throwIfAny(errors);
+		Map<String, Object> before = record.snapshot();
+		record.change(in.standardId(), in.divisionId(), in.categoryId());
+		StudentEnrollment saved = enrollments.saveAndFlush(record);
+		audit.edited(StudentAudit.ENROLLMENT, saved.getId(), before, saved.snapshot());
+		return toDto(saved);
+	}
+
+	private static void checkVersion(Long sent, Long actual, java.util.function.Supplier<Object> latest) {
+		if (sent == null) {
+			throw new ValidationException("version", "The version is missing. Reload the record and try again.");
+		}
+		if (!sent.equals(actual)) {
+			throw new StaleVersionException(latest.get());
+		}
 	}
 
 	/** Students (any status) with the same three names; never blocks a save (FR-003). */

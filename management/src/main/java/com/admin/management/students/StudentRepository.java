@@ -13,6 +13,8 @@ public interface StudentRepository extends Repository<Student, Long> {
 
 	<S extends Student> S save(S student);
 
+	<S extends Student> S saveAndFlush(S student);
+
 	Optional<Student> findById(Long id);
 
 	/**
