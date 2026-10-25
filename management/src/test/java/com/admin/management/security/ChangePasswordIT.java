@@ -108,6 +108,26 @@ class ChangePasswordIT extends IntegrationTest {
 	}
 
 	@Test
+	void aCredentialsFileThatCannotBeDeletedDoesNotFailThePasswordChange(CapturedOutput output) throws Exception {
+		// A folder that is not empty cannot be removed with deleteIfExists, so the delete fails.
+		Path blocker = DATA_DIR.resolve("credentials-first-run.txt");
+		Files.createDirectories(blocker);
+		Files.writeString(blocker.resolve("keep"), "x");
+		try {
+			MockHttpSession session = SignIn.asTestAdmin(mvc);
+
+			change(session, TestAdmin.PASSWORD, NEW_PASSWORD).andExpect(status().isNoContent());
+
+			assertThat(jdbc.queryForObject("select password_changed from users", Boolean.class)).isTrue();
+			assertThat(output.getAll()).contains("credentials-first-run.txt").doesNotContain(NEW_PASSWORD);
+		}
+		finally {
+			Files.deleteIfExists(blocker.resolve("keep"));
+			Files.deleteIfExists(blocker);
+		}
+	}
+
+	@Test
 	void changingThePasswordNeedsASession() throws Exception {
 		mvc.perform(post("/api/auth/change-password").with(csrf())
 			.contentType(MediaType.APPLICATION_JSON)

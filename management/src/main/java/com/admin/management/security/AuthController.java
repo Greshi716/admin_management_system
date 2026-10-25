@@ -1,9 +1,12 @@
 package com.admin.management.security;
 
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -36,6 +39,8 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/auth")
 class AuthController {
+
+	private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
 	private static final ApiProblem BAD_CREDENTIALS = ApiProblem
 		.of(401, "Sign-in failed", "The username or password is not correct.")
@@ -124,7 +129,13 @@ class AuthController {
 	ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest body,
 			Authentication authentication) {
 		accounts.changePassword(authentication.getName(), body.currentPassword(), body.newPassword());
-		credentials.deleteIfExists();
+		try {
+			credentials.deleteIfExists();
+		}
+		catch (UncheckedIOException ex) {
+			// The password is already changed; a file that is left behind must not turn that into an error.
+			log.warn("Password changed, but {} could not be deleted. Delete it by hand.", credentials.path());
+		}
 		return ResponseEntity.noContent().build();
 	}
 
