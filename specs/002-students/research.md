@@ -15,6 +15,7 @@ Only new choices are recorded here.
 - **Decision**: `javax.imageio` decodes JPEG or PNG, the longest side is scaled to at most 400 px, written as JPEG quality about 0.85 (PNG transparency drawn on white). Accept `image/jpeg` and `image/png`, checked by decoding, not by file name. Limit the upload to 5 MB (`spring.servlet.multipart.max-file-size=5MB`) and refuse images over an assumed 25 megapixels, read from the image header before decoding.
 - **Rationale**: no dependency; the pixel limit stops a small file that decodes to a huge bitmap from using the 4 GB PC's memory. The 25-megapixel figure is a technical safeguard I chose; it is not in the spec (a phone camera photo is 12 to 16 MP). Change if wanted.
 - **Phone photos**: the JDK reader does not apply the rotation tag of a phone JPEG, so a portrait photo may come out sideways (I believe; to be checked in the first tasks). If so, read the tag and rotate before resizing.
+- **Checked (T001)**: `spring.servlet.multipart.max-file-size` and `max-request-size` are both listed in the configuration metadata of `spring-boot-servlet` 4.1.2 (`MultipartProperties`), so the names are valid on Spring Boot 4.1.2. Set to 5MB and 6MB in `application.properties`.
 - **Alternatives**: Thumbnailator or imgscalr (rejected: new dependency for one call); resize in the browser (rejected: the server must not trust the client).
 
 ## R3. GR No. uniqueness, never reused
