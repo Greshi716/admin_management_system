@@ -151,7 +151,7 @@
     <div class="flex items-center gap-2">
       <label class="flex items-center gap-2">
         Rows per page
-        <select class="input min-h-9 py-1" aria-label="Rows per page" (change)="changePageSize($event)">
+        <select class="input" aria-label="Rows per page" (change)="changePageSize($event)">
           @for (size of pageSizes; track size) {
             <option [value]="size" [selected]="size === pageSize()">{{ size }}</option>
           }

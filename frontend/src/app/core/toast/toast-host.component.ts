@@ -9,18 +9,18 @@ import { ToastService } from './toast.service';
       @for (message of toast.messages(); track message.id) {
         <div
           class="pointer-events-auto flex items-start gap-3 rounded-card border bg-surface p-4 shadow-lg"
-          [class.border-green-300]="message.severity === 'success'"
+          [class.border-success/40]="message.severity === 'success'"
           [class.border-border]="message.severity === 'info'"
-          [class.border-amber-300]="message.severity === 'warn'"
-          [class.border-red-300]="message.severity === 'error'"
+          [class.border-warning-text/40]="message.severity === 'warn'"
+          [class.border-danger/40]="message.severity === 'error'"
           [attr.role]="message.severity === 'error' ? 'alert' : 'status'"
         >
           <span
             class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-            [class.bg-green-600]="message.severity === 'success'"
+            [class.bg-success]="message.severity === 'success'"
             [class.bg-accent]="message.severity === 'info'"
-            [class.bg-amber-500]="message.severity === 'warn'"
-            [class.bg-red-600]="message.severity === 'error'"
+            [class.bg-warning-text]="message.severity === 'warn'"
+            [class.bg-danger]="message.severity === 'error'"
             aria-hidden="true"
           ></span>
           <div class="min-w-0 flex-1">

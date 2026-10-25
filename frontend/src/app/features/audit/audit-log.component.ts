@@ -14,14 +14,14 @@ const AREAS = ['Security', 'Master data', 'Audit log'];
 const ACTIONS = ['Create', 'Edit', 'Delete', 'Login', 'Export', 'Cancel', 'Finalise', 'Import'];
 
 const AREA_BADGE: Record<string, string> = {
-  Security: 'bg-[#e8eefb] text-[#2b4a9a]',
-  'Master data': 'bg-[#fdf0dc] text-[#6b4200]',
+  Security: 'bg-badge-blue-bg text-badge-blue-text',
+  'Master data': 'bg-badge-amber-bg text-badge-amber-text',
 };
 const ACTION_BADGE: Record<string, string> = {
-  Create: 'bg-[#e6defb] text-[#4b2fa8]',
-  Edit: 'bg-[#e8eefb] text-[#2b4a9a]',
-  Login: 'bg-[#f0eef5] text-[#4f4a63]',
-  Export: 'bg-[#f0e8fb] text-[#5b2e9a]',
+  Create: 'bg-badge-violet-bg text-badge-violet-text',
+  Edit: 'bg-badge-blue-bg text-badge-blue-text',
+  Login: 'bg-badge-grey-bg text-badge-grey-text',
+  Export: 'bg-badge-purple-bg text-badge-purple-text',
 };
 const DEFAULT_BADGE = 'bg-accent-soft text-accent-text';
 

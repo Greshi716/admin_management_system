@@ -16,6 +16,11 @@
   --color-accent: #6d4ae0;
   --color-accent-text: #4b2fa8;
   --color-accent-soft: #ece6fb;
+  --color-accent-soft-strong: #e0d7f8;
+  --color-accent-strong: #5a3bc4;
+  --color-accent-light: #8a6af0;
+  --color-accent-deep: #4b2fa8;
+  --color-on-accent: #ffffff;
   --color-ink: #1e1833;
   --color-muted: #5a5075;
   --color-border: #e6e0f5;
@@ -24,6 +29,23 @@
   --color-error-text: #8a1c1c;
   --color-warning-bg: #fff3dc;
   --color-warning-text: #6b4200;
+  --color-danger: #c62828;
+  --color-danger-strong: #a81f1f;
+  --color-danger-text: #b3261e;
+  --color-danger-border: #e5a3a0;
+  --color-success: #16a34a;
+
+  /* Audit log badges (docs/design/ui-tokens.md) */
+  --color-badge-blue-bg: #e8eefb;
+  --color-badge-blue-text: #2b4a9a;
+  --color-badge-amber-bg: #fdf0dc;
+  --color-badge-amber-text: #6b4200;
+  --color-badge-violet-bg: #e6defb;
+  --color-badge-violet-text: #4b2fa8;
+  --color-badge-grey-bg: #f0eef5;
+  --color-badge-grey-text: #4f4a63;
+  --color-badge-purple-bg: #f0e8fb;
+  --color-badge-purple-text: #5b2e9a;
 
   --font-sans: 'Plus Jakarta Sans', 'Noto Sans Gujarati', system-ui, sans-serif;
 
@@ -78,30 +100,30 @@
     opacity: 0.55;
   }
   .btn-sm {
-    min-height: 2.25rem;
+    min-height: var(--spacing-control);
     padding: 0 0.8rem;
     font-size: 0.85rem;
   }
   .btn-primary {
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-on-accent);
   }
   .btn-primary:hover:not(:disabled) {
-    background: #5a3bc4;
+    background: var(--color-accent-strong);
   }
   .btn-secondary {
     background: var(--color-accent-soft);
     color: var(--color-accent-text);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: #e0d7f8;
+    background: var(--color-accent-soft-strong);
   }
   .btn-danger {
-    background: #c62828;
-    color: #fff;
+    background: var(--color-danger);
+    color: var(--color-on-accent);
   }
   .btn-danger:hover:not(:disabled) {
-    background: #a81f1f;
+    background: var(--color-danger-strong);
   }
   .btn-outlined {
     background: var(--color-surface);
@@ -113,11 +135,11 @@
     border-color: var(--color-input-border);
   }
   .btn-outlined.btn-danger {
-    color: #b3261e;
+    color: var(--color-danger-text);
   }
   .btn-outlined.btn-danger:hover:not(:disabled) {
     background: var(--color-error-bg);
-    border-color: #e5a3a0;
+    border-color: var(--color-danger-border);
   }
   .btn-loading::before {
     content: '';
@@ -148,7 +170,7 @@
   }
   .input[aria-invalid='true'],
   .input.ng-invalid.ng-touched {
-    border-color: #c62828;
+    border-color: var(--color-danger);
   }
 
   .link-button {
