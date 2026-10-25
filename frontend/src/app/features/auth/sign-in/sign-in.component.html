@@ -1,0 +1,84 @@
+<div class="grid min-h-screen grid-cols-1 bg-page md:grid-cols-2">
+  <aside class="hidden flex-col justify-center gap-4 bg-sidebar p-12 md:flex">
+    <span class="grid h-12 w-12 place-items-center rounded-control bg-accent text-xl font-bold text-white" aria-hidden="true">C</span>
+    <h1 class="text-3xl font-bold text-accent-text">CampusFlow</h1>
+    <p class="max-w-sm text-muted">Fees, payroll and funds for Birlasagar Higher Secondary School, in one place.</p>
+  </aside>
+
+  <main class="flex items-center justify-center p-6">
+    <form
+      class="w-full max-w-sm rounded-card border border-border bg-surface p-8"
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      novalidate
+    >
+      <h2 class="mb-1 text-2xl font-bold">Sign in</h2>
+      <p class="mb-6 text-muted">Use the username and password given to you.</p>
+
+      @if (notice(); as message) {
+        <div class="mb-4 rounded-control bg-warning-bg p-3 text-sm text-warning-text" role="status" data-testid="session-notice">
+          {{ message }}
+        </div>
+      }
+      @if (paused()) {
+        <div class="mb-4 rounded-control bg-warning-bg p-3 text-sm text-warning-text" role="alert" data-testid="paused-notice">
+          {{ pausedMessage() }} You can try again at {{ retryTime() }}.
+        </div>
+      }
+      @if (wrongCredentials(); as message) {
+        <div class="mb-4 rounded-control bg-error-bg p-3 text-sm text-error-text" role="alert" data-testid="wrong-credentials">
+          {{ message }}
+        </div>
+      }
+
+      <label class="mb-1 block text-sm font-semibold" for="username">Username</label>
+      <input
+        pInputText
+        id="username"
+        class="mb-4 w-full"
+        formControlName="username"
+        autocomplete="username"
+        autocapitalize="off"
+        spellcheck="false"
+        [attr.aria-invalid]="form.controls.username.touched && form.controls.username.invalid"
+      />
+      @if (form.controls.username.touched && form.controls.username.invalid) {
+        <p class="-mt-3 mb-4 text-sm text-error-text">Enter your username.</p>
+      }
+
+      <label class="mb-1 block text-sm font-semibold" for="password">Password</label>
+      <div class="mb-4 flex gap-2">
+        <input
+          pInputText
+          id="password"
+          class="min-w-0 flex-1"
+          formControlName="password"
+          autocomplete="current-password"
+          [type]="showPassword() ? 'text' : 'password'"
+          [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid"
+        />
+        <p-button
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [label]="showPassword() ? 'Hide' : 'Show'"
+          [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+          (onClick)="toggleShowPassword()"
+        />
+      </div>
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <p class="-mt-3 mb-4 text-sm text-error-text">Enter your password.</p>
+      }
+
+      <p-button
+        type="submit"
+        label="Sign in"
+        styleClass="w-full"
+        [loading]="busy()"
+        [disabled]="paused()"
+      />
+
+      <p class="mt-6 text-sm text-muted">Forgot your password? Contact the developer.</p>
+    </form>
+  </main>
+</div>
