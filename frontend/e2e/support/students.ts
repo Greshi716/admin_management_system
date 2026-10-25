@@ -37,7 +37,7 @@ export async function createStudentMasterData(page: Page, suffix = ''): Promise<
   const division = (
     await callApi(page, 'POST', '/api/divisions', { academicYearId: year.id, standardId: standard.id, name: 'A' })
   ).body;
-  const categories = (await callApi(page, 'POST', '/api/student-categories/search', { first: 0, rows: 1, filters: {} }))
+  const categories = (await callApi(page, 'POST', '/api/student-categories/search', { first: 0, rows: 100, filters: {} }))
     .body.rows;
   return { yearId: year.id, standardId: standard.id, divisionId: division.id, categoryId: categories[0].id };
 }

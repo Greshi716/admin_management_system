@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -78,6 +78,18 @@ export class StudentFormComponent implements OnInit {
   });
   protected readonly noDivision = computed(() => this.chosenStandard() !== null && this.divisions().length === 0);
 
+  constructor() {
+    // The GR No. field only exists once the pick-lists are loaded; focus it as soon as it appears (first field).
+    let focused = false;
+    effect(() => {
+      const field = this.grNoInput();
+      if (field && !focused) {
+        focused = true;
+        field.nativeElement.focus();
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.form.controls.standardId.valueChanges.subscribe((standard) => {
       this.chosenStandard.set(standard);
@@ -87,7 +99,6 @@ export class StudentFormComponent implements OnInit {
       next: (lists) => {
         this.pickLists.set(lists);
         this.loading.set(false);
-        queueMicrotask(() => this.focusGrNo());
       },
       error: () => this.loading.set(false), // the error interceptor has shown the reason
     });
