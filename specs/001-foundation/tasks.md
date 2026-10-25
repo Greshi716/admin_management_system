@@ -238,7 +238,7 @@ description: "Task list for F0 Foundation"
 ### Implementation for User Story 6
 
 - [ ] T091 [US6] `FE/core/layout/shell.component.ts` (+ `.html`): pale lavender sidebar with menu (Master Data, Audit Log; unbuilt modules hidden), header with school name, current-year tag, user menu, `p-toast` outlet, router outlet with view transitions; a `currentYearGuard` that, when `/api/auth/me` returns no current year, redirects every route except Academic years, Change password and Logout to Academic years, disables the other menu items and shows the "create an academic year covering today" message, and re-checks after a year is saved (FR-013, FR-028, FR-037)
-- [ ] T092 [P] [US6] `FE/core/layout/password-popup.component.ts`: after sign-in, while `passwordChanged` is false, opens a modal with "Change now" (opens the change-password dialog) and "Later" (closes it; it opens again at the next sign-in); not shown once the password is changed (FR-009)
+- [X] T092 [P] [US6] `FE/core/layout/password-popup.component.ts`: after sign-in, while `passwordChanged` is false, opens a modal with "Change now" (opens the change-password dialog) and "Later" (closes it; it opens again at the next sign-in); not shown once the password is changed (FR-009)
 - [X] T093 [US6] `FE/core/layout/no-current-year.notice.ts` and link to the academic years page (US6 scenario 2)
 - [X] T094 [P] [US6] `FE/shared/ui/page-skeleton.component.ts` and use it in all list and form pages (FR-038)
 - [ ] T095 [US6] Wire success and error toasts into every create, edit, delete and password action (FR-039), and field-level validation display via `FE/shared/forms/api-error.ts` (FR-040)
