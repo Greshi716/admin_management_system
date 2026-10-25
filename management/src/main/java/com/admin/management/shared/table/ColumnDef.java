@@ -1,5 +1,7 @@
 package com.admin.management.shared.table;
 
+import java.util.List;
+
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
@@ -24,7 +26,7 @@ import jakarta.persistence.criteria.Root;
  *            searched and not exported
  */
 public record ColumnDef<T>(String field, String header, ColumnType type, boolean searchable, boolean sensitive,
-		boolean hidden, boolean internal, ExpressionFactory<T> expression) {
+		boolean hidden, boolean internal, ExpressionFactory<T> expression, List<ExpressionFactory<T>> sortKeys) {
 
 	public enum ColumnType {
 
@@ -40,47 +42,56 @@ public record ColumnDef<T>(String field, String header, ColumnType type, boolean
 	}
 
 	public static <T> ColumnDef<T> text(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.TEXT, true, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.TEXT, true, false, false, false, attribute(field), List.of());
 	}
 
 	public static <T> ColumnDef<T> number(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.NUMBER, false, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.NUMBER, false, false, false, false, attribute(field), List.of());
 	}
 
 	public static <T> ColumnDef<T> date(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.DATE, false, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.DATE, false, false, false, false, attribute(field), List.of());
 	}
 
 	public static <T> ColumnDef<T> bool(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.BOOLEAN, false, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.BOOLEAN, false, false, false, false, attribute(field), List.of());
 	}
 
 	/** Reads the value from another attribute path, for example a joined display column. */
 	public ColumnDef<T> path(String attributePath) {
-		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, attribute(attributePath));
+		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, attribute(attributePath), sortKeys);
 	}
 
 	/** Reads the value from a derived expression. */
 	public ColumnDef<T> expression(ExpressionFactory<T> factory) {
-		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, factory);
+		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, factory, sortKeys);
+	}
+
+	/**
+	 * Sorts by these expressions, in order, instead of the displayed value (for example a standard's display order
+	 * and then the division name, while the cell shows text).
+	 */
+	@SafeVarargs
+	public final ColumnDef<T> sortedBy(ExpressionFactory<T>... keys) {
+		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, expression, List.of(keys));
 	}
 
 	public ColumnDef<T> searchable(boolean value) {
-		return new ColumnDef<>(field, header, type, value, sensitive, hidden, internal, expression);
+		return new ColumnDef<>(field, header, type, value, sensitive, hidden, internal, expression, sortKeys);
 	}
 
 	/** Marks a column that only carries an id or version for the screen: not shown, not searched, not exported. */
 	public ColumnDef<T> asInternal() {
-		return new ColumnDef<>(field, header, type, false, sensitive, true, true, expression);
+		return new ColumnDef<>(field, header, type, false, sensitive, true, true, expression, sortKeys);
 	}
 
 	/** Values are masked in lists, exports and the audit log; the column is not searched, so a search cannot probe the full value. */
 	public ColumnDef<T> asSensitive() {
-		return new ColumnDef<>(field, header, type, false, true, hidden, internal, expression);
+		return new ColumnDef<>(field, header, type, false, true, hidden, internal, expression, sortKeys);
 	}
 
 	public ColumnDef<T> asHidden() {
-		return new ColumnDef<>(field, header, type, searchable, sensitive, true, internal, expression);
+		return new ColumnDef<>(field, header, type, searchable, sensitive, true, internal, expression, sortKeys);
 	}
 
 	private static <T> ExpressionFactory<T> attribute(String attributePath) {

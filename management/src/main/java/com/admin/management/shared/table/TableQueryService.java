@@ -149,8 +149,12 @@ public class TableQueryService {
 			if (column.sensitive()) {
 				throw new ValidationException("sortField", "cannot sort by '" + field + "'");
 			}
-			Expression<?> expression = column.expression().build(root, cb);
-			orders.add(direction == -1 ? cb.desc(expression) : cb.asc(expression));
+			List<ColumnDef.ExpressionFactory<T>> keys = column.sortKeys().isEmpty() ? List.of(column.expression())
+					: column.sortKeys();
+			for (ColumnDef.ExpressionFactory<T> key : keys) {
+				Expression<?> expression = key.build(root, cb);
+				orders.add(direction == -1 ? cb.desc(expression) : cb.asc(expression));
+			}
 		}
 		try {
 			orders.add(cb.asc(root.get("id")));
