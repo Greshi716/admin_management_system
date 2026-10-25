@@ -1,0 +1,155 @@
+package com.admin.management.students;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.admin.management.masterdata.api.MasterDataLookup;
+import com.admin.management.masterdata.api.MasterDataLookup.PickLists;
+import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
+import com.admin.management.shared.web.ApiProblem.FieldError;
+import com.admin.management.shared.web.ConflictException;
+import com.admin.management.shared.web.ValidationException;
+
+/**
+ * Registers students and reads them for the screens. Every change and its audit entries are saved in one
+ * transaction (FR-012); nothing here deletes a student, a class record or a GR No. (constitution IV).
+ */
+@Service
+public class StudentService {
+
+	private final StudentRepository students;
+
+	private final EnrollmentRepository enrollments;
+
+	private final GrNumberRepository grNumbers;
+
+	private final StudentAudit audit;
+
+	private final StudentValidator validator;
+
+	private final MasterDataLookup masterData;
+
+	private final Clock clock;
+
+	StudentService(StudentRepository students, EnrollmentRepository enrollments, GrNumberRepository grNumbers,
+			StudentAudit audit, StudentValidator validator, MasterDataLookup masterData, Clock clock) {
+		this.students = students;
+		this.enrollments = enrollments;
+		this.grNumbers = grNumbers;
+		this.audit = audit;
+		this.validator = validator;
+		this.masterData = masterData;
+		this.clock = clock;
+	}
+
+	/**
+	 * Registers a student and the class record of the current academic year (FR-001, FR-006). The student is
+	 * Active with entry source Manual; the serial number comes from the database sequence.
+	 */
+	@Transactional
+	public StudentDto register(StudentInput in) {
+		YearRef year = masterData.currentYear()
+			.orElseThrow(() -> new ValidationException("academicYear",
+					"There is no current academic year. Add one under Setup first."));
+		List<FieldError> errors = StudentValidator.newErrors();
+		StudentDetails details = validator.details(in, null, errors);
+		validator.classChoice(in, year.id(), errors);
+		StudentValidator.throwIfAny(errors);
+		checkGrNoFree(details.grNo());
+
+		Student student = students.save(new Student(details, in.categoryId()));
+		grNumbers.save(new StudentGrNumber(details.grNo(), student.getId(), Instant.now(clock)));
+		StudentEnrollment enrollment = enrollments.save(new StudentEnrollment(student.getId(), year.id(),
+				in.standardId(), in.divisionId(), in.categoryId(), year.startDate()));
+		audit.created(StudentAudit.STUDENT, student.getId(), student.snapshot());
+		audit.created(StudentAudit.ENROLLMENT, enrollment.getId(), enrollment.snapshot());
+		return toDto(student);
+	}
+
+	/** Students (any status) with the same three names; never blocks a save (FR-003). */
+	@Transactional(readOnly = true)
+	public List<NameMatch> nameMatches(String surname, String firstName, String middleName, Long excludeId) {
+		return students
+			.findNameMatches(normalised(surname), normalised(firstName), normalised(middleName),
+					excludeId == null ? -1L : excludeId)
+			.stream()
+			.map((s) -> new NameMatch(s.getId(), s.getGrNo(), fullName(s), s.getStatus()))
+			.toList();
+	}
+
+	/** The choices for the forms: the divisions of {@code yearId} (default the current year). */
+	@Transactional(readOnly = true)
+	public PickListsDto pickLists(Long yearId, Long studentId) {
+		Optional<YearRef> current = masterData.currentYear();
+		Long chosenYear = yearId != null ? yearId : current.map(YearRef::id).orElse(null);
+		if (chosenYear == null) {
+			throw new ConflictException("academicYear", "There is no current academic year.");
+		}
+		Long keepStandard = null;
+		Long keepDivision = null;
+		Long keepCategory = null;
+		if (studentId != null) {
+			Optional<StudentEnrollment> own = enrollments.findByStudentIdAndAcademicYearId(studentId, chosenYear);
+			if (own.isPresent()) {
+				keepStandard = own.get().getStandardId();
+				keepDivision = own.get().getDivisionId();
+				keepCategory = own.get().getCategoryId();
+			}
+		}
+		PickLists lists = masterData.pickLists(chosenYear, keepStandard, keepDivision, keepCategory);
+		return new PickListsDto(current.map((y) -> new PickListsDto.CurrentYear(y.id(), y.name())).orElse(null),
+				lists.standards(), lists.divisions(), lists.categories());
+	}
+
+	/** The student as shown on screen, with masked sensitive fields and the class history, newest year first. */
+	StudentDto toDto(Student student) {
+		Map<Long, String> standardNames = masterData.standardNames();
+		Map<Long, String> divisionNames = masterData.divisionNames();
+		Map<Long, String> categoryNames = masterData.categoryNames();
+		Map<Long, String> yearNames = masterData.yearNames();
+		List<EnrollmentDto> history = enrollments.findByStudentId(student.getId())
+			.stream()
+			.sorted(Comparator.comparing(StudentEnrollment::getYearStartDate).reversed())
+			.map((e) -> toDto(e, yearNames, standardNames, divisionNames, categoryNames))
+			.toList();
+		return StudentDto.of(student, standardNames.getOrDefault(student.getAdmissionStandardId(), ""), history);
+	}
+
+	EnrollmentDto toDto(StudentEnrollment e) {
+		return toDto(e, masterData.yearNames(), masterData.standardNames(), masterData.divisionNames(),
+				masterData.categoryNames());
+	}
+
+	private static EnrollmentDto toDto(StudentEnrollment e, Map<Long, String> yearNames,
+			Map<Long, String> standardNames, Map<Long, String> divisionNames, Map<Long, String> categoryNames) {
+		String stdDiv = standardNames.getOrDefault(e.getStandardId(), "") + "-"
+				+ divisionNames.getOrDefault(e.getDivisionId(), "");
+		return new EnrollmentDto(e.getVersion(), e.getAcademicYearId(), yearNames.get(e.getAcademicYearId()),
+				e.getStandardId(), e.getDivisionId(), stdDiv, e.getCategoryId(),
+				categoryNames.get(e.getCategoryId()), e.getYearStatus());
+	}
+
+	/** A GR No. any student has or ever had is refused (FR-002), whatever the capitals or the spaces around it. */
+	void checkGrNoFree(String grNo) {
+		if (grNumbers.existsById(StudentGrNumber.keyOf(grNo))) {
+			throw new ConflictException("grNo", "This GR No. is already used by a student.");
+		}
+	}
+
+	static String fullName(Student s) {
+		return (s.getSurname() + " " + s.getFirstName() + (s.getMiddleName() == null ? "" : " " + s.getMiddleName()))
+			.trim();
+	}
+
+	private static String normalised(String name) {
+		return name == null ? "" : name.trim().toLowerCase(java.util.Locale.ROOT);
+	}
+
+}

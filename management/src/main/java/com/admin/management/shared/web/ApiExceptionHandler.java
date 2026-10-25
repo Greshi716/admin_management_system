@@ -42,7 +42,9 @@ public class ApiExceptionHandler {
 			"uq_divisions_year_standard_name",
 			new Known("name", "This division already exists for the year and standard."),
 			"uq_student_categories_code", new Known("code", "A category with this code already exists."),
-			"uq_users_username", new Known("username", "This username is already taken."));
+			"uq_users_username", new Known("username", "This username is already taken."),
+			"uq_students_gr_no_lower", new Known("grNo", "This GR No. is already used by a student."),
+			"pk_student_gr_numbers", new Known("grNo", "This GR No. is already used by a student."));
 
 	private record Known(String field, String message) {
 	}
