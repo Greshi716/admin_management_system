@@ -12,7 +12,8 @@ public final class SensitiveMasker {
 	public static final Set<String> NEVER_STORE = Set.of("password", "passwordHash");
 
 	/** Fields whose values are stored masked in an audit entry (FR-025): last 4 characters visible. */
-	public static final Set<String> MASKED = Set.of("aadhaar", "aadhaarNumber", "bankAccount", "accountNumber");
+	public static final Set<String> MASKED = Set.of("aadhaar", "aadhaarNumber", "religionCaste", "bankAccount",
+			"accountNumber");
 
 	private static final int VISIBLE = 4;
 
