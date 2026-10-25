@@ -20,9 +20,11 @@ import jakarta.persistence.criteria.Root;
  * @param searchable whether the global search box looks in this column (visible text columns)
  * @param sensitive whether the value is masked on screen and in the export (FR-033)
  * @param hidden whether the column is hidden on screen; hidden columns are still exported
+ * @param internal whether the column only carries data the screen needs (an id or version): never shown, never
+ *            searched and not exported
  */
 public record ColumnDef<T>(String field, String header, ColumnType type, boolean searchable, boolean sensitive,
-		boolean hidden, ExpressionFactory<T> expression) {
+		boolean hidden, boolean internal, ExpressionFactory<T> expression) {
 
 	public enum ColumnType {
 
@@ -38,41 +40,46 @@ public record ColumnDef<T>(String field, String header, ColumnType type, boolean
 	}
 
 	public static <T> ColumnDef<T> text(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.TEXT, true, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.TEXT, true, false, false, false, attribute(field));
 	}
 
 	public static <T> ColumnDef<T> number(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.NUMBER, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.NUMBER, false, false, false, false, attribute(field));
 	}
 
 	public static <T> ColumnDef<T> date(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.DATE, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.DATE, false, false, false, false, attribute(field));
 	}
 
 	public static <T> ColumnDef<T> bool(String field, String header) {
-		return new ColumnDef<>(field, header, ColumnType.BOOLEAN, false, false, false, attribute(field));
+		return new ColumnDef<>(field, header, ColumnType.BOOLEAN, false, false, false, false, attribute(field));
 	}
 
 	/** Reads the value from another attribute path, for example a joined display column. */
 	public ColumnDef<T> path(String attributePath) {
-		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, attribute(attributePath));
+		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, attribute(attributePath));
 	}
 
 	/** Reads the value from a derived expression. */
 	public ColumnDef<T> expression(ExpressionFactory<T> factory) {
-		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, factory);
+		return new ColumnDef<>(field, header, type, searchable, sensitive, hidden, internal, factory);
 	}
 
 	public ColumnDef<T> searchable(boolean value) {
-		return new ColumnDef<>(field, header, type, value, sensitive, hidden, expression);
+		return new ColumnDef<>(field, header, type, value, sensitive, hidden, internal, expression);
+	}
+
+	/** Marks a column that only carries an id or version for the screen: not shown, not searched, not exported. */
+	public ColumnDef<T> asInternal() {
+		return new ColumnDef<>(field, header, type, false, sensitive, true, true, expression);
 	}
 
 	public ColumnDef<T> asSensitive() {
-		return new ColumnDef<>(field, header, type, searchable, true, hidden, expression);
+		return new ColumnDef<>(field, header, type, searchable, true, hidden, internal, expression);
 	}
 
 	public ColumnDef<T> asHidden() {
-		return new ColumnDef<>(field, header, type, searchable, sensitive, true, expression);
+		return new ColumnDef<>(field, header, type, searchable, sensitive, true, internal, expression);
 	}
 
 	private static <T> ExpressionFactory<T> attribute(String attributePath) {

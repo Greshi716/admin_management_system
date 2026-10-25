@@ -59,7 +59,7 @@ public class TableEndpoints {
 		response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName(listName) + "\"");
 		long rows;
 		try {
-			rows = exporter.write(listName, def.columns(), sink -> queries.stream(def, request, scope, sink),
+			rows = exporter.write(listName, def.columns().stream().filter((column) -> !column.internal()).toList(), sink -> queries.stream(def, request, scope, sink),
 					response.getOutputStream());
 		}
 		catch (IOException | RuntimeException ex) {
