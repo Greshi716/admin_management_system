@@ -34,7 +34,7 @@ description: "Task list for F1 Students and Class Records"
 ## Phase 1: Setup
 
 - [x] T001 Add the upload limit to `management/src/main/resources/application.properties`: `spring.servlet.multipart.max-file-size=5MB` and a `max-request-size` slightly above it; first confirm the property names are valid on Spring Boot 4.1.2 (start the app or run a context test) and record the result in `specs/002-students/research.md` R2 (plan review M4). Covers FR-005.
-- [ ] T002 [P] Add synthetic test data helpers: `BT/support/StudentTestData.java` (builds valid student inputs with made-up names, a 10,000-student generator through the repository for the performance test, and a helper that gives a student only an earlier-year class record) and `frontend/e2e/support/students.ts` (create master data and students through the API). No real data.
+- [x] T002 [P] Add synthetic test data helpers: `BT/support/StudentTestData.java` (builds valid student inputs with made-up names, a 10,000-student generator through the repository for the performance test, and a helper that gives a student only an earlier-year class record) and `frontend/e2e/support/students.ts` (create master data and students through the API). No real data.
 
 ---
 
