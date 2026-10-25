@@ -13,8 +13,9 @@ import java.util.function.Consumer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
-import com.admin.management.audit.SensitiveMasker;
+import com.admin.management.shared.masking.SensitiveMasker;
 import com.admin.management.shared.table.ColumnDef.ColumnType;
 import com.admin.management.shared.time.ClockConfig;
 import com.admin.management.shared.web.ValidationException;
@@ -71,9 +72,10 @@ public class TableQueryService {
 
 	/**
 	 * Reads every row that matches the request (ignoring its page) in chunks and hands each to {@code sink}, in
-	 * the requested order. Returns the number of rows read.
+	 * the requested order. Returns the number of rows read. All chunks read one snapshot, so a row written while
+	 * the export runs cannot shift a chunk boundary and repeat or skip a row (SC-007).
 	 */
-	@Transactional(readOnly = true)
+	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public <T> long stream(TableDef<T> def, TableRequest request, Scope<T> scope, Consumer<Map<String, Object>> sink) {
 		request.validate();
 		long read = 0;
