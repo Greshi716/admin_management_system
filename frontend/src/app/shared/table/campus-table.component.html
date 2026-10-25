@@ -12,7 +12,7 @@
     class="btn btn-secondary"
     data-testid="export"
     [class.btn-loading]="exporting()"
-    [disabled]="loading() || total() === 0 || exporting()"
+    [disabled]="loading() || exporting()"
     (click)="exportExcel()"
   >
     Export to Excel

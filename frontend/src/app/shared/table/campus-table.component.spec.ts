@@ -262,11 +262,28 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     expect(toast.success).toHaveBeenCalled();
   });
 
-  it('disables export when there is nothing to export', () => {
+  it('still exports when nothing matches, so the admin gets a file with the headings only', () => {
     create();
     loaded({ rows: [], total: 0 });
+    const button = fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
 
-    expect((fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).disabled).toBe(true);
+    button.click();
+
+    const request = controller.expectOne(EXPORT);
+    const file = new Blob(['xlsx']);
+    request.flush(file, { headers: { 'Content-Disposition': 'attachment; filename="academic-years-2026-10-25.xlsx"' } });
+    expect(downloader.save).toHaveBeenCalledWith(file, 'academic-years-2026-10-25.xlsx');
+  });
+
+  it('disables export only while a page or an export is loading', () => {
+    create();
+    const button = fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true); // first page still loading
+
+    loaded();
+
+    expect(button.disabled).toBe(false);
   });
 
   it('stops loading and keeps the old rows when a load fails', () => {
