@@ -13,6 +13,8 @@ const uiPort = 4200;
  */
 export default defineConfig({
   testDir: './e2e',
+  // The first run after a cold start waits for the dev server to compile the lazy-loaded screens.
+  expect: { timeout: 15_000 },
   // One database, one admin: specs share state, so they run one at a time.
   fullyParallel: false,
   workers: 1,

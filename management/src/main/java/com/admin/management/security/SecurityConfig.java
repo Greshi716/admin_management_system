@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -39,12 +41,15 @@ class SecurityConfig {
 	}
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository)
-			throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository,
+			Environment environment) throws Exception {
+		// Only the test profile has /api/test-support; elsewhere the pattern matches nothing.
+		String[] open = environment.acceptsProfiles(Profiles.of("test"))
+				? new String[] { "/api/auth/login", TestSupportController.PATH } : new String[] { "/api/auth/login" };
 		http.csrf((csrf) -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 			.csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
 			.securityContext((context) -> context.securityContextRepository(contextRepository))
-			.authorizeHttpRequests((requests) -> requests.requestMatchers("/api/auth/login")
+			.authorizeHttpRequests((requests) -> requests.requestMatchers(open)
 				.permitAll()
 				.requestMatchers("/api/**")
 				.authenticated()

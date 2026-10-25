@@ -29,6 +29,23 @@ export async function signInAsTestAdmin(page: Page): Promise<void> {
   expect(response.ok(), `sign-in as the test admin failed with HTTP ${response.status()}`).toBeTruthy();
 }
 
+/**
+ * Puts the test admin back in a known state: the known password, no lock-out, and the "password changed" flag as
+ * asked. Uses the test-profile endpoint `/api/test-support/reset-admin`, which a real installation does not have.
+ */
+export async function resetTestAdmin(page: Page, options: { passwordChanged: boolean } = { passwordChanged: true }): Promise<void> {
+  const api = page.context().request;
+  await api.get('/api/auth/me');
+  const cookies = (await api.storageState()).cookies;
+  const token = cookies.find((cookie) => cookie.name === 'XSRF-TOKEN')?.value;
+  expect(token, 'the backend must set an XSRF-TOKEN cookie on the first response').toBeTruthy();
+
+  const response = await api.post(`/api/test-support/reset-admin?passwordChanged=${options.passwordChanged}`, {
+    headers: { 'X-XSRF-TOKEN': token as string },
+  });
+  expect(response.ok(), `resetting the test admin failed with HTTP ${response.status()}`).toBeTruthy();
+}
+
 export interface YearDates {
   name: string;
   /** ISO date, yyyy-MM-dd. */

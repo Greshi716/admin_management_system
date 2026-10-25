@@ -100,7 +100,7 @@ description: "Task list for F0 Foundation"
 - [X] T034 [P] [US1] `BT/security/FirstRunBootstrapIT.java`: empty `users` creates exactly one `ADMIN` with a random password in `credentials-first-run.txt`, `password_changed=false`, secrets absent from logs; second start creates nothing; with `campusflow.reset-admin-password=true` a new random password is written, `password_changed` is false again and a Security audit entry is written (FR-003, FR-009, FR-045)
 - [X] T035 [P] [US1] `BT/security/AdminResetIT.java`: starting with the reset property replaces the password hash, the old password then fails, the new one works, the new password appears only in the credentials file and never in logs or the audit entry (FR-045)
 - [X] T036 [P] [US1] `BT/security/ChangePasswordIT.java`: change succeeds with the right current password, sets `password_changed=true`, audit entry shows "changed" and no value (FR-009, FR-025)
-- [ ] T037 [P] [US1] `frontend/e2e/auth.spec.ts`: titles start with FR ids; covers sign-in, wrong password message, lock-out message, logout and back button, direct URL redirect, change-password popup after sign-in with "Later" and "Change now" (FR-001, FR-004, FR-006, FR-007, FR-009, FR-044)
+- [X] T037 [P] [US1] `frontend/e2e/auth.spec.ts`: titles start with FR ids; covers sign-in, wrong password message, lock-out message, logout and back button, direct URL redirect, change-password popup after sign-in with "Later" and "Change now" (FR-001, FR-004, FR-006, FR-007, FR-009, FR-044)
 
 ### Implementation for User Story 1
 
