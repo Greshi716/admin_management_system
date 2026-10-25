@@ -3,6 +3,7 @@ package com.admin.management.audit;
 import java.time.Instant;
 import java.util.Map;
 
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.generator.EventType;
@@ -50,6 +51,14 @@ public class AuditEntry {
 
 	@Column(updatable = false)
 	private String reason;
+
+	/** Read-only, for the audit log list: the user's sign-in name, so the list needs no other module's classes. */
+	@Formula("(select u.username from users u where u.id = user_id)")
+	private String userName;
+
+	/** Read-only, for the audit log list: the changes as text, so the search box can look inside them. */
+	@Formula("cast(changes as text)")
+	private String changesText;
 
 	protected AuditEntry() {
 	}
@@ -99,6 +108,14 @@ public class AuditEntry {
 
 	public String getReason() {
 		return reason;
+	}
+
+	public String getUserName() {
+		return userName;
+	}
+
+	public String getChangesText() {
+		return changesText;
 	}
 
 }

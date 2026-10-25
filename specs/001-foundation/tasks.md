@@ -192,7 +192,7 @@ description: "Task list for F0 Foundation"
 ### Implementation for User Story 4
 
 - [ ] T077 [US4] `BE/audit/AuditController.java` for `POST /api/audit-log/search` and `POST /api/audit-log/export` using `TableEndpoints`, with extra filters `from`, `to`, `month`, `year`, `area`, `action`; export records an `Export` audit entry (FR-022, FR-026)
-- [ ] T078 [US4] `BE/audit/AuditColumns.java`: `ColumnDef`s for time, user, area, action, entity, changes, reason (all searchable and sortable; `changes` shown pre-masked; `changes` is jsonb, so search it through a text cast or a generated text column, not as a plain JPA attribute)
+- [X] T078 [US4] `BE/audit/AuditColumns.java`: `ColumnDef`s for time, user, area, action, entity, changes, reason (all searchable and sortable; `changes` shown pre-masked; `changes` is jsonb, so search it through a text cast or a generated text column, not as a plain JPA attribute)
 - [ ] T079 [P] [US4] `FE/features/audit/audit-log.component.ts`: CampusTable plus date range, month, year, area and action filter controls; shows old/new values; shows the server's "from is after to" message and no rows when the range is reversed (FR-026)
 - [ ] T080 [US4] `FE/features/audit/audit.routes.ts` registering the page behind the auth guard
 
