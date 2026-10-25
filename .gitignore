@@ -11,3 +11,7 @@ frontend/.angular/
 frontend/playwright-report/
 frontend/test-results/
 credentials-first-run.txt
+
+# Application data (first-run credentials file, generated at run time)
+management/data/
+data/
