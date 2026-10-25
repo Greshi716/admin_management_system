@@ -5,13 +5,16 @@ import {
   Component,
   computed,
   contentChild,
+  effect,
   inject,
   input,
   OnInit,
   signal,
   TemplateRef,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, debounceTime, distinctUntilChanged, EMPTY, of, Subject, switchMap } from 'rxjs';
 import { ToastService } from '../../core/toast/toast.service';
 import { FileDownloader, fileNameFrom } from './file-downloader';
@@ -43,6 +46,11 @@ import {
 export class CampusTableComponent implements OnInit {
   readonly columns = input.required<CampusColumn[]>();
   readonly endpoint = input.required<string>();
+  /**
+   * Extra fields sent with every search and export, for a list that has its own filters (the audit log's date range,
+   * area and action). When they change, the table goes back to the first page and loads again.
+   */
+  readonly extraParams = input<Record<string, unknown>>({});
   /** Optional per-row buttons: give the table an ng-template named rowActions; it receives the row. */
   protected readonly rowActions = contentChild<TemplateRef<{ $implicit: Record<string, unknown> }>>('rowActions');
 
@@ -83,6 +91,7 @@ export class CampusTableComponent implements OnInit {
   private readonly searchTyped = new Subject<string>();
   private readonly filterTyped = new Subject<void>();
   private readonly loadRequested = new Subject<void>();
+  private seenExtra = '';
 
   constructor() {
     this.searchTyped
@@ -103,7 +112,11 @@ export class CampusTableComponent implements OnInit {
         switchMap(() => {
           this.loading.set(true);
           return this.http.post<TablePage>(`${this.endpoint()}/search`, this.request()).pipe(
-            catchError(() => of(null)), // the error interceptor has already shown the toast
+            // The error interceptor has already shown the toast. A refused query (422, for example a reversed date
+            // range) has no valid result, so it shows no rows; any other failure keeps the rows on screen.
+            catchError((error: unknown) =>
+              of(error instanceof HttpErrorResponse && error.status === 422 ? { rows: [], total: 0 } : null),
+            ),
           );
         }),
         takeUntilDestroyed(),
@@ -116,9 +129,20 @@ export class CampusTableComponent implements OnInit {
         this.loading.set(false);
       });
 
+    effect(() => {
+      const extra = JSON.stringify(this.extraParams());
+      untracked(() => {
+        if (extra !== this.seenExtra) {
+          this.seenExtra = extra;
+          this.first.set(0);
+          this.loadRequested.next();
+        }
+      });
+    });
   }
 
   ngOnInit(): void {
+    this.seenExtra = JSON.stringify(this.extraParams());
     this.loadRequested.next(); // first page; the inputs are set by now
   }
 
@@ -257,6 +281,7 @@ export class CampusTableComponent implements OnInit {
 
   private request(): TableRequest {
     const request: TableRequest = {
+      ...this.extraParams(),
       first: this.first(),
       rows: this.pageSize(),
       filters: this.filters(),

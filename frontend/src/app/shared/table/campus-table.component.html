@@ -107,6 +107,16 @@
               <td class="border-b border-border px-4 py-3">
                 @if (loading()) {
                   <div class="skeleton h-4 animate-pulse rounded bg-border" data-testid="skeleton"></div>
+                } @else if (column.badgeClass; as badgeClass) {
+                  @if (row[column.field]) {
+                    <span class="rounded-full px-3 py-1 text-sm font-semibold" [class]="badgeClass(row[column.field])">{{ row[column.field] }}</span>
+                  }
+                } @else if (column.lines; as lines) {
+                  <ul class="m-0 list-none p-0 text-sm">
+                    @for (line of lines(row[column.field]); track $index) {
+                      <li>{{ line }}</li>
+                    }
+                  </ul>
                 } @else if (column.tag) {
                   @if (row[column.field] === true) {
                     <span class="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-text">{{ column.tag }}</span>

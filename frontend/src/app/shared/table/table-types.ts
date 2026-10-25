@@ -8,6 +8,10 @@ export interface CampusColumn {
   hidden?: boolean;
   /** For a boolean column: show this text as a tag when the value is true, and nothing when it is false. */
   tag?: string;
+  /** Shows the value as a coloured badge; returns the Tailwind classes for that value. */
+  badgeClass?: (value: unknown) => string;
+  /** Shows the value as a short list, one line per item (for example what a change touched). */
+  lines?: (value: unknown) => string[];
 }
 
 export interface TableFilter {

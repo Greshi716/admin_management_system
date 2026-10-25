@@ -1,0 +1,59 @@
+<div class="mb-6">
+  <h1 class="m-0 text-3xl font-bold tracking-tight">Audit log</h1>
+  <p class="mt-1 text-muted">Every sign-in and every change to master data. Entries cannot be edited or deleted.</p>
+</div>
+
+<section class="mb-4 rounded-card border border-border bg-surface p-4 shadow-sm" aria-label="Filters">
+  <div class="flex flex-wrap items-end gap-3">
+    <label class="flex flex-col gap-1 text-sm font-semibold">
+      From
+      <input type="date" aria-label="From" class="input" [value]="from()" (change)="set(from, $event)" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm font-semibold">
+      To
+      <input type="date" aria-label="To" class="input" [value]="to()" (change)="set(to, $event)" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm font-semibold">
+      Month
+      <input type="month" aria-label="Month" class="input" [value]="month()" (change)="set(month, $event)" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm font-semibold">
+      Year
+      <input type="number" aria-label="Year" min="1900" max="9999" class="input w-28" [value]="year()" (input)="set(year, $event)" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm font-semibold">
+      Area
+      <select aria-label="Area" class="input" (change)="set(area, $event)">
+        <option value="" [selected]="area() === ''">All areas</option>
+        @for (option of areas; track option) {
+          <option [value]="option" [selected]="area() === option">{{ option }}</option>
+        }
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-sm font-semibold">
+      Action
+      <select aria-label="Action" class="input" (change)="set(action, $event)">
+        <option value="" [selected]="action() === ''">All actions</option>
+        @for (option of actions; track option) {
+          <option [value]="option" [selected]="action() === option">{{ option }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <div class="mt-3 flex flex-wrap items-center gap-2">
+    <button type="button" class="btn btn-secondary btn-outlined btn-sm" (click)="today()">Today</button>
+    <button type="button" class="btn btn-secondary btn-outlined btn-sm" (click)="thisMonth()">This month</button>
+    <button type="button" class="btn btn-secondary btn-outlined btn-sm" (click)="thisYear()">This year</button>
+    @if (anyFilter()) {
+      <button type="button" class="btn btn-outlined btn-sm" (click)="clear()">Clear filters</button>
+    }
+    @if (reversed()) {
+      <p class="m-0 text-sm font-semibold text-error-text" role="alert" data-testid="range-error">
+        The start date is after the end date.
+      </p>
+    }
+  </div>
+</section>
+
+<campus-table [endpoint]="endpoint" [columns]="columns" [extraParams]="params()" />
