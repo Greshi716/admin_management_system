@@ -1,0 +1,250 @@
+openapi: 3.0.3
+info:
+  title: CampusFlow F1 API (students)
+  version: 0.2.0
+  description: |
+    Endpoints added by F1. Authentication, CSRF, error shape (Problem), TableRequest, TablePage and the
+    Id parameter are those of F0 (../../001-foundation/contracts/openapi.yaml). Stale saves return 409
+    STALE_VERSION with the latest record, as in F0 (FR-046 of F0).
+    Full Aadhaar and religion/caste values are returned ONLY by GET /students/{id}/edit.
+servers:
+  - url: /api
+security:
+  - session: []
+paths:
+  /students/search:
+    post:
+      summary: Students list (FR-008, FR-010)
+      description: |
+        Server-paged list. Columns: id, version (internal), photoVersion, initials source names, grNo, name,
+        stdDiv, category, status, plus hidden export columns. Std / Div and Category are the current year class record, or the most recent one when there is none; the internal column recordYearId carries that record year so the screen can show the year in small text (FR-008).
+        A filter or sort on aadhaar or religionCaste is refused with 422. Default status is Active.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../001-foundation/contracts/openapi.yaml#/components/schemas/TableRequest'
+                - type: object
+                  properties:
+                    status: { type: string, enum: [Active, Left, All], default: Active }
+      responses:
+        '200': { description: One page, content: { application/json: { schema: { $ref: '../../001-foundation/contracts/openapi.yaml#/components/schemas/TablePage' } } } }
+        '422': { $ref: '../../001-foundation/contracts/openapi.yaml#/components/responses/Validation' }
+  /students/export:
+    post:
+      summary: Excel export of all matching rows and all columns; sensitive columns masked; audited as Export in area Students (FR-008, FR-010, FR-012)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../001-foundation/contracts/openapi.yaml#/components/schemas/TableRequest'
+                - type: object
+                  properties:
+                    status: { type: string, enum: [Active, Left, All], default: Active }
+      responses:
+        '200': { description: xlsx stream }
+  /students:
+    post:
+      summary: Register a student and the current year's class record in one transaction (FR-001, FR-002, FR-006, FR-012)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StudentCreateInput' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Student' } } } }
+        '409': { description: 'GR No. already used or ever used (field grNo)', content: { application/problem+json: { schema: { $ref: '../../001-foundation/contracts/openapi.yaml#/components/schemas/Problem' } } } }
+        '422': { description: 'Field errors (empty or invalid field, invalid mobile, admission date, division not in that year and standard) or no current academic year', content: { application/problem+json: { schema: { $ref: '../../001-foundation/contracts/openapi.yaml#/components/schemas/Problem' } } } }
+  /students/name-matches:
+    get:
+      summary: Students with the same surname, first and middle name, any status (FR-003). Never blocks a save.
+      parameters:
+        - { name: surname, in: query, required: true, schema: { type: string } }
+        - { name: firstName, in: query, required: true, schema: { type: string } }
+        - { name: middleName, in: query, schema: { type: string } }
+        - { name: excludeId, in: query, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: Matches (may be empty), content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/NameMatch' } } } } }
+  /students/{id}:
+    parameters: [ { $ref: '../../001-foundation/contracts/openapi.yaml#/components/parameters/Id' } ]
+    get:
+      summary: Profile data; Aadhaar and religion/caste masked; includes class history (FR-007, FR-009, FR-010)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Student' } } } }
+        '404': { description: Not found }
+    put:
+      summary: Edit details, including a GR No. correction (the old number stays reserved) (FR-004, FR-012, FR-017, FR-018). status cannot be changed here. 409 is a stale version (latest record returned) or a GR No. that was ever used (field grNo).
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StudentInput' } } } }
+      responses:
+        '200': { description: Saved, content: { application/json: { schema: { $ref: '#/components/schemas/Student' } } } }
+        '409': { $ref: '../../001-foundation/contracts/openapi.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../../001-foundation/contracts/openapi.yaml#/components/responses/Validation' }
+  /students/{id}/edit:
+    parameters: [ { $ref: '../../001-foundation/contracts/openapi.yaml#/components/parameters/Id' } ]
+    get:
+      summary: Values for the edit form, with FULL Aadhaar and religion/caste. The only endpoint that returns them (FR-010). Sends Cache-Control no-store.
+      responses:
+        '200': { description: OK, headers: { Cache-Control: { schema: { type: string, example: no-store } } }, content: { application/json: { schema: { $ref: '#/components/schemas/StudentInput' } } } }
+        '404': { description: Not found }
+  /students/{id}/left:
+    put:
+      summary: Mark an Active student as Left (plain Mark as left button on the profile, after a confirmation); no date or reason; cannot be undone (FR-004, FR-009, FR-012, FR-018)
+      parameters: [ { $ref: '../../001-foundation/contracts/openapi.yaml#/components/parameters/Id' } ]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [version], properties: { version: { type: integer, format: int64 } } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Student' } } } }
+        '409': { $ref: '../../001-foundation/contracts/openapi.yaml#/components/responses/Conflict' }
+        '422': { description: Already Left }
+  /students/{id}/enrollments/{yearId}:
+    put:
+      summary: Change standard, division and category of one year's class record (FR-006, FR-012)
+      parameters:
+        - { $ref: '../../001-foundation/contracts/openapi.yaml#/components/parameters/Id' }
+        - { name: yearId, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EnrollmentInput' } } } }
+      responses:
+        '200': { description: Saved, content: { application/json: { schema: { $ref: '#/components/schemas/Enrollment' } } } }
+        '404': { description: The student has no record for that year }
+        '409': { $ref: '../../001-foundation/contracts/openapi.yaml#/components/responses/Conflict' }
+        '422': { $ref: '../../001-foundation/contracts/openapi.yaml#/components/responses/Validation' }
+  /students/{id}/history:
+    parameters: [ { $ref: '../../001-foundation/contracts/openapi.yaml#/components/parameters/Id' } ]
+    get:
+      summary: Audit entries of this student and of the student's class records, newest first, for the profile History block (FR-019). Sensitive values are masked as stored. Read-only.
+      responses:
+        '200': { description: 'OK, newest first, at most 200 entries', content: { application/json: { schema: { $ref: '#/components/schemas/HistoryResult' } } } }
+        '404': { description: Not found }
+  /students/{id}/photo:
+    parameters: [ { $ref: '../../001-foundation/contracts/openapi.yaml#/components/parameters/Id' } ]
+    get:
+      summary: The resized photo. Query v = photoVersion, so the response is cacheable for a year (FR-005)
+      parameters: [ { name: v, in: query, schema: { type: integer, format: int64 } } ]
+      responses:
+        '200': { description: JPEG, headers: { Cache-Control: { schema: { type: string, example: 'private, max-age=31536000, immutable' } } }, content: { image/jpeg: { schema: { type: string, format: binary } } } }
+        '404': { description: No photo }
+    put:
+      summary: Add or replace the photo. JPEG or PNG up to 5 MB; resized on the server (FR-005)
+      requestBody: { required: true, content: { multipart/form-data: { schema: { type: object, required: [file], properties: { file: { type: string, format: binary } } } } } }
+      responses:
+        '200': { description: Saved, content: { application/json: { schema: { type: object, properties: { photoVersion: { type: integer, format: int64 } } } } } }
+        '422': { description: 'Not a JPEG or PNG, too large, or too many pixels' }
+    delete:
+      summary: Remove the photo; initials are shown again (FR-005)
+      responses: { '204': { description: Removed } }
+  /student-pick-lists:
+    get:
+      parameters:
+        - { name: yearId, in: query, schema: { type: integer, format: int64 } }
+        - { name: studentId, in: query, schema: { type: integer, format: int64 } }
+      summary: Active standards, divisions and categories for the forms and filters, plus the current year. Divisions are those of yearId (default the current year); with studentId, that student's own values for the year are included even when inactive (FR-006)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PickLists' } } } }
+        '409': { description: No current academic year (F0 FR-013) }
+components:
+  schemas:
+    StudentInput:
+      type: object
+      required: [grNo, surname, firstName, gender, dob, mobile1, address, admissionDate, admissionStandardId]
+      description: 'On create, standardId, divisionId (current year) and categoryId are required; categoryId is ignored on edit (the yearly category is changed on the class record). version is required on edit.'
+      properties:
+        version: { type: integer, format: int64 }
+        grNo: { type: string }
+        surname: { type: string }
+        firstName: { type: string }
+        middleName: { type: string, nullable: true }
+        gender: { type: string, enum: [Male, Female, Other] }
+        dob: { type: string, format: date }
+        birthPlace: { type: string, nullable: true }
+        fatherName: { type: string, nullable: true }
+        motherName: { type: string, nullable: true }
+        mobile1: { type: string, description: '10 digits' }
+        mobile2: { type: string, nullable: true }
+        address: { type: string }
+        aadhaar: { type: string, nullable: true, description: '12 digits, spaces ignored' }
+        religionCaste: { type: string, nullable: true }
+        categoryId: { type: integer, format: int64 }
+        admissionDate: { type: string, format: date }
+        admissionStandardId: { type: integer, format: int64 }
+        previousSchool: { type: string, nullable: true }
+        standardId: { type: integer, format: int64, description: 'create only, current year' }
+        divisionId: { type: integer, format: int64, description: 'create only, current year' }
+    Student:
+      type: object
+      description: aadhaar and religionCaste are masked (last 4 characters visible)
+      properties:
+        id: { type: integer, format: int64 }
+        version: { type: integer, format: int64 }
+        grNo: { type: string }
+        srNo: { type: integer, format: int64 }
+        surname: { type: string }
+        firstName: { type: string }
+        middleName: { type: string, nullable: true }
+        gender: { type: string }
+        dob: { type: string, format: date }
+        birthPlace: { type: string, nullable: true }
+        fatherName: { type: string, nullable: true }
+        motherName: { type: string, nullable: true }
+        mobile1: { type: string }
+        mobile2: { type: string, nullable: true }
+        address: { type: string }
+        aadhaar: { type: string, nullable: true }
+        religionCaste: { type: string, nullable: true }
+        admissionDate: { type: string, format: date }
+        admissionStandardName: { type: string }
+        previousSchool: { type: string, nullable: true }
+        photoVersion: { type: integer, format: int64, nullable: true }
+        status: { type: string, enum: [Active, Left] }
+        source: { type: string, enum: [Manual, Google Form] }
+        classHistory: { type: array, items: { $ref: '#/components/schemas/Enrollment' } }
+    Enrollment:
+      type: object
+      properties:
+        version: { type: integer, format: int64 }
+        academicYearId: { type: integer, format: int64 }
+        academicYearName: { type: string }
+        standardId: { type: integer, format: int64 }
+        divisionId: { type: integer, format: int64 }
+        stdDiv: { type: string, example: 10-A }
+        categoryId: { type: integer, format: int64 }
+        categoryName: { type: string }
+        yearStatus: { type: string, enum: [Studying, Promoted, Detained, Left] }
+    EnrollmentInput:
+      type: object
+      required: [version, standardId, divisionId, categoryId]
+      properties:
+        version: { type: integer, format: int64 }
+        standardId: { type: integer, format: int64 }
+        divisionId: { type: integer, format: int64 }
+        categoryId: { type: integer, format: int64 }
+    NameMatch:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        grNo: { type: string }
+        name: { type: string }
+        status: { type: string }
+    PickLists:
+      type: object
+      properties:
+        currentYear: { type: object, properties: { id: { type: integer, format: int64 }, name: { type: string } } }
+        standards: { type: array, items: { type: object, properties: { id: { type: integer, format: int64 }, name: { type: string } } } }
+        divisions: { type: array, items: { type: object, properties: { id: { type: integer, format: int64 }, standardId: { type: integer, format: int64 }, name: { type: string } } } }
+        categories: { type: array, items: { type: object, properties: { id: { type: integer, format: int64 }, code: { type: string } } } }
+    HistoryEntry:
+      type: object
+      properties:
+        at: { type: string, format: date-time }
+        userName: { type: string }
+        action: { type: string, example: Edit }
+        record: { type: string, example: 'Student#12 or StudentEnrollment#40' }
+        changes: { type: object, additionalProperties: true, description: 'old and new values; aadhaar and religionCaste masked' }
+    HistoryResult:
+      type: object
+      properties:
+        entries: { type: array, items: { $ref: '#/components/schemas/HistoryEntry' } }
+        truncated: { type: boolean, description: 'true when older entries exist; the screen says Older entries are in the Audit log' }
+    StudentCreateInput:
+      allOf:
+        - $ref: '#/components/schemas/StudentInput'
+        - type: object
+          required: [standardId, divisionId, categoryId]
