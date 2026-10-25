@@ -73,6 +73,19 @@ class ExcelExporterTest {
 	}
 
 	@Test
+	void textStartingWithAFormulaCharacterIsWrittenAsPlainText() throws Exception {
+		List<String> typed = List.of("=1+1", "+SUM(A1)", "-5", "@cmd", "=HYPERLINK(\"http://example.invalid\")");
+
+		Sheet sheet = export(typed.stream().map(text -> Map.<String, Object>of("name", text)).toList());
+
+		for (int i = 0; i < typed.size(); i++) {
+			var cell = sheet.getRow(i + 1).getCell(0);
+			assertThat(cell.getCellType()).isEqualTo(CellType.STRING);
+			assertThat(cell.getStringCellValue()).isEqualTo(typed.get(i));
+		}
+	}
+
+	@Test
 	void missingValuesBecomeBlankCells() throws Exception {
 		Sheet sheet = export(List.of(Map.of("name", "only name")));
 
