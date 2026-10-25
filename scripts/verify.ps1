@@ -20,8 +20,8 @@ if (Test-Path frontend/package.json) {
     Pop-Location
 }
 
-Write-Host "== FR coverage (report only; strict mode is switched on in T099) =="
-& "$PSScriptRoot/check-fr-coverage.ps1"
+Write-Host "== FR coverage (strict: every requirement needs a test) =="
+& "$PSScriptRoot/check-fr-coverage.ps1" -Strict
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "VERIFY OK"

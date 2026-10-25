@@ -11,7 +11,7 @@ if [ -f frontend/package.json ]; then
   (cd frontend && npm ci && npm run build && npm test -- --watch=false)
 fi
 
-echo "== FR coverage (report only; strict mode is switched on in T099) =="
-bash scripts/check-fr-coverage.sh
+echo "== FR coverage (strict: every requirement needs a test) =="
+bash scripts/check-fr-coverage.sh --strict
 
 echo "VERIFY OK"

@@ -252,7 +252,7 @@ description: "Task list for F0 Foundation"
 ## Phase 9: Polish and Cross-Cutting Concerns
 
 - [X] T098 [P] Add the production build step: script `scripts/build-frontend.ps1` and `.sh` that runs `ng build` and copies the output to `management/src/main/resources/static`; add a test `BT/shared/SpaFallbackIT.java` (non-API path returns `index.html`, `/api/unknown` returns 404 JSON)
-- [ ] T099 [P] Run `scripts/check-fr-coverage.ps1 -Strict`; add tests for any FR it reports uncovered, and switch `scripts/verify.*` to strict mode; FR-036 is cited by a small test of the check script itself (FR-036, SC-009)
+- [X] T099 [P] Run `scripts/check-fr-coverage.ps1 -Strict`; add tests for any FR it reports uncovered, and switch `scripts/verify.*` to strict mode; FR-036 is cited by a small test of the check script itself (FR-036, SC-009)
 - [ ] T100 Run `scripts/verify.ps1` with `JAVA_HOME` set to JDK 21 and fix failures
 - [ ] T101 [P] Run the manual scenarios in `specs/001-foundation/quickstart.md` (1 to 12) and record results, including three timed checks: a first-time admin signs in and adds a year, standard and division in under 10 minutes unaided (SC-001, SC-008), and a filtered audit search is found within 30 seconds (SC-005); update the quickstart where steps differ
 - [ ] T102 [P] Security review of `BE/security/` and `management/src/main/resources/application.properties` (cookie flags, CSRF, no secrets in logs, generic error messages) using the `security-review` skill
