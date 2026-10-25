@@ -81,3 +81,5 @@ for clarifications. All specs, plans, and reviews MUST verify compliance; unjust
 complexity or violations block merge.
 
 **Version**: 1.0.1 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24
+
+Amendment 1.0.1 was approved by the project owner on 2026-10-25 (decision log).
