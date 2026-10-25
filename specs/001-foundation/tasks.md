@@ -187,7 +187,7 @@ description: "Task list for F0 Foundation"
 - [X] T073 [P] [US4] `BT/audit/AuditTransactionIT.java`: a change that rolls back leaves no entry; `AuditService.record` outside a transaction fails (FR-023)
 - [X] T074 [P] [US4] `BT/audit/AuditMaskingIT.java`: a changed field marked sensitive appears masked with the last 4 characters; password and hash never appear (FR-025)
 - [X] T075 [P] [US4] `BT/audit/AuditExtensibilityIT.java`: a test-only module records area `Fees` with action `Cancel` and a reason, and the entry is listed and filterable without any schema change (FR-027)
-- [ ] T076 [P] [US4] `frontend/e2e/audit-log.spec.ts`: titles with FR ids; login and edit entries visible, date/month/year/area/action filters, no edit or delete control (FR-021, FR-022, FR-024, FR-026)
+- [X] T076 [P] [US4] `frontend/e2e/audit-log.spec.ts`: titles with FR ids; login and edit entries visible, date/month/year/area/action filters, no edit or delete control (FR-021, FR-022, FR-024, FR-026)
 
 ### Implementation for User Story 4
 
