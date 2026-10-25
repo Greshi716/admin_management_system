@@ -1,6 +1,8 @@
 package com.admin.management.students;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -54,6 +56,15 @@ class StudentAudit {
 		Map<String, Object> newValues = new LinkedHashMap<>();
 		newValues.put("photo", newVersion == null ? "none" : "version " + newVersion);
 		audit.record(AREA, "Edit", STUDENT + "#" + studentId, Map.of("old", oldValues, "new", newValues), null);
+	}
+
+
+	/** The newest entries about the student and the given class records, newest first (FR-019). */
+	AuditService.History history(Long studentId, List<Long> enrollmentIds, int limit) {
+		List<String> entities = new ArrayList<>();
+		entities.add(STUDENT + "#" + studentId);
+		enrollmentIds.forEach((id) -> entities.add(ENROLLMENT + "#" + id));
+		return audit.history(AREA, entities, limit);
 	}
 
 }

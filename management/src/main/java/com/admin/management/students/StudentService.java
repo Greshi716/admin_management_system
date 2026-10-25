@@ -25,6 +25,8 @@ import com.admin.management.shared.web.ValidationException;
 @Service
 public class StudentService {
 
+	static final int HISTORY_LIMIT = 200;
+
 	private final StudentRepository students;
 
 	private final EnrollmentRepository enrollments;
@@ -120,6 +122,25 @@ public class StudentService {
 		PickLists lists = masterData.pickLists(chosenYear, keepStandard, keepDivision, keepCategory);
 		return new PickListsDto(current.map((y) -> new PickListsDto.CurrentYear(y.id(), y.name())).orElse(null),
 				lists.standards(), lists.divisions(), lists.categories());
+	}
+
+	/** The profile: the student with masked sensitive fields and the class history (FR-007, FR-009). */
+	@Transactional(readOnly = true)
+	public StudentDto get(Long id) {
+		return toDto(students.findById(id).orElseThrow(() -> new NotFoundException("Student", id)));
+	}
+
+	/** The newest {@value #HISTORY_LIMIT} audit entries about the student and its class records (FR-019). */
+	@Transactional(readOnly = true)
+	public StudentHistoryDto history(Long id) {
+		students.findById(id).orElseThrow(() -> new NotFoundException("Student", id));
+		List<Long> recordIds = enrollments.findByStudentId(id).stream().map(StudentEnrollment::getId).toList();
+		var found = audit.history(id, recordIds, HISTORY_LIMIT);
+		return new StudentHistoryDto(
+				found.entries().stream()
+					.map((e) -> new StudentHistoryDto.Entry(e.at(), e.userName(), e.action(), e.entity(), e.changes()))
+					.toList(),
+				found.truncated());
 	}
 
 	/** The student as shown on screen, with masked sensitive fields and the class history, newest year first. */
