@@ -281,6 +281,103 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     expect(text()).toContain('2026-27');
   });
 
+  it('sorts ascending on the first click, descending on the second and back to the server order on the third', () => {
+    create();
+    loaded();
+    const heading = () => fixture.nativeElement.querySelector('th button') as HTMLElement;
+
+    heading().click();
+    const ascending = latestSearch();
+    expect(ascending.request.body).toMatchObject({ sortField: 'name', sortOrder: 1 });
+    ascending.flush(twoRows);
+    fixture.detectChanges();
+    heading().click();
+    const descending = latestSearch();
+    expect(descending.request.body).toMatchObject({ sortField: 'name', sortOrder: -1 });
+    descending.flush(twoRows);
+    fixture.detectChanges();
+    heading().click();
+    const third = latestSearch().request.body as Record<string, unknown>;
+    expect(third['sortField']).toBeUndefined();
+    expect(third['sortOrder']).toBeUndefined();
+  });
+
+  it('marks the sorted column for screen readers', () => {
+    create();
+    loaded();
+    const header = () => fixture.nativeElement.querySelector('th') as HTMLElement;
+    expect(header().getAttribute('aria-sort')).toBe('none');
+
+    (header().querySelector('button') as HTMLElement).click();
+    loaded();
+
+    expect(header().getAttribute('aria-sort')).toBe('ascending');
+  });
+
+  it('exports with the current search, filters and sort', () => {
+    create();
+    loaded();
+    vi.useFakeTimers();
+    const input = fixture.nativeElement.querySelector('input[type="search"]') as HTMLInputElement;
+    input.value = 'abc';
+    input.dispatchEvent(new Event('input'));
+    vi.advanceTimersByTime(300);
+    loaded();
+    (fixture.nativeElement.querySelector('th button') as HTMLElement).click();
+    latestSearch().flush(twoRows);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('button[aria-label="Filter Current"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const choice = fixture.nativeElement.querySelector('select:not([aria-label])') as HTMLSelectElement;
+    choice.value = 'true';
+    choice.dispatchEvent(new Event('change'));
+    latestSearch().flush(twoRows);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).click();
+
+    expect(controller.expectOne(EXPORT).request.body).toEqual({
+      first: 0,
+      rows: 25,
+      sortField: 'name',
+      sortOrder: 1,
+      globalFilter: 'abc',
+      filters: { current: { value: true, matchMode: 'equals' } },
+    });
+  });
+
+  it('sends the extra fields of a list with its own filters, and goes back to the first page when they change', () => {
+    fixture = TestBed.createComponent(CampusTableComponent);
+    fixture.componentRef.setInput('columns', columns);
+    fixture.componentRef.setInput('endpoint', '/api/academic-years');
+    fixture.componentRef.setInput('extraParams', { area: 'Fees' });
+    fixture.detectChanges();
+    const firstLoad = latestSearch();
+    expect(firstLoad.request.body).toEqual({ first: 0, rows: 25, filters: {}, area: 'Fees' });
+    firstLoad.flush({ rows: twoRows.rows, total: 130 });
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
+    latestSearch().flush({ rows: twoRows.rows, total: 130 });
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('extraParams', { area: 'Fees', action: 'Cancel' });
+    fixture.detectChanges();
+
+    expect(latestSearch().request.body).toEqual({ first: 0, rows: 25, filters: {}, area: 'Fees', action: 'Cancel' });
+  });
+
+  it('shows no rows when the server refuses the query, for example a reversed date range', () => {
+    create();
+    loaded({ rows: twoRows.rows, total: 130 });
+
+    (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
+    latestSearch().flush({ title: 'Validation failed' }, { status: 422, statusText: 'Unprocessable Entity' });
+    fixture.detectChanges();
+
+    expect(text()).toContain('No rows found');
+    expect(text()).not.toContain('2026-27');
+  });
+
   it('does not save anything when the export fails', () => {
     create();
     loaded();
