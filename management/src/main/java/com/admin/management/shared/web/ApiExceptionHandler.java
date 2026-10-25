@@ -62,6 +62,17 @@ public class ApiExceptionHandler {
 		return validation(ex.getFieldErrors());
 	}
 
+	@ExceptionHandler(NotFoundException.class)
+	ResponseEntity<ApiProblem> notFound(NotFoundException ex) {
+		return problem(ApiProblem.of(404, "Not found", ex.getMessage()));
+	}
+
+	@ExceptionHandler(ConflictException.class)
+	ResponseEntity<ApiProblem> conflict(ConflictException ex) {
+		return problem(ApiProblem.of(409, "Conflict", ex.getMessage())
+			.withFieldErrors(List.of(new ApiProblem.FieldError(ex.getField(), ex.getMessage()))));
+	}
+
 	@ExceptionHandler(ConstraintViolationException.class)
 	ResponseEntity<ApiProblem> invalidEntity(ConstraintViolationException ex) {
 		List<ApiProblem.FieldError> errors = ex.getConstraintViolations()
