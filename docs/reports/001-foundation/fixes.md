@@ -56,6 +56,6 @@ Source: `self-review.md` (APPROVED, 6 should fix). Final `bash scripts/verify.sh
 
 Not fixed in this round (not requested): R2 and R3 need the owner (see below), R7 to R15 are minor.
 
-- **R2**: the "Audit log" area is still only in the decision log. The owner decides: record exports under Security, or update the agreement, spec and data model.
-- **R3**: the owner must confirm the constitution 1.0.1 approval line, or it is removed.
+- **R2** (fixed after the owner's answer): exports of the audit log are now recorded under the Security area, so the agreement, spec and data model need no change. The decision-log row is updated and a test checks it.
+- **R3**: confirmed by the owner on 2026-10-25 ("I CONFIRM"). The approval line stays in the constitution and the decision log.
 - CLAUDE.md: the uncommitted "Hooks" line in the working tree is not mine and was left out of the commit.

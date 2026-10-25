@@ -10,7 +10,7 @@ interface ChangeSet {
 }
 
 /** Areas and actions the audit log knows today; later modules add their own areas here (FR-027). */
-const AREAS = ['Security', 'Master data', 'Audit log'];
+const AREAS = ['Security', 'Master data'];
 const ACTIONS = ['Create', 'Edit', 'Delete', 'Login', 'Export', 'Cancel', 'Finalise', 'Import'];
 
 const AREA_BADGE: Record<string, string> = {

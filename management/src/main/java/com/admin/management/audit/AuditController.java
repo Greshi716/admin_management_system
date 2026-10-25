@@ -20,7 +20,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/api/audit-log")
 class AuditController {
 
-	static final String AREA = "Audit log";
+	static final String AREA = "Security";
 
 	private final TableEndpoints tables;
 

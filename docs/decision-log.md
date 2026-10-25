@@ -21,7 +21,7 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 | 2026-10-25 | Target machine: Windows 10, 4 GB RAM, one computer, no Docker. F11 builds a single installer that bundles Java and PostgreSQL as Windows services. | F11 |
 | 2026-10-25 | Fee amounts per standard and category are set by the admin (FEE-01), so no financial rule is assumed for categories. | F2 |
 | 2026-10-25 | PrimeNG was dropped; the UI uses plain Angular components styled with Tailwind, with the colour tokens in the `@theme` block of `frontend/src/styles.css` (research R2, superseded). | F0 |
-| 2026-10-25 | The audit log page uses the audit area "Audit log" for its own Export entries (FR-027 lists Security, Master data, Fees, Payroll, Fund; exporting the log is a Security-relevant action but has no area of its own). | F0 |
+| 2026-10-25 | Exports of the audit log are recorded under the audit area Security (owner decision, replaces the earlier "Audit log" area, so the agreement's area list is unchanged). | F0 |
 | 2026-10-25 | The project owner approved constitution amendment 1.0.1 (Governance requires owner approval). | F0 |
 | 2026-10-25 | The `test` profile keeps its unauthenticated Admin reset in the jar but refuses to start unless the database name ends in `_test` (`TestProfileGuard`). | F0 |
 

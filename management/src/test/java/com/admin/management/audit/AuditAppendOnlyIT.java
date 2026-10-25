@@ -31,6 +31,19 @@ class AuditAppendOnlyIT extends IntegrationTest {
 	RequestMappingHandlerMapping mappings;
 
 	@Test
+	void exportingTheAuditLogIsRecordedUnderTheSecurityArea() throws Exception {
+		Integer before = jdbc.queryForObject(
+				"select count(*) from audit_log where area = 'Security' and action = 'Export' and entity = 'Audit log'",
+				Integer.class);
+
+		SignedInClient.of(mvc).post("/api/audit-log/export", "{}").andExpect(status().isOk());
+
+		assertThat(jdbc.queryForObject(
+				"select count(*) from audit_log where area = 'Security' and action = 'Export' and entity = 'Audit log'",
+				Integer.class)).isEqualTo(before + 1);
+	}
+
+	@Test
 	void theApiOffersOnlySearchAndExportForTheAuditLog() {
 		List<String> methodsAndPaths = mappings.getHandlerMethods()
 			.keySet()
