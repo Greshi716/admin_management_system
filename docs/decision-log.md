@@ -20,6 +20,7 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 | 2026-10-25 | Printed documents are in English only. One computer with 4 GB RAM runs CampusFlow and nothing else uses it over a network. | All, F11 |
 | 2026-10-25 | Target machine: Windows 10, 4 GB RAM, one computer, no Docker. F11 builds a single installer that bundles Java and PostgreSQL as Windows services. | F11 |
 | 2026-10-25 | Fee amounts per standard and category are set by the admin (FEE-01), so no financial rule is assumed for categories. | F2 |
+| 2026-10-25 | The audit log page uses the audit area "Audit log" for its own Export entries (FR-027 lists Security, Master data, Fees, Payroll, Fund; exporting the log is a Security-relevant action but has no area of its own). | F0 |
 
 ## Open items
 

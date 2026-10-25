@@ -55,7 +55,8 @@ export interface YearDates {
 
 /**
  * The April-to-March school year that contains `today`, so specs never depend on a fixed calendar year. Pass
- * `offset` to get the year before (-1) or after (+1).
+ * `offset` to get the year before (-1) or after (+1). The spec's examples use 01-06 to 31-05; the school's real dates
+ * are set by the admin and no rule depends on them, so the specs use April to March as one fixed choice.
  */
 export function academicYearAround(today: Date = new Date(), offset = 0): YearDates {
   const startYear = (today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1) + offset;
