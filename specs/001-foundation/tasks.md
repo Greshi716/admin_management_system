@@ -168,7 +168,7 @@ description: "Task list for F0 Foundation"
 
 - [X] T068 [P] [US3] `BE/masterdata/category/StudentCategory.java`, `StudentCategoryRepository.java`, `StudentCategoryDto.java` (`affectsFees` has no default and must be chosen)
 - [X] T069 [US3] `BE/masterdata/category/StudentCategoryService.java` and `StudentCategoryController.java` for `/api/student-categories` (list, search, export, create, edit, delete, active) with audit (FR-018, FR-019, FR-020, FR-021)
-- [ ] T070 [P] [US3] `FE/features/masterdata/categories/` page with an explicit Yes/No choice for "Affects fees" (no pre-selected value), the stale-version dialog (FR-046), and registration in `masterdata.routes.ts` (this file is created by T065; do this task after it)
+- [X] T070 [P] [US3] `FE/features/masterdata/categories/` page with an explicit Yes/No choice for "Affects fees" (no pre-selected value), the stale-version dialog (FR-046), and registration in `masterdata.routes.ts` (this file is created by T065; do this task after it)
 
 **Checkpoint**: Categories done; Stories 1 to 3 work independently.
 

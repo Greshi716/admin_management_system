@@ -1,0 +1,97 @@
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-2xl font-bold">Student categories</h1>
+  <p-button label="Add category" (onClick)="add()" />
+</div>
+
+<campus-table [endpoint]="endpoint" [columns]="columns">
+  <ng-template #rowActions let-row>
+    <p-button label="Edit" size="small" severity="secondary" [outlined]="true" (onClick)="edit(row)" />
+    @if (row['active']) {
+      <p-button label="Mark inactive" size="small" severity="secondary" [outlined]="true" class="ml-2" (onClick)="setActive(row, false)" />
+    } @else {
+      <p-button label="Mark active" size="small" severity="secondary" [outlined]="true" class="ml-2" (onClick)="setActive(row, true)" />
+    }
+    <p-button label="Delete" size="small" severity="danger" [outlined]="true" class="ml-2" (onClick)="askDelete(row)" />
+  </ng-template>
+</campus-table>
+
+<p-dialog
+  [header]="isEdit ? 'Edit category' : 'Add category'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [visible]="formOpen()"
+  (visibleChange)="!$event && closeForm()"
+  [style]="{ width: '26rem', maxWidth: '95vw' }"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <label class="mb-1 block text-sm font-semibold" for="categoryCode">Code</label>
+    <input pInputText id="categoryCode" class="mb-1 w-full" formControlName="code" />
+    @if (serverMessage(form.controls.code); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if (form.controls.code.touched && form.controls.code.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the category code.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="categoryName">Name</label>
+    <input pInputText id="categoryName" class="mb-1 w-full" formControlName="name" />
+    @if (serverMessage(form.controls.name); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if (form.controls.name.touched && form.controls.name.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the category name.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <fieldset class="mb-1">
+      <legend class="mb-1 block text-sm font-semibold">Affects fees</legend>
+      <div class="flex gap-6">
+        <label class="flex items-center gap-2">
+          <input type="radio" name="affectsFees" [value]="true" formControlName="affectsFees" />
+          Yes
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="radio" name="affectsFees" [value]="false" formControlName="affectsFees" />
+          No
+        </label>
+      </div>
+    </fieldset>
+    @if (serverMessage(form.controls.affectsFees); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if (form.controls.affectsFees.touched && form.controls.affectsFees.invalid) {
+      <p class="mb-3 text-sm text-error-text">Choose whether this category affects fees.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <div class="flex justify-end gap-2">
+      <p-button type="button" label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeForm()" />
+      <p-button type="submit" label="Save" [loading]="busy()" />
+    </div>
+  </form>
+</p-dialog>
+
+<app-stale-version-dialog
+  [latest]="stale()"
+  [fields]="staleFields"
+  (useLatest)="useLatest()"
+  (keepMine)="stale.set(null)"
+/>
+
+<p-dialog
+  header="Delete category"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [visible]="deleting() !== null"
+  (visibleChange)="!$event && deleting.set(null)"
+  [style]="{ width: '26rem', maxWidth: '95vw' }"
+>
+  <p class="mb-4">Delete the category {{ deleting()?.['name'] }}? This cannot be undone.</p>
+  <div class="flex justify-end gap-2">
+    <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="deleting.set(null)" />
+    <p-button label="Delete" severity="danger" [loading]="busy()" (onClick)="confirmDelete()" />
+  </div>
+</p-dialog>
