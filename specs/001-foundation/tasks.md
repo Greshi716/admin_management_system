@@ -113,7 +113,7 @@ description: "Task list for F0 Foundation"
 - [X] T044 [US1] `BE/security/SessionAuditListener.java`: `HttpSessionListener` that records an idle sign-out audit entry when a session expires and a logout entry on logout (FR-008, FR-022); the entry is written with `AuditService.recordIndependent` (no caller transaction exists); a logout must produce one entry only (mark the session as logged out before invalidating it so the listener skips it), and the listener must read the user from the session's stored security context because no request is active when a session expires
 - [X] T045 [P] [US1] `FE/core/auth/auth.store.ts` (signals: user, passwordChanged, idle timeout) and `FE/core/auth/auth.guard.ts` (FR-007)
 - [X] T046 [P] [US1] `FE/features/auth/sign-in/sign-in.component.ts`: sign-in page per `docs/design/ui-tokens.md`, shows lock-out message and retry time, generic wrong-credentials message (FR-004, FR-044)
-- [ ] T047 [P] [US1] `FE/features/auth/change-password/change-password-dialog.component.ts`: change-password form (current, new, confirm; 8 characters minimum) used by the popup (T092) and the user menu (FR-009)
+- [X] T047 [P] [US1] `FE/features/auth/change-password/change-password-dialog.component.ts`: change-password form (current, new, confirm; 8 characters minimum) used by the popup (T092) and the user menu (FR-009)
 - [x] T048 Merged into T047 (one change-password dialog; no separate work)
 - [X] T049 [US1] `FE/core/auth/idle-watch.service.ts`: on a 401 after inactivity send the user to sign-in with a message (FR-008); the app must make no background or polling requests, because any API call extends the session and would stop the 10-minute timeout from ever firing
 
