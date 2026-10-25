@@ -24,6 +24,9 @@
   (visibleChange)="!$event && closeForm()"
   width="26rem"
 >
+  @if (loadingChoices()) {
+    <app-page-skeleton [title]="false" />
+  } @else {
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
     <label class="mb-1 block text-sm font-semibold" for="divisionYear">Academic year</label>
     <select id="divisionYear" class="input w-full mb-1" formControlName="academicYearId">
@@ -34,7 +37,7 @@
     </select>
     @if (serverMessage(form.controls.academicYearId); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.academicYearId.touched && form.controls.academicYearId.invalid) {
+    } @else if ((form.controls.academicYearId.touched || form.controls.academicYearId.dirty) && form.controls.academicYearId.invalid) {
       <p class="mb-3 text-sm text-error-text">Choose the academic year.</p>
     } @else {
       <div class="mb-3"></div>
@@ -49,7 +52,7 @@
     </select>
     @if (serverMessage(form.controls.standardId); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.standardId.touched && form.controls.standardId.invalid) {
+    } @else if ((form.controls.standardId.touched || form.controls.standardId.dirty) && form.controls.standardId.invalid) {
       <p class="mb-3 text-sm text-error-text">Choose the standard.</p>
     } @else {
       <div class="mb-3"></div>
@@ -59,7 +62,7 @@
     <input  id="divisionName" class="input mb-1 w-full" formControlName="name" placeholder="A" />
     @if (serverMessage(form.controls.name); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.name.touched && form.controls.name.invalid) {
+    } @else if ((form.controls.name.touched || form.controls.name.dirty) && form.controls.name.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the division name.</p>
     } @else {
       <div class="mb-3"></div>
@@ -70,6 +73,7 @@
       <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()">Save</button>
     </div>
   </form>
+  }
 </app-dialog>
 
 <app-stale-version-dialog

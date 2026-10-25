@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
@@ -8,6 +9,7 @@ import { StaleField, StaleVersionDialogComponent } from '../../../shared/forms/s
 import { CampusTableComponent } from '../../../shared/table/campus-table.component';
 import { CampusColumn } from '../../../shared/table/table-types';
 import { DialogComponent } from '../../../shared/ui/dialog.component';
+import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
 
 interface Choice {
   id: number;
@@ -20,7 +22,7 @@ interface Choice {
  */
 @Component({
   selector: 'app-divisions',
-  imports: [ReactiveFormsModule, DialogComponent, CampusTableComponent, StaleVersionDialogComponent],
+  imports: [ReactiveFormsModule, DialogComponent, CampusTableComponent, StaleVersionDialogComponent, PageSkeletonComponent],
   templateUrl: './divisions.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -48,6 +50,7 @@ export class DivisionsComponent {
 
   protected readonly formOpen = signal(false);
   protected readonly busy = signal(false);
+  protected readonly loadingChoices = signal(false);
   protected readonly years = signal<Choice[]>([]);
   protected readonly standards = signal<Choice[]>([]);
   protected readonly stale = signal<Record<string, unknown> | null>(null);
@@ -160,8 +163,18 @@ export class DivisionsComponent {
 
   /** All academic years, and the active standards only (FR-016). */
   private loadChoices(): void {
-    this.http.get<Choice[]>('/api/academic-years').subscribe((years) => this.years.set(years));
-    this.http.get<Choice[]>('/api/standards').subscribe((standards) => this.standards.set(standards));
+    this.loadingChoices.set(true);
+    forkJoin({
+      years: this.http.get<Choice[]>('/api/academic-years'),
+      standards: this.http.get<Choice[]>('/api/standards'),
+    }).subscribe({
+      next: ({ years, standards }) => {
+        this.years.set(years);
+        this.standards.set(standards);
+        this.loadingChoices.set(false);
+      },
+      error: () => this.loadingChoices.set(false), // the error interceptor has shown the reason
+    });
   }
 
   private fill(values: Record<string, unknown>): void {
