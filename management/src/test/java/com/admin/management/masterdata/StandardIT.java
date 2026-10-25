@@ -52,7 +52,14 @@ class StandardIT extends IntegrationTest {
 	}
 
 	@Test
-	void streamMayOnlyBeScienceOrCommerce() throws Exception {
+	void aNameLongerThan100CharactersIsRefusedBesideTheField() throws Exception {
+		api.post("/api/standards", "{\"name\":\"" + "x".repeat(101) + "\",\"displayOrder\":1}")
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
+	}
+
+	@Test
+	void streamMayOnlyBeScienceOrCommerce()throws Exception {
 		api.post("/api/standards", "{\"name\":\"Standard 11 Sci\",\"displayOrder\":11,\"stream\":\"Science\"}")
 			.andExpect(status().isCreated());
 		api.post("/api/standards", "{\"name\":\"Standard 11 Com\",\"displayOrder\":12,\"stream\":\"Commerce\"}")

@@ -3,6 +3,7 @@ package com.admin.management.masterdata.division;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -11,7 +12,7 @@ import jakarta.validation.constraints.NotNull;
  */
 public record DivisionDto(Long id, @NotNull(message = "Choose the academic year.") Long academicYearId,
 		@NotNull(message = "Choose the standard.") Long standardId,
-		@NotBlank(message = "Enter the division name.") String name, Long version,
+		@NotBlank(message = "Enter the division name.") @Size(max = 100, message = "The name can have at most 100 characters.") String name, Long version,
 		@JsonProperty(access = JsonProperty.Access.READ_ONLY) String academicYearName,
 		@JsonProperty(access = JsonProperty.Access.READ_ONLY) String standardName,
 		@JsonProperty(access = JsonProperty.Access.READ_ONLY) Boolean active) {
