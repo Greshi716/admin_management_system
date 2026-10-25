@@ -53,6 +53,17 @@ describe('AuthStore (FR-001, FR-006, FR-007, FR-009)', () => {
     expect(store.signedIn()).toBe(false);
   });
 
+  it('does not treat a server error on the user check as signed out', () => {
+    let failed = false;
+    store.ensureLoaded().subscribe({ error: () => (failed = true) });
+    controller.expectOne('/api/auth/me').flush(null, { status: 500, statusText: 'Server Error' });
+
+    expect(failed).toBe(true);
+    expect(store.signedIn()).toBe(false);
+    store.ensureLoaded().subscribe({ error: () => undefined });
+    controller.expectOne('/api/auth/me'); // asked again, because the answer was not known
+  });
+
   it('keeps the user and clears the notice after a successful sign-in', () => {
     store.notice.set('You were signed out.');
 

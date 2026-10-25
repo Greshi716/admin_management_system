@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateChildFn, Router } from '@angular/router';
-import { map } from 'rxjs';
+import { catchError, map, of } from 'rxjs';
 import { AuthStore } from './auth.store';
 
 export const ACADEMIC_YEARS_ROUTE = '/master-data/academic-years';
@@ -19,5 +19,6 @@ export const currentYearGuard: CanActivateChildFn = (_route, state) => {
       }
       return state.url.split(/[?#]/)[0] === ACADEMIC_YEARS_ROUTE || router.createUrlTree([ACADEMIC_YEARS_ROUTE]);
     }),
+    catchError(() => of(true)), // the session check failed; the sign-in guard has already refused or shown the error
   );
 };

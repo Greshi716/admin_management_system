@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { catchError, finalize, map, Observable, of, tap } from 'rxjs';
+import { catchError, finalize, map, Observable, of, tap, throwError } from 'rxjs';
 import { Me } from './me';
 
 const ME_URL = '/api/auth/me';
@@ -41,9 +41,14 @@ export class AuthStore {
         this.asked.set(true);
         return true;
       }),
-      catchError(() => {
-        this.clear();
-        return of(false);
+      catchError((error: unknown) => {
+        // Only a 401 means "not signed in". A network error or a 500 says nothing about the session, so it is passed
+        // on (the error interceptor has shown the toast) and the admin is not sent to the sign-in page.
+        if (error instanceof HttpErrorResponse && error.status === 401) {
+          this.clear();
+          return of(false);
+        }
+        return throwError(() => error);
       }),
     );
   }

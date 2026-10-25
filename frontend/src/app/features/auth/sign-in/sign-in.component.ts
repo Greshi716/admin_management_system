@@ -55,10 +55,13 @@ export class SignInComponent {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.resumeTimer));
     // Asking who is signed in also makes the server set the XSRF-TOKEN cookie that the sign-in POST must send back,
     // and sends an admin who is already signed in straight to the app.
-    this.store.ensureLoaded().subscribe((signedIn) => {
-      if (signedIn) {
-        void this.router.navigateByUrl('/');
-      }
+    this.store.ensureLoaded().subscribe({
+      next: (signedIn) => {
+        if (signedIn) {
+          void this.router.navigateByUrl('/');
+        }
+      },
+      error: () => undefined, // the server could not be reached; the interceptor has shown the toast, the form stays
     });
   }
 

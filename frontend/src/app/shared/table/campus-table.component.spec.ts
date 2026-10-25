@@ -108,6 +108,22 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     expect(fixture.nativeElement.querySelectorAll('[data-testid="skeleton"]').length).toBe(0);
   });
 
+  it('shows an error row with a retry, not the empty message, when the first load fails', () => {
+    create();
+
+    latestSearch().flush(null, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(text()).toContain('Could not load the list');
+    expect(text()).not.toContain('No rows found');
+
+    (fixture.nativeElement.querySelector('td button') as HTMLButtonElement).click();
+    loaded({ rows: twoRows.rows, total: 2 });
+
+    expect(text()).not.toContain('Could not load the list');
+    expect(text()).toContain('2026-27');
+  });
+
   it('does not show hidden columns', () => {
     create();
     loaded();

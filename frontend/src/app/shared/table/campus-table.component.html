@@ -137,8 +137,13 @@
         } @empty {
           <tr>
             <td [attr.colspan]="visibleColumns().length + (rowActions() ? 1 : 0)" class="py-10 text-center text-muted">
-              <p class="font-semibold text-ink">No rows found</p>
-              <p>Try a different search, or clear the column filters.</p>
+              @if (loadFailed()) {
+                <p class="font-semibold text-ink">Could not load the list</p>
+                <button type="button" class="btn btn-secondary mt-2" (click)="reload()">Try again</button>
+              } @else {
+                <p class="font-semibold text-ink">No rows found</p>
+                <p>Try a different search, or clear the column filters.</p>
+              }
             </td>
           </tr>
         }

@@ -61,6 +61,9 @@ export class CampusTableComponent implements OnInit {
   protected readonly rows = signal<Record<string, unknown>[]>([]);
   protected readonly total = signal(0);
   protected readonly loading = signal(true);
+
+  /** True when the last load failed for a reason other than a refused query; shows the error row, not "No rows". */
+  protected readonly loadFailed = signal(false);
   protected readonly exporting = signal(false);
   protected readonly sortField = signal<string | undefined>(undefined);
   protected readonly sortOrder = signal<1 | -1>(1);
@@ -122,6 +125,7 @@ export class CampusTableComponent implements OnInit {
         takeUntilDestroyed(),
       )
       .subscribe((page) => {
+        this.loadFailed.set(!page);
         if (page) {
           this.rows.set(page.rows);
           this.total.set(page.total);
