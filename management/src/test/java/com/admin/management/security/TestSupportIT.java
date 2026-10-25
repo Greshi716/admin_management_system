@@ -17,7 +17,6 @@ import com.admin.management.support.SignIn;
 import com.admin.management.support.TestAdmin;
 
 /** The test-profile endpoint that browser tests use to put the Admin back in a known state. */
-@Covers("FR-036")
 class TestSupportIT extends IntegrationTest {
 
 	@Autowired

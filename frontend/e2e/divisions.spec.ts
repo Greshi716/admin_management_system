@@ -39,7 +39,7 @@ test.describe('divisions', () => {
     await expect(options).toHaveText(['Choose the standard', 'Standard 1']);
   });
 
-  test('FR-017, FR-021: a division is marked inactive instead of deleted', async ({ page }) => {
+  test('FR-020, FR-021: a division is marked inactive instead of deleted', async ({ page }) => {
     await callApi(page, 'POST', '/api/divisions', { academicYearId: yearId, standardId, name: 'A' });
     await openDivisions(page);
 

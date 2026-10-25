@@ -59,7 +59,7 @@ test.describe('academic years', () => {
     await expect(page.getByRole('button', { name: /make current/i })).toHaveCount(0);
   });
 
-  test('FR-013: the admin edits the name of a year', async ({ page }) => {
+  test('FR-010: the admin edits the name of a year', async ({ page }) => {
     const year = academicYearAround();
     await callApi(page, 'POST', '/api/academic-years', year);
     await openYears(page);
