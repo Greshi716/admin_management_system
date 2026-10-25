@@ -1,15 +1,13 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
-import { InputText } from 'primeng/inputtext';
 import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../../shared/forms/api-error';
 import { StaleField, StaleVersionDialogComponent } from '../../../shared/forms/stale-version-dialog.component';
 import { CampusTableComponent } from '../../../shared/table/campus-table.component';
 import { CampusColumn } from '../../../shared/table/table-types';
+import { DialogComponent } from '../../../shared/ui/dialog.component';
 
 /**
  * Standards (FR-014, FR-015). A standard that is in use cannot be deleted; the server says so and the admin marks
@@ -17,7 +15,7 @@ import { CampusColumn } from '../../../shared/table/table-types';
  */
 @Component({
   selector: 'app-standards',
-  imports: [ReactiveFormsModule, Button, Dialog, InputText, CampusTableComponent, StaleVersionDialogComponent],
+  imports: [ReactiveFormsModule, DialogComponent, CampusTableComponent, StaleVersionDialogComponent],
   templateUrl: './standards.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

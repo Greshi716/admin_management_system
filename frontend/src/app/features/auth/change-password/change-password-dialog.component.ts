@@ -1,12 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, model, signal } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
-import { InputText } from 'primeng/inputtext';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { ToastService } from '../../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../../shared/forms/api-error';
+import { DialogComponent } from '../../../shared/ui/dialog.component';
 
 export const MIN_PASSWORD_LENGTH = 8;
 
@@ -31,7 +29,7 @@ function passwordRules(group: AbstractControl): ValidationErrors | null {
  */
 @Component({
   selector: 'app-change-password-dialog',
-  imports: [ReactiveFormsModule, Dialog, Button, InputText],
+  imports: [ReactiveFormsModule, DialogComponent],
   templateUrl: './change-password-dialog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

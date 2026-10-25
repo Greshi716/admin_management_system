@@ -16,9 +16,9 @@ test.describe('standards', () => {
   test('FR-014: the admin adds a standard with a display order and a stream', async ({ page }) => {
     await openStandards(page);
     await page.getByRole('button', { name: 'Add standard' }).click();
-    await page.getByLabel('Name').fill('Standard 11');
-    await page.getByLabel('Display order').fill('11');
-    await page.getByLabel('Stream').selectOption('Science');
+    await page.getByLabel('Name', { exact: true }).fill('Standard 11');
+    await page.getByLabel('Display order', { exact: true }).fill('11');
+    await page.getByLabel('Stream', { exact: true }).selectOption('Science');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByRole('row', { name: /Standard 11/ })).toContainText('Science');
@@ -28,8 +28,8 @@ test.describe('standards', () => {
     await callApi(page, 'POST', '/api/standards', { name: 'Standard 1', displayOrder: 1 });
     await openStandards(page);
     await page.getByRole('button', { name: 'Add standard' }).click();
-    await page.getByLabel('Name').fill('Standard 1');
-    await page.getByLabel('Display order').fill('2');
+    await page.getByLabel('Name', { exact: true }).fill('Standard 1');
+    await page.getByLabel('Display order', { exact: true }).fill('2');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByRole('alert').first()).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('standards', () => {
       displayOrder: 1,
       version: standard.version,
     });
-    await page.getByLabel('Name').fill('Standard 1 mine');
+    await page.getByLabel('Name', { exact: true }).fill('Standard 1 mine');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByTestId('latest-values')).toContainText('Standard 1 other');

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
 import { formatCell } from '../table/format-cell';
+import { DialogComponent } from '../ui/dialog.component';
 
 /** One value of the latest record, shown by label. */
 export interface StaleField {
@@ -16,16 +15,13 @@ export interface StaleField {
  */
 @Component({
   selector: 'app-stale-version-dialog',
-  imports: [Dialog, Button],
+  imports: [DialogComponent],
   template: `
-    <p-dialog
+    <app-dialog
       header="This record was changed"
-      [modal]="true"
-      [draggable]="false"
-      [resizable]="false"
+      width="28rem"
       [visible]="latest() !== null"
       (visibleChange)="!$event && keepMine.emit()"
-      [style]="{ width: '28rem', maxWidth: '95vw' }"
     >
       <p class="mb-3">
         Someone saved a change to this record after you opened it. These are the latest saved values:
@@ -37,10 +33,10 @@ export interface StaleField {
         }
       </dl>
       <div class="flex justify-end gap-2">
-        <p-button label="Keep what I typed" severity="secondary" [outlined]="true" (onClick)="keepMine.emit()" />
-        <p-button label="Use the latest values" (onClick)="useLatest.emit()" />
+        <button type="button" class="btn btn-secondary btn-outlined" (click)="keepMine.emit()">Keep what I typed</button>
+        <button type="button" class="btn btn-primary" (click)="useLatest.emit()">Use the latest values</button>
       </div>
-    </p-dialog>
+    </app-dialog>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

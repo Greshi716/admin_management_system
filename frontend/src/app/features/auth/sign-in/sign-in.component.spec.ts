@@ -114,7 +114,7 @@ describe('SignInComponent (FR-001, FR-004, FR-044)', () => {
   it('can show and hide the password', () => {
     expect(input('password').type).toBe('password');
 
-    (el().querySelector('p-button[type="button"] button') as HTMLButtonElement).click();
+    (el().querySelector('button[type="button"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
     expect(input('password').type).toBe('text');

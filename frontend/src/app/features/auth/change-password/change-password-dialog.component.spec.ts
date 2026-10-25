@@ -2,7 +2,6 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
-import { MessageService } from 'primeng/api';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { ChangePasswordDialogComponent } from './change-password-dialog.component';
 
@@ -21,7 +20,7 @@ describe('ChangePasswordDialogComponent (FR-009)', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), MessageService],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     controller = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(ChangePasswordDialogComponent);

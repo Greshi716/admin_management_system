@@ -7,15 +7,11 @@ import {
   contentChild,
   inject,
   input,
-  model,
+  OnInit,
   signal,
   TemplateRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Button } from 'primeng/button';
-import { InputText } from 'primeng/inputtext';
-import { Skeleton } from 'primeng/skeleton';
-import { ColumnFilter, SortableColumn, SortIcon, Table, TableLazyLoadEvent } from 'primeng/table';
 import { catchError, debounceTime, distinctUntilChanged, EMPTY, of, Subject, switchMap } from 'rxjs';
 import { ToastService } from '../../core/toast/toast.service';
 import { FileDownloader, fileNameFrom } from './file-downloader';
@@ -40,24 +36,29 @@ import {
  */
 @Component({
   selector: 'campus-table',
-  imports: [Table, SortableColumn, SortIcon, ColumnFilter, Button, InputText, Skeleton, NgTemplateOutlet],
+  imports: [NgTemplateOutlet],
   templateUrl: './campus-table.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CampusTableComponent {
+export class CampusTableComponent implements OnInit {
   readonly columns = input.required<CampusColumn[]>();
   readonly endpoint = input.required<string>();
   /** Optional per-row buttons: give the table an ng-template named rowActions; it receives the row. */
   protected readonly rowActions = contentChild<TemplateRef<{ $implicit: Record<string, unknown> }>>('rowActions');
 
   protected readonly pageSizes = [...PAGE_SIZES];
-  protected readonly first = model<number | null | undefined>(0);
+  protected readonly first = signal(0);
   protected readonly pageSize = signal(DEFAULT_PAGE_SIZE);
   protected readonly search = signal('');
   protected readonly rows = signal<Record<string, unknown>[]>([]);
   protected readonly total = signal(0);
   protected readonly loading = signal(true);
   protected readonly exporting = signal(false);
+  protected readonly sortField = signal<string | undefined>(undefined);
+  protected readonly sortOrder = signal<1 | -1>(1);
+  protected readonly filters = signal<Record<string, TableFilter>>({});
+  /** Field of the column whose filter panel is open, if any. */
+  protected readonly openFilter = signal<string | null>(null);
   protected readonly formatCell = formatCell;
 
   protected readonly visibleColumns = computed(() => this.columns().filter((column) => !column.hidden));
@@ -67,15 +68,20 @@ export class CampusTableComponent {
     this.loading() ? Array.from({ length: this.pageSize() }, (_, index) => ({ skeleton: index })) : this.rows(),
   );
 
+  protected readonly lastShown = computed(() => Math.min(this.first() + this.pageSize(), this.total()));
+  protected readonly firstShown = computed(() => (this.total() === 0 ? 0 : this.first() + 1));
+  protected readonly lastPageStart = computed(() =>
+    Math.max(0, Math.floor((this.total() - 1) / this.pageSize()) * this.pageSize()),
+  );
+  protected readonly pageNumber = computed(() => Math.floor(this.first() / this.pageSize()) + 1);
+  protected readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
+
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
   private readonly downloader = inject(FileDownloader);
 
-  private sortField: string | undefined;
-  private sortOrder: 1 | -1 | undefined;
-  private filters: Record<string, TableFilter> = {};
-
   private readonly searchTyped = new Subject<string>();
+  private readonly filterTyped = new Subject<void>();
   private readonly loadRequested = new Subject<void>();
 
   constructor() {
@@ -85,6 +91,11 @@ export class CampusTableComponent {
         this.first.set(0);
         this.loadRequested.next();
       });
+
+    this.filterTyped.pipe(debounceTime(SEARCH_DEBOUNCE_MS), takeUntilDestroyed()).subscribe(() => {
+      this.first.set(0);
+      this.loadRequested.next();
+    });
 
     // switchMap drops the answer of an older request when a newer one has been made.
     this.loadRequested
@@ -104,6 +115,11 @@ export class CampusTableComponent {
         }
         this.loading.set(false);
       });
+
+  }
+
+  ngOnInit(): void {
+    this.loadRequested.next(); // first page; the inputs are set by now
   }
 
   /** Loads the current page again, for example after a row was added, changed or deleted. */
@@ -111,20 +127,88 @@ export class CampusTableComponent {
     this.loadRequested.next();
   }
 
-  /** PrimeNG calls this on first display, page change, page size change, sort and column filter. */
-  protected onLazyLoad(event: TableLazyLoadEvent): void {
-    this.first.set(event.first ?? 0);
-    this.pageSize.set(event.rows ?? DEFAULT_PAGE_SIZE);
-    this.sortField = typeof event.sortField === 'string' ? event.sortField : undefined;
-    this.sortOrder = this.sortField && (event.sortOrder === 1 || event.sortOrder === -1) ? event.sortOrder : undefined;
-    this.filters = this.activeFilters(event.filters);
+  protected goTo(first: number): void {
+    this.first.set(Math.max(0, first));
     this.loadRequested.next();
+  }
+
+  protected changePageSize(event: Event): void {
+    this.pageSize.set(Number((event.target as HTMLSelectElement).value));
+    this.first.set(0);
+    this.loadRequested.next();
+  }
+
+  /** Clicking a heading sorts ascending, then descending, then back to the server's own order. */
+  protected sortBy(field: string): void {
+    if (this.sortField() !== field) {
+      this.sortField.set(field);
+      this.sortOrder.set(1);
+    } else if (this.sortOrder() === 1) {
+      this.sortOrder.set(-1);
+    } else {
+      this.sortField.set(undefined);
+      this.sortOrder.set(1);
+    }
+    this.first.set(0);
+    this.loadRequested.next();
+  }
+
+  protected ariaSort(field: string): 'ascending' | 'descending' | 'none' {
+    if (this.sortField() !== field) {
+      return 'none';
+    }
+    return this.sortOrder() === 1 ? 'ascending' : 'descending';
   }
 
   protected onSearchInput(event: Event): void {
     const text = (event.target as HTMLInputElement).value;
     this.search.set(text);
     this.searchTyped.next(text.trim());
+  }
+
+  protected toggleFilter(field: string): void {
+    this.openFilter.update((open) => (open === field ? null : field));
+  }
+
+  protected filterActive(field: string): boolean {
+    return field in this.filters();
+  }
+
+  /** The text, number or yes/no value of a column's filter, for showing in its panel. */
+  protected filterValue(field: string): string {
+    const value = this.filters()[field]?.value;
+    return value === undefined || value === null ? '' : String(value);
+  }
+
+  /** One end of a date range filter: 0 is "from", 1 is "to". */
+  protected rangeEnd(field: string, index: 0 | 1): string {
+    const value = this.filters()[field]?.value;
+    return Array.isArray(value) ? String(value[index] ?? '') : '';
+  }
+
+  protected setFilter(column: CampusColumn, event: Event, immediately = false): void {
+    const raw = (event.target as HTMLInputElement | HTMLSelectElement).value;
+    let value: unknown = raw;
+    if (column.type === 'boolean') {
+      value = raw === '' ? null : raw === 'true';
+    } else if (column.type === 'number') {
+      value = raw === '' ? null : Number(raw);
+    }
+    this.applyFilter(column, value, column.type === 'boolean' || immediately);
+  }
+
+  protected setRange(column: CampusColumn, index: 0 | 1, event: Event): void {
+    const text = (event.target as HTMLInputElement).value;
+    const current = this.filters()[column.field]?.value;
+    const pair = Array.isArray(current) ? current : [];
+    const range: [string, string] = [String(pair[0] ?? ''), String(pair[1] ?? '')];
+    range[index] = text;
+    this.applyFilter(column, range, true);
+  }
+
+  protected clearFilter(column: CampusColumn): void {
+    this.applyFilter(column, null, true);
+    this.openFilter.set(null);
   }
 
   protected exportExcel(): void {
@@ -150,27 +234,37 @@ export class CampusTableComponent {
       });
   }
 
-  /** Date-range filter: the template calls this with the changed end of the range. */
-  protected rangeValue(current: unknown, index: 0 | 1, text: string): [string, string] {
-    const pair = Array.isArray(current) ? current : [];
-    const range: [string, string] = [String(pair[0] ?? ''), String(pair[1] ?? '')];
-    range[index] = text;
-    return range;
-  }
-
-  protected rangeEnd(current: unknown, index: 0 | 1): string {
-    return Array.isArray(current) ? String(current[index] ?? '') : '';
+  /** Stores the filter of one column, or removes it when it has no value, and reloads from the first page. */
+  private applyFilter(column: CampusColumn, value: unknown, immediately: boolean): void {
+    const blank = (part: unknown) => part === null || part === undefined || String(part).trim() === '';
+    const empty = Array.isArray(value) ? value.every(blank) : blank(value);
+    this.filters.update((all) => {
+      const next = { ...all };
+      if (empty) {
+        delete next[column.field];
+      } else {
+        next[column.field] = { value, matchMode: matchModeOf(column) };
+      }
+      return next;
+    });
+    if (immediately) {
+      this.first.set(0);
+      this.loadRequested.next();
+    } else {
+      this.filterTyped.next();
+    }
   }
 
   private request(): TableRequest {
     const request: TableRequest = {
-      first: this.first() ?? 0,
+      first: this.first(),
       rows: this.pageSize(),
-      filters: this.filters,
+      filters: this.filters(),
     };
-    if (this.sortField) {
-      request.sortField = this.sortField;
-      request.sortOrder = this.sortOrder ?? 1;
+    const sortField = this.sortField();
+    if (sortField) {
+      request.sortField = sortField;
+      request.sortOrder = this.sortOrder();
     }
     const search = this.search().trim();
     if (search) {
@@ -178,19 +272,16 @@ export class CampusTableComponent {
     }
     return request;
   }
+}
 
-  /** Keeps only filters that have a value, one per column, in the shape the server reads. */
-  private activeFilters(filters: TableLazyLoadEvent['filters']): Record<string, TableFilter> {
-    const active: Record<string, TableFilter> = {};
-    for (const [field, metadata] of Object.entries(filters ?? {})) {
-      const filter = Array.isArray(metadata) ? metadata[0] : metadata;
-      const value = filter?.value;
-      const blank = (part: unknown) => part === null || part === undefined || String(part).trim() === '';
-      const empty = Array.isArray(value) ? value.every(blank) : blank(value);
-      if (!empty) {
-        active[field] = { value, matchMode: filter?.matchMode ?? 'contains' };
-      }
-    }
-    return active;
+function matchModeOf(column: CampusColumn): string {
+  switch (column.type) {
+    case 'date':
+      return 'dateRange';
+    case 'boolean':
+    case 'number':
+      return 'equals';
+    default:
+      return 'contains';
   }
 }

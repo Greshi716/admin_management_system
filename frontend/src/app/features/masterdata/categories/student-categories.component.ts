@@ -1,15 +1,13 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
-import { InputText } from 'primeng/inputtext';
 import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../../shared/forms/api-error';
 import { StaleField, StaleVersionDialogComponent } from '../../../shared/forms/stale-version-dialog.component';
 import { CampusTableComponent } from '../../../shared/table/campus-table.component';
 import { CampusColumn } from '../../../shared/table/table-types';
+import { DialogComponent } from '../../../shared/ui/dialog.component';
 
 /**
  * Student categories (FR-018 to FR-021). "Affects fees" has no default: the admin has to choose Yes or No, so a
@@ -17,7 +15,7 @@ import { CampusColumn } from '../../../shared/table/table-types';
  */
 @Component({
   selector: 'app-student-categories',
-  imports: [ReactiveFormsModule, Button, Dialog, InputText, CampusTableComponent, StaleVersionDialogComponent],
+  imports: [ReactiveFormsModule, DialogComponent, CampusTableComponent, StaleVersionDialogComponent],
   templateUrl: './student-categories.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

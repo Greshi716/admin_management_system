@@ -9,9 +9,9 @@ async function openYears(page: Page): Promise<void> {
 
 async function addYear(page: Page, year: YearDates): Promise<void> {
   await page.getByRole('button', { name: 'Add academic year' }).click();
-  await page.getByLabel('Name').fill(year.name);
-  await page.getByLabel('Start date').fill(year.startDate);
-  await page.getByLabel('End date').fill(year.endDate);
+  await page.getByLabel('Name', { exact: true }).fill(year.name);
+  await page.getByLabel('Start date', { exact: true }).fill(year.startDate);
+  await page.getByLabel('End date', { exact: true }).fill(year.endDate);
   await page.getByRole('button', { name: 'Save' }).click();
 }
 
@@ -60,7 +60,7 @@ test.describe('academic years', () => {
     await openYears(page);
 
     await page.getByRole('row', { name: new RegExp(year.name) }).getByRole('button', { name: 'Edit' }).click();
-    await page.getByLabel('Name').fill(`${year.name} edited`);
+    await page.getByLabel('Name', { exact: true }).fill(`${year.name} edited`);
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByRole('row', { name: new RegExp(`${year.name} edited`) })).toBeVisible();
@@ -93,11 +93,11 @@ test.describe('academic years', () => {
       version: created.version,
     });
 
-    await page.getByLabel('Name').fill(`${year.name} mine`);
+    await page.getByLabel('Name', { exact: true }).fill(`${year.name} mine`);
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByTestId('latest-values')).toContainText(`${year.name} other`);
     await page.getByRole('button', { name: 'Use the latest values' }).click();
-    await expect(page.getByLabel('Name')).toHaveValue(`${year.name} other`);
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue(`${year.name} other`);
   });
 });

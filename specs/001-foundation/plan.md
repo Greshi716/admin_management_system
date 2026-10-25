@@ -10,14 +10,14 @@ F0 delivers the base every later module sits on: single-admin sign-in with a ser
 master data (academic years, standards, divisions, student categories), an append-only audit
 log, an app shell, and one reusable server-paged table with search, column filters, sorting and
 Excel export. The backend is the existing Spring Boot module (`management/`) with a REST JSON
-API under `/api`; the frontend is a new Angular app (`frontend/`) using PrimeNG with a custom
-light-purple preset. In production the Angular build is served by the same Spring Boot app.
+API under `/api`; the frontend is a new Angular app (`frontend/`) using plain Angular components styled with Tailwind (PrimeNG was dropped, see research R2) and a custom
+light-purple theme. In production the Angular build is served by the same Spring Boot app.
 
 ## Technical Context
 
 **Language/Version**: Java 21 (Spring Boot 4.1.2); TypeScript strict (Angular 22.2)
 
-**Primary Dependencies**: Spring Web MVC, Spring Data JPA, Spring Security, Bean Validation, Flyway (+ `flyway-database-postgresql`), Apache POI `poi-ooxml` 5.5.1; Angular 22, PrimeNG 22.1, `@primeuix/themes` 3.1, Tailwind CSS 4.3, `@fontsource/plus-jakarta-sans`, `@fontsource/noto-sans-gujarati`
+**Primary Dependencies**: Spring Web MVC, Spring Data JPA, Spring Security, Bean Validation, Flyway (+ `flyway-database-postgresql`), Apache POI `poi-ooxml` 5.5.1; Angular 22, Tailwind CSS 4.3, `@fontsource/plus-jakarta-sans`, `@fontsource/noto-sans-gujarati`
 
 **Storage**: PostgreSQL 15 (local dev, `admin_management_db`); separate `admin_management_test` for tests
 

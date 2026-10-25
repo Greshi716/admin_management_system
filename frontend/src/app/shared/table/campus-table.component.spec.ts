@@ -1,9 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
-import { MessageService } from 'primeng/api';
-import { Table } from 'primeng/table';
 import { ToastService } from '../../core/toast/toast.service';
 import { CampusTableComponent } from './campus-table.component';
 import { FileDownloader } from './file-downloader';
@@ -40,7 +37,6 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        MessageService,
         { provide: FileDownloader, useValue: downloader },
         { provide: ToastService, useValue: toast },
       ],
@@ -69,10 +65,6 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     fixture.detectChanges();
   }
 
-  function table(): Table {
-    return fixture.debugElement.query(By.directive(Table)).componentInstance as Table;
-  }
-
   function text(): string {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
@@ -88,11 +80,11 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
 
   it('shows skeleton rows while loading and the data afterwards', () => {
     create();
-    expect(fixture.nativeElement.querySelectorAll('p-skeleton').length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="skeleton"]').length).toBeGreaterThan(0);
 
     loaded();
 
-    expect(fixture.nativeElement.querySelectorAll('p-skeleton').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="skeleton"]').length).toBe(0);
     expect(text()).toContain('2026-27');
     expect(text()).toContain('01-04-2026');
     expect(text()).toContain('Yes');
@@ -113,7 +105,7 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     loaded({ rows: [], total: 0 });
 
     expect(text()).toContain('No rows found');
-    expect(fixture.nativeElement.querySelectorAll('p-skeleton').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="skeleton"]').length).toBe(0);
   });
 
   it('does not show hidden columns', () => {
@@ -126,12 +118,38 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     expect(fixture.nativeElement.querySelectorAll('tbody tr:first-child td')).toHaveLength(3);
   });
 
-  it('offers page sizes 10, 25, 50 and 100', () => {
+  it('offers page sizes 10, 25, 50 and 100, with 25 chosen', () => {
     create();
     loaded();
 
-    expect(table().rowsPerPageOptions()).toEqual([10, 25, 50, 100]);
-    expect(table().rows()).toBe(25);
+    const select = fixture.nativeElement.querySelector('select[aria-label="Rows per page"]') as HTMLSelectElement;
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['10', '25', '50', '100']);
+    expect(select.value).toBe('25');
+  });
+
+  it('asks for the first page again with the new size when the page size changes', () => {
+    create();
+    loaded({ rows: twoRows.rows, total: 130 });
+    const select = fixture.nativeElement.querySelector('select[aria-label="Rows per page"]') as HTMLSelectElement;
+
+    select.value = '50';
+    select.dispatchEvent(new Event('change'));
+
+    expect(latestSearch().request.body).toEqual({ first: 0, rows: 50, filters: {} });
+  });
+
+  it('moves between pages with the page buttons', () => {
+    create();
+    loaded({ rows: twoRows.rows, total: 130 });
+
+    (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
+    const nextPage = latestSearch();
+    expect(nextPage.request.body).toMatchObject({ first: 25, rows: 25 });
+    nextPage.flush({ rows: twoRows.rows, total: 130 });
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('button[aria-label="Last page"]') as HTMLButtonElement).click();
+    expect(latestSearch().request.body).toMatchObject({ first: 125 });
   });
 
   it('waits 300 ms after typing and sends one search from the first page', () => {
@@ -159,52 +177,69 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     create();
     loaded();
 
-    (fixture.nativeElement.querySelector('th') as HTMLElement).click();
+    (fixture.nativeElement.querySelector('th button') as HTMLElement).click();
 
     expect(latestSearch().request.body).toMatchObject({ sortField: 'name', sortOrder: 1 });
   });
 
-  it('sends the page, size, sort and only the filters that have a value', () => {
+  it('sends the sort and only the filters that have a value, from the first page', () => {
     create();
     loaded();
 
-    table().onLazyLoad.emit({
-      first: 50,
-      rows: 10,
-      sortField: 'startDate',
-      sortOrder: -1,
-      filters: {
-        name: { value: 'abc', matchMode: 'contains' },
-        startDate: { value: ['2026-01-01', ''], matchMode: 'dateRange' },
-        current: { value: null, matchMode: 'equals' },
-        secret: { value: '', matchMode: 'contains' },
-        other: { value: [' ', ''], matchMode: 'dateRange' },
-      },
-    });
+    const headings = Array.from(fixture.nativeElement.querySelectorAll('th button:first-child')) as HTMLButtonElement[];
+    headings[1].click(); // Starts, ascending
+    headings[1].click(); // Starts, descending
+    loaded();
+
+    (fixture.nativeElement.querySelector('button[aria-label="Filter Name"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const contains = fixture.nativeElement.querySelector('input[type="text"]') as HTMLInputElement;
+    vi.useFakeTimers();
+    contains.value = 'abc';
+    contains.dispatchEvent(new Event('input'));
+    vi.advanceTimersByTime(300);
 
     expect(latestSearch().request.body).toEqual({
-      first: 50,
-      rows: 10,
+      first: 0,
+      rows: 25,
       sortField: 'startDate',
       sortOrder: -1,
-      filters: {
-        name: { value: 'abc', matchMode: 'contains' },
-        startDate: { value: ['2026-01-01', ''], matchMode: 'dateRange' },
-      },
+      filters: { name: { value: 'abc', matchMode: 'contains' } },
     });
+  });
+
+  it('filters a yes/no column at once and removes the filter again when cleared', () => {
+    create();
+    loaded();
+    (fixture.nativeElement.querySelector('button[aria-label="Filter Current"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const choice = fixture.nativeElement.querySelector('select:not([aria-label])') as HTMLSelectElement;
+
+    choice.value = 'true';
+    choice.dispatchEvent(new Event('change'));
+    const filtered = latestSearch();
+    expect(filtered.request.body).toMatchObject({ filters: { current: { value: true, matchMode: 'equals' } } });
+    filtered.flush(twoRows);
+    fixture.detectChanges();
+
+    const clear = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLElement).textContent?.trim() === 'Clear',
+    ) as HTMLButtonElement;
+    clear.click();
+    expect(latestSearch().request.body).toMatchObject({ filters: {} });
   });
 
   it('keeps the search text when the page changes', () => {
     create();
-    loaded();
+    loaded({ rows: twoRows.rows, total: 130 });
     vi.useFakeTimers();
     const input = fixture.nativeElement.querySelector('input[type="search"]') as HTMLInputElement;
     input.value = 'abc';
     input.dispatchEvent(new Event('input'));
     vi.advanceTimersByTime(300);
-    controller.match(SEARCH).forEach((r) => r.flush(twoRows));
+    controller.match(SEARCH).forEach((r) => r.flush({ rows: twoRows.rows, total: 130 }));
 
-    table().onLazyLoad.emit({ first: 25, rows: 25 });
+    (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
 
     expect(latestSearch().request.body).toMatchObject({ first: 25, globalFilter: 'abc' });
   });
@@ -212,7 +247,7 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
   it('exports with the current request and saves the file under the server’s name', () => {
     create();
     loaded();
-    const button = fixture.nativeElement.querySelector('p-button button') as HTMLButtonElement;
+    const button = fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement;
     expect(button.disabled).toBe(false);
 
     button.click();
@@ -231,30 +266,30 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     create();
     loaded({ rows: [], total: 0 });
 
-    expect((fixture.nativeElement.querySelector('p-button button') as HTMLButtonElement).disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('stops loading and keeps the old rows when a load fails', () => {
     create();
-    loaded();
+    loaded({ rows: twoRows.rows, total: 130 });
 
-    table().onLazyLoad.emit({ first: 25, rows: 25 });
+    (fixture.nativeElement.querySelector('button[aria-label="Next page"]') as HTMLButtonElement).click();
     latestSearch().flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelectorAll('p-skeleton').length).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('[data-testid="skeleton"]').length).toBe(0);
     expect(text()).toContain('2026-27');
   });
 
   it('does not save anything when the export fails', () => {
     create();
     loaded();
-    (fixture.nativeElement.querySelector('p-button button') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).click();
 
     controller.expectOne(EXPORT).flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
     expect(downloader.save).not.toHaveBeenCalled();
-    expect((fixture.nativeElement.querySelector('p-button button') as HTMLButtonElement).disabled).toBe(false);
+    expect((fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).disabled).toBe(false);
   });
 });

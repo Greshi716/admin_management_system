@@ -3,28 +3,25 @@
     <h1 class="m-0 text-3xl font-bold tracking-tight">Academic years</h1>
     <p class="mt-1 text-muted">The April to March years of the school. The year that contains today is current.</p>
   </div>
-  <p-button label="Add academic year" (onClick)="add()" />
+  <button type="button" (click)="add()" class="btn btn-primary">Add academic year</button>
 </div>
 
 <campus-table [endpoint]="endpoint" [columns]="columns">
   <ng-template #rowActions let-row>
-    <p-button label="Edit" size="small" severity="secondary" [outlined]="true" (onClick)="edit(row)" />
-    <p-button label="Delete" size="small" severity="danger" [outlined]="true" class="ml-2" (onClick)="askDelete(row)" />
+    <button type="button" (click)="edit(row)" class="btn btn-secondary btn-outlined btn-sm">Edit</button>
+    <button type="button" (click)="askDelete(row)" class="btn btn-danger btn-outlined btn-sm ml-2">Delete</button>
   </ng-template>
 </campus-table>
 
-<p-dialog
+<app-dialog
   [header]="isEdit ? 'Edit academic year' : 'Add academic year'"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
   [visible]="formOpen()"
   (visibleChange)="!$event && closeForm()"
-  [style]="{ width: '26rem', maxWidth: '95vw' }"
+  width="26rem"
 >
   <form [formGroup]="form" (ngSubmit)="save()" novalidate>
     <label class="mb-1 block text-sm font-semibold" for="yearName">Name</label>
-    <input pInputText id="yearName" class="mb-1 w-full" formControlName="name" placeholder="2026-27" />
+    <input  id="yearName" class="input mb-1 w-full" formControlName="name" placeholder="2026-27" />
     @if (serverMessage(form.controls.name); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
     } @else if (form.controls.name.touched && form.controls.name.invalid) {
@@ -34,7 +31,7 @@
     }
 
     <label class="mb-1 block text-sm font-semibold" for="yearStart">Start date</label>
-    <input pInputText id="yearStart" type="date" class="mb-1 w-full" formControlName="startDate" />
+    <input  id="yearStart" type="date" class="input mb-1 w-full" formControlName="startDate" />
     @if (serverMessage(form.controls.startDate); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
     } @else if (form.controls.startDate.touched && form.controls.startDate.invalid) {
@@ -44,7 +41,7 @@
     }
 
     <label class="mb-1 block text-sm font-semibold" for="yearEnd">End date</label>
-    <input pInputText id="yearEnd" type="date" class="mb-1 w-full" formControlName="endDate" />
+    <input  id="yearEnd" type="date" class="input mb-1 w-full" formControlName="endDate" />
     @if (serverMessage(form.controls.endDate); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
     } @else if (form.controls.endDate.touched && form.controls.endDate.invalid) {
@@ -54,11 +51,11 @@
     }
 
     <div class="flex justify-end gap-2">
-      <p-button type="button" label="Cancel" severity="secondary" [outlined]="true" (onClick)="closeForm()" />
-      <p-button type="submit" label="Save" [loading]="busy()" />
+      <button type="button" (click)="closeForm()" class="btn btn-secondary btn-outlined">Cancel</button>
+      <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()">Save</button>
     </div>
   </form>
-</p-dialog>
+</app-dialog>
 
 <app-stale-version-dialog
   [latest]="stale()"
@@ -67,18 +64,15 @@
   (keepMine)="stale.set(null)"
 />
 
-<p-dialog
+<app-dialog
   header="Delete academic year"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
   [visible]="deleting() !== null"
   (visibleChange)="!$event && deleting.set(null)"
-  [style]="{ width: '26rem', maxWidth: '95vw' }"
+  width="26rem"
 >
   <p class="mb-4">Delete the academic year {{ deleting()?.['name'] }}? This cannot be undone.</p>
   <div class="flex justify-end gap-2">
-    <p-button label="Cancel" severity="secondary" [outlined]="true" (onClick)="deleting.set(null)" />
-    <p-button label="Delete" severity="danger" [loading]="busy()" (onClick)="confirmDelete()" />
+    <button type="button" (click)="deleting.set(null)" class="btn btn-secondary btn-outlined">Cancel</button>
+    <button type="button" (click)="confirmDelete()" class="btn btn-danger" [class.btn-loading]="busy()" [disabled]="busy()">Delete</button>
   </div>
-</p-dialog>
+</app-dialog>

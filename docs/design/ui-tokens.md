@@ -21,7 +21,7 @@ Text version of the UI direction agreed from the "CampusFlow F0 Mockups" canvas 
 | area badges | Security `#E8EEFB`/`#2B4A9A`; Master data `#FDF0DC`/`#6B4200` | audit log |
 | action badges | Create `#E6DEFB`/`#4B2FA8`; Edit `#E8EEFB`/`#2B4A9A`; Login `#F0EEF5`/`#4F4A63`; Export `#F0E8FB`/`#5B2E9A` | audit log |
 
-Alternative accents offered in the mockup: `#7C3AED`, `#4F46E5`, `#0F766E`. The accent must be set in one place (the PrimeNG preset) so it can change for the whole app.
+Alternative accents offered in the mockup: `#7C3AED`, `#4F46E5`, `#0F766E`. The accent must be set in one place (the `@theme` block in `frontend/src/styles.css`) so it can change for the whole app.
 
 ## Type and shape
 - Font: Plus Jakarta Sans, Noto Sans Gujarati as fallback. Page title 28px bold, body 14 to 15px, table heading 12px bold uppercase.

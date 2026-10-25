@@ -41,9 +41,9 @@
 
       <label class="mb-1 block text-sm font-semibold" for="username">Username</label>
       <input
-        pInputText
+        
         id="username"
-        class="mb-4 w-full"
+        class="input mb-4 w-full"
         formControlName="username"
         autocomplete="username"
         autocapitalize="off"
@@ -57,34 +57,21 @@
       <label class="mb-1 block text-sm font-semibold" for="password">Password</label>
       <div class="mb-4 flex gap-2">
         <input
-          pInputText
+          
           id="password"
-          class="min-w-0 flex-1"
+          class="input min-w-0 flex-1"
           formControlName="password"
           autocomplete="current-password"
           [type]="showPassword() ? 'text' : 'password'"
           [attr.aria-invalid]="form.controls.password.touched && form.controls.password.invalid"
         />
-        <p-button
-          type="button"
-          severity="secondary"
-          [outlined]="true"
-          [label]="showPassword() ? 'Hide' : 'Show'"
-          [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
-          (onClick)="toggleShowPassword()"
-        />
+        <button type="button" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'" (click)="toggleShowPassword()" class="btn btn-secondary btn-outlined">{{ showPassword() ? 'Hide' : 'Show' }}</button>
       </div>
       @if (form.controls.password.touched && form.controls.password.invalid) {
         <p class="-mt-3 mb-4 text-sm text-error-text">Enter your password.</p>
       }
 
-      <p-button
-        type="submit"
-        label="Sign in"
-        styleClass="w-full"
-        [loading]="busy()"
-        [disabled]="paused()"
-      />
+      <button type="submit" class="btn btn-primary w-full" [class.btn-loading]="busy()" [disabled]="busy() || paused()">Sign in</button>
 
       <p class="mt-6 text-sm text-muted">Forgot your password? Contact the developer.</p>
     </form>

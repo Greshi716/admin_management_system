@@ -45,8 +45,8 @@
       <div class="flex items-center gap-2 sm:gap-3">
         <span class="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-sm font-bold text-accent-text" aria-hidden="true">{{ initials() }}</span>
         <span class="hidden text-sm font-semibold sm:block" data-testid="user-name">{{ store.user()?.name }}</span>
-        <p-button label="Change password" size="small" severity="secondary" [outlined]="true" (onClick)="changeOpen.set(true)" />
-        <p-button label="Log out" size="small" severity="secondary" [outlined]="true" (onClick)="logout()" />
+        <button type="button" (click)="changeOpen.set(true)" class="btn btn-secondary btn-outlined btn-sm">Change password</button>
+        <button type="button" (click)="logout()" class="btn btn-secondary btn-outlined btn-sm">Log out</button>
       </div>
     </header>
 
@@ -69,21 +69,18 @@
   </div>
 </div>
 
-<p-dialog
+<app-dialog
   header="Change your password"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
   [closable]="false"
   [visible]="reminderOpen()"
   (visibleChange)="reminderOpen.set($event)"
-  [style]="{ width: '26rem', maxWidth: '95vw' }"
+  width="26rem"
 >
   <p class="mb-4">You are using the password that was made for you. Please choose your own.</p>
   <div class="flex justify-end gap-2">
-    <p-button label="Later" severity="secondary" [outlined]="true" (onClick)="later()" />
-    <p-button label="Change now" (onClick)="changeNow()" />
+    <button type="button" (click)="later()" class="btn btn-secondary btn-outlined">Later</button>
+    <button type="button" (click)="changeNow()" class="btn btn-primary">Change now</button>
   </div>
-</p-dialog>
+</app-dialog>
 
 <app-change-password-dialog [(visible)]="changeOpen" />

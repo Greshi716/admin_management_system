@@ -1,152 +1,157 @@
 <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
   <input
-    pInputText
     type="search"
-    class="w-full bg-surface sm:w-80"
+    class="input w-full sm:w-80"
     placeholder="Search"
     aria-label="Search this list"
     [value]="search()"
     (input)="onSearchInput($event)"
   />
-  <p-button
-    label="Export to Excel"
-    severity="secondary"
-    [loading]="exporting()"
-    [disabled]="loading() || total() === 0"
-    (onClick)="exportExcel()"
-  />
+  <button
+    type="button"
+    class="btn btn-secondary"
+    data-testid="export"
+    [class.btn-loading]="exporting()"
+    [disabled]="loading() || total() === 0 || exporting()"
+    (click)="exportExcel()"
+  >
+    Export to Excel
+  </button>
 </div>
 
-<div class="overflow-x-auto rounded-card border border-border bg-surface shadow-sm">
-  <p-table
-    [value]="displayRows()"
-    [lazy]="true"
-    [paginator]="true"
-    [rows]="pageSize()"
-    [(first)]="first"
-    [rowsPerPageOptions]="pageSizes"
-    [totalRecords]="total()"
-    [showCurrentPageReport]="true"
-    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} rows"
-    [tableStyle]="{ 'min-width': '40rem' }"
-    (onLazyLoad)="onLazyLoad($event)"
-  >
-    <ng-template #header>
-      <tr>
-        @for (column of visibleColumns(); track column.field) {
-          <th [pSortableColumn]="column.field">
-            <div class="flex items-center gap-2">
-              {{ column.header }}
-              <p-sort-icon [field]="column.field" />
-              @switch (column.type) {
-                @case ('date') {
-                  <p-column-filter
-                    [field]="column.field"
-                    matchMode="dateRange"
-                    display="menu"
-                    [showMatchModes]="false"
-                    [showOperator]="false"
-                    [showAddButton]="false"
-                  >
-                    <ng-template #filter let-value let-filter="filterCallback">
-                      <div class="flex flex-col gap-2">
-                        <label class="flex flex-col gap-1 text-sm">
-                          From
-                          <input
-                            pInputText
-                            type="date"
-                            [value]="rangeEnd(value, 0)"
-                            (change)="filter(rangeValue(value, 0, $any($event.target).value))"
-                          />
-                        </label>
-                        <label class="flex flex-col gap-1 text-sm">
-                          To
-                          <input
-                            pInputText
-                            type="date"
-                            [value]="rangeEnd(value, 1)"
-                            (change)="filter(rangeValue(value, 1, $any($event.target).value))"
-                          />
-                        </label>
-                      </div>
-                    </ng-template>
-                  </p-column-filter>
-                }
-                @case ('boolean') {
-                  <p-column-filter
-                    type="boolean"
-                    [field]="column.field"
-                    matchMode="equals"
-                    display="menu"
-                    [showMatchModes]="false"
-                    [showOperator]="false"
-                    [showAddButton]="false"
-                  />
-                }
-                @case ('number') {
-                  <p-column-filter
-                    type="numeric"
-                    [field]="column.field"
-                    matchMode="equals"
-                    display="menu"
-                    [showMatchModes]="false"
-                    [showOperator]="false"
-                    [showAddButton]="false"
-                  />
-                }
-                @default {
-                  <p-column-filter
-                    type="text"
-                    [field]="column.field"
-                    matchMode="contains"
-                    display="menu"
-                    [showMatchModes]="false"
-                    [showOperator]="false"
-                    [showAddButton]="false"
-                  />
-                }
-              }
-            </div>
-          </th>
-        }
-        @if (rowActions()) {
-          <th class="w-px whitespace-nowrap">Actions</th>
-        }
-      </tr>
-    </ng-template>
+<div class="rounded-card border border-border bg-surface shadow-sm">
+  <div class="overflow-x-auto rounded-t-card">
+    <table class="w-full min-w-[40rem] border-collapse text-left">
+      <thead>
+        <tr class="bg-page">
+          @for (column of visibleColumns(); track column.field) {
+            <th class="relative border-b border-border px-4 py-3.5 align-middle" [attr.aria-sort]="ariaSort(column.field)">
+              <div class="flex items-center gap-1 whitespace-nowrap">
+                <button
+                  type="button"
+                  class="link-button flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-muted hover:text-ink"
+                  (click)="sortBy(column.field)"
+                >
+                  {{ column.header }}
+                  <span aria-hidden="true" class="text-[0.7rem]" [class.text-accent-text]="sortField() === column.field">
+                    {{ sortField() === column.field ? (sortOrder() === 1 ? '▲' : '▼') : '⇅' }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="link-button text-muted hover:text-ink"
+                  [class.text-accent-text]="filterActive(column.field)"
+                  [attr.aria-label]="'Filter ' + column.header"
+                  [attr.aria-expanded]="openFilter() === column.field"
+                  (click)="toggleFilter(column.field)"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" [attr.fill]="filterActive(column.field) ? 'currentColor' : 'none'" />
+                  </svg>
+                </button>
+              </div>
 
-    <ng-template #body let-row>
-      <tr>
-        @for (column of visibleColumns(); track column.field) {
-          <td>
-            @if (loading()) {
-              <p-skeleton height="1.1rem" />
-            } @else if (column.tag) {
-              @if (row[column.field] === true) {
-                <span class="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-text">{{ column.tag }}</span>
+              @if (openFilter() === column.field) {
+                <div class="absolute left-2 top-full z-20 mt-1 flex w-60 flex-col gap-2 rounded-card border border-border bg-surface p-3 shadow-xl normal-case tracking-normal" role="group" [attr.aria-label]="'Filter ' + column.header">
+                  @switch (column.type) {
+                    @case ('date') {
+                      <label class="flex flex-col gap-1 text-sm font-normal text-ink">
+                        From
+                        <input type="date" class="input" [value]="rangeEnd(column.field, 0)" (change)="setRange(column, 0, $event)" />
+                      </label>
+                      <label class="flex flex-col gap-1 text-sm font-normal text-ink">
+                        To
+                        <input type="date" class="input" [value]="rangeEnd(column.field, 1)" (change)="setRange(column, 1, $event)" />
+                      </label>
+                    }
+                    @case ('boolean') {
+                      <label class="flex flex-col gap-1 text-sm font-normal text-ink">
+                        Show
+                        <select class="input" (change)="setFilter(column, $event)">
+                          <option value="" [selected]="filterValue(column.field) === ''">All</option>
+                          <option value="true" [selected]="filterValue(column.field) === 'true'">Yes</option>
+                          <option value="false" [selected]="filterValue(column.field) === 'false'">No</option>
+                        </select>
+                      </label>
+                    }
+                    @case ('number') {
+                      <label class="flex flex-col gap-1 text-sm font-normal text-ink">
+                        Equals
+                        <input type="number" class="input" [value]="filterValue(column.field)" (input)="setFilter(column, $event)" />
+                      </label>
+                    }
+                    @default {
+                      <label class="flex flex-col gap-1 text-sm font-normal text-ink">
+                        Contains
+                        <input type="text" class="input" [value]="filterValue(column.field)" (input)="setFilter(column, $event)" />
+                      </label>
+                    }
+                  }
+                  <button type="button" class="btn btn-outlined btn-sm" (click)="clearFilter(column)">Clear</button>
+                </div>
               }
-            } @else {
-              {{ formatCell(row[column.field], column.type) }}
-            }
-          </td>
-        }
-        @if (rowActions(); as actions) {
-          <td class="whitespace-nowrap">
-            @if (!loading()) {
-              <ng-container [ngTemplateOutlet]="actions" [ngTemplateOutletContext]="{ $implicit: row }" />
-            }
-          </td>
-        }
-      </tr>
-    </ng-template>
+            </th>
+          }
+          @if (rowActions()) {
+            <th class="w-px whitespace-nowrap border-b border-border px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-muted">
+              Actions
+            </th>
+          }
+        </tr>
+      </thead>
 
-    <ng-template #emptymessage>
-      <tr>
-        <td [attr.colspan]="visibleColumns().length + (rowActions() ? 1 : 0)" class="py-10 text-center text-muted">
-          <p class="font-semibold text-ink">No rows found</p>
-          <p>Try a different search, or clear the column filters.</p>
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
+      <tbody>
+        @for (row of displayRows(); track $index) {
+          <tr class="hover:bg-page">
+            @for (column of visibleColumns(); track column.field) {
+              <td class="border-b border-border px-4 py-3">
+                @if (loading()) {
+                  <div class="skeleton h-4 animate-pulse rounded bg-border" data-testid="skeleton"></div>
+                } @else if (column.tag) {
+                  @if (row[column.field] === true) {
+                    <span class="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-text">{{ column.tag }}</span>
+                  }
+                } @else {
+                  {{ formatCell(row[column.field], column.type) }}
+                }
+              </td>
+            }
+            @if (rowActions(); as actions) {
+              <td class="whitespace-nowrap border-b border-border px-4 py-3">
+                @if (!loading()) {
+                  <ng-container [ngTemplateOutlet]="actions" [ngTemplateOutletContext]="{ $implicit: row }" />
+                }
+              </td>
+            }
+          </tr>
+        } @empty {
+          <tr>
+            <td [attr.colspan]="visibleColumns().length + (rowActions() ? 1 : 0)" class="py-10 text-center text-muted">
+              <p class="font-semibold text-ink">No rows found</p>
+              <p>Try a different search, or clear the column filters.</p>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm text-muted">
+    <span>Showing {{ firstShown() }} to {{ lastShown() }} of {{ total() }} rows</span>
+    <div class="flex items-center gap-2">
+      <label class="flex items-center gap-2">
+        Rows per page
+        <select class="input min-h-9 py-1" aria-label="Rows per page" (change)="changePageSize($event)">
+          @for (size of pageSizes; track size) {
+            <option [value]="size" [selected]="size === pageSize()">{{ size }}</option>
+          }
+        </select>
+      </label>
+      <span>Page {{ pageNumber() }} of {{ pageCount() }}</span>
+      <button type="button" class="btn btn-outlined btn-sm" aria-label="First page" [disabled]="first() === 0 || loading()" (click)="goTo(0)">«</button>
+      <button type="button" class="btn btn-outlined btn-sm" aria-label="Previous page" [disabled]="first() === 0 || loading()" (click)="goTo(first() - pageSize())">‹</button>
+      <button type="button" class="btn btn-outlined btn-sm" aria-label="Next page" [disabled]="first() + pageSize() >= total() || loading()" (click)="goTo(first() + pageSize())">›</button>
+      <button type="button" class="btn btn-outlined btn-sm" aria-label="Last page" [disabled]="first() + pageSize() >= total() || loading()" (click)="goTo(lastPageStart())">»</button>
+    </div>
+  </div>
 </div>

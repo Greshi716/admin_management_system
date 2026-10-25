@@ -24,9 +24,9 @@ test.describe('student categories', () => {
   test('FR-019: the admin adds a category after choosing Yes or No for "Affects fees"', async ({ page }) => {
     await openCategories(page);
     await page.getByRole('button', { name: 'Add category' }).click();
-    await page.getByLabel('Code').fill('NEW1');
-    await page.getByLabel('Name').fill('New one');
-    await page.getByLabel('Yes').check();
+    await page.getByLabel('Code', { exact: true }).fill('NEW1');
+    await page.getByLabel('Name', { exact: true }).fill('New one');
+    await page.getByLabel('Yes', { exact: true }).check();
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByRole('row', { name: /NEW1/ })).toBeVisible();
@@ -35,8 +35,8 @@ test.describe('student categories', () => {
   test('FR-019: a duplicate code is refused beside the field', async ({ page }) => {
     await openCategories(page);
     await page.getByRole('button', { name: 'Add category' }).click();
-    await page.getByLabel('Code').fill('RTE');
-    await page.getByLabel('Name').fill('Another');
+    await page.getByLabel('Code', { exact: true }).fill('RTE');
+    await page.getByLabel('Name', { exact: true }).fill('Another');
     await page.getByLabel('No', { exact: true }).check();
     await page.getByRole('button', { name: 'Save' }).click();
 
@@ -47,11 +47,11 @@ test.describe('student categories', () => {
     await openCategories(page);
     await page.getByRole('button', { name: 'Add category' }).click();
 
-    await expect(page.getByLabel('Yes')).not.toBeChecked();
+    await expect(page.getByLabel('Yes', { exact: true })).not.toBeChecked();
     await expect(page.getByLabel('No', { exact: true })).not.toBeChecked();
 
-    await page.getByLabel('Code').fill('NEW2');
-    await page.getByLabel('Name').fill('No choice');
+    await page.getByLabel('Code', { exact: true }).fill('NEW2');
+    await page.getByLabel('Name', { exact: true }).fill('No choice');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Choose whether this category affects fees.')).toBeVisible();
   });
@@ -69,7 +69,7 @@ test.describe('student categories', () => {
       affectsFees: true,
       version: created.version,
     });
-    await page.getByLabel('Name').fill('Third mine');
+    await page.getByLabel('Name', { exact: true }).fill('Third mine');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByTestId('latest-values')).toContainText('Third other');

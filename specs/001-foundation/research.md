@@ -10,7 +10,9 @@ recorded rationale. Versions were checked against npm and Maven Central on 2026-
 - **Finding**: This machine has Node 22.22.2, which is too old. **Prerequisite**: upgrade Node to 22.22.3 or newer (24 LTS is fine) before creating `frontend/`.
 - **Alternatives**: Pin Angular 21 to stay on Node 22.22.2 (rejected: older stack, no benefit once Node is updated).
 
-## R2. PrimeNG theming with a custom preset
+## R2. PrimeNG theming with a custom preset (SUPERSEDED)
+
+> **Superseded (2026-10-25):** PrimeNG 22 needs a PrimeUI license key and shows an "Invalid PrimeUI License" badge without one. The client does not want a stack that needs a license key, so PrimeNG and `@primeuix/themes` were removed. The UI now uses plain Angular, native elements (`<dialog>`, `<table>`, form controls) and our own Tailwind styles: tokens in `src/styles.css`, shared pieces in `shared/ui` (dialog), `shared/table` (list) and `core/toast`. The text below is kept as history.
 
 - **Decision**: Build one preset, `src/app/theme/campusflow-preset.ts`, with `definePreset(Aura, { semantic: { primary: {...}, colorScheme: { light: {...} } }, components: {...} })` from `@primeuix/themes`, registered through `providePrimeNG({ theme: { preset, options: { darkModeSelector: false } } })`. Light theme only.
 - **Rationale**: This is PrimeNG's own design-token mechanism; the accent (`#6D4AE0`), surfaces, text, borders and radius live in one file. Tailwind 4 reads the same values via CSS variables defined in `styles.css` from the preset's tokens, so layout utilities and components agree.

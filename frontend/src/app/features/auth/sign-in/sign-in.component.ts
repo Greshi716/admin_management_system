@@ -2,8 +2,6 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Button } from 'primeng/button';
-import { InputText } from 'primeng/inputtext';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { problemOf } from '../../../core/http/api-problem';
 
@@ -16,7 +14,7 @@ const WRONG_CREDENTIALS = 'The username or password is not correct.';
  */
 @Component({
   selector: 'app-sign-in',
-  imports: [ReactiveFormsModule, Button, InputText],
+  imports: [ReactiveFormsModule],
   templateUrl: './sign-in.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

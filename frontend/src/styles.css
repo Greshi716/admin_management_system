@@ -8,7 +8,7 @@
 @import '@fontsource/noto-sans-gujarati/600.css';
 @import '@fontsource/noto-sans-gujarati/700.css';
 
-/* Values mirror src/app/theme/campusflow-preset.ts (docs/design/ui-tokens.md). */
+/* Design tokens (docs/design/ui-tokens.md). The one place to change the accent, surfaces and radius. */
 @theme {
   --color-page: #f7f5fd;
   --color-surface: #ffffff;
@@ -46,29 +46,126 @@
   }
 }
 
-/* PrimeNG table and button polish: lighter header, quiet rows, calmer focus. */
-.p-datatable .p-datatable-thead > tr > th {
-  background: var(--color-page);
-  color: var(--color-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding-block: 0.9rem;
-  border-color: var(--color-border);
+@layer components {
+  /* Buttons: .btn plus one of .btn-primary, .btn-secondary, .btn-danger; add .btn-outlined and .btn-sm as needed. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--spacing-control);
+    padding: 0 1.1rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .btn:focus-visible,
+  .input:focus-visible,
+  .link-button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    outline-offset: 2px;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .btn-sm {
+    min-height: 2.25rem;
+    padding: 0 0.8rem;
+    font-size: 0.85rem;
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #5a3bc4;
+  }
+  .btn-secondary {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-text);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: #e0d7f8;
+  }
+  .btn-danger {
+    background: #c62828;
+    color: #fff;
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: #a81f1f;
+  }
+  .btn-outlined {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-ink);
+  }
+  .btn-outlined:hover:not(:disabled) {
+    background: var(--color-page);
+    border-color: var(--color-input-border);
+  }
+  .btn-outlined.btn-danger {
+    color: #b3261e;
+  }
+  .btn-outlined.btn-danger:hover:not(:disabled) {
+    background: var(--color-error-bg);
+    border-color: #e5a3a0;
+  }
+  .btn-loading::before {
+    content: '';
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* Text inputs and selects. */
+  .input {
+    min-height: var(--spacing-control);
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: inherit;
+  }
+  .input::placeholder {
+    color: var(--color-muted);
+    opacity: 0.8;
+  }
+  .input:focus {
+    border-color: var(--color-accent);
+  }
+  .input[aria-invalid='true'],
+  .input.ng-invalid.ng-touched {
+    border-color: #c62828;
+  }
+
+  .link-button {
+    padding: 0.25rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+  }
 }
 
-.p-datatable .p-datatable-tbody > tr > td {
-  padding-block: 0.8rem;
-  border-color: var(--color-border);
-}
-
-.p-datatable .p-datatable-tbody > tr:hover {
-  background: var(--color-page);
-}
-
-.p-datatable .p-paginator {
-  border-top: 1px solid var(--color-border);
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 h1,

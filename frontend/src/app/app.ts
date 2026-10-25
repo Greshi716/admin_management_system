@@ -1,9 +1,9 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { ToastModule } from 'primeng/toast';
+import { ToastHostComponent } from './core/toast/toast-host.component';
 
 @Component({
-  imports: [RouterOutlet, ToastModule],
+  imports: [RouterOutlet, ToastHostComponent],
   selector: 'app-root',
   templateUrl: './app.html',
 })

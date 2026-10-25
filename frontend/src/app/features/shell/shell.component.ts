@@ -1,10 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
 import { SIGN_IN_ROUTE } from '../../core/auth/auth.guard';
 import { AuthStore } from '../../core/auth/auth.store';
 import { ChangePasswordDialogComponent } from '../auth/change-password/change-password-dialog.component';
+import { DialogComponent } from '../../shared/ui/dialog.component';
 
 interface NavItem {
   label: string;
@@ -32,7 +31,7 @@ const ICONS = {
  */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Button, Dialog, ChangePasswordDialogComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, DialogComponent, ChangePasswordDialogComponent],
   templateUrl: './shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

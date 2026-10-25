@@ -21,7 +21,7 @@ test.describe('divisions', () => {
   test('FR-016: the admin adds a division for a year and a standard', async ({ page }) => {
     await openDivisions(page);
     await page.getByRole('button', { name: 'Add division' }).click();
-    await page.getByLabel('Academic year').selectOption({ index: 1 });
+    await page.getByLabel('Academic year', { exact: true }).selectOption({ index: 1 });
     await page.getByLabel('Standard', { exact: true }).selectOption({ index: 1 });
     await page.getByLabel('Division', { exact: true }).fill('A');
     await page.getByRole('button', { name: 'Save' }).click();
