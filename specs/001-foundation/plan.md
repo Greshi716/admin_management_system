@@ -92,7 +92,7 @@ frontend/
 │   └── app/
 │       ├── core/                             # auth store (signals), interceptors, guards, shell layout
 │       ├── shared/                           # table/ (CampusTable), forms, toast, skeleton
-│       ├── theme/                            # campusflow-preset.ts (only place with colours)
+│       ├── styles.css                        # the @theme block (only place with colours)
 │       └── features/                         # auth/, masterdata/{academic-years,standards,divisions,categories}/, audit/
 └── e2e/                                      # Playwright specs (FR IDs in titles)
 
