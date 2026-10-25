@@ -1,41 +1,41 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { Button } from 'primeng/button';
-import { Dialog } from 'primeng/dialog';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AuthStore } from '../../core/auth/auth.store';
-import { SIGN_IN_ROUTE } from '../../core/auth/auth.guard';
-import { ChangePasswordDialogComponent } from '../auth/change-password/change-password-dialog.component';
 
-/**
- * The page shown after sign-in. User Story 6 replaces it with the real app shell (sidebar, top bar, user menu);
- * until then it carries the two things sign-in needs: the reminder popup to change the default password
- * (FR-009) and Log out (FR-006).
- */
+/** The page after sign-in, inside the app shell: a welcome and shortcuts to the master data screens. */
 @Component({
   selector: 'app-home',
-  imports: [Button, Dialog, RouterLink, ChangePasswordDialogComponent],
+  imports: [RouterLink],
   templateUrl: './home.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HomeComponent {
   protected readonly store = inject(AuthStore);
-  private readonly router = inject(Router);
 
-  /** Shown after every sign-in until the password has been changed. */
-  protected readonly reminderOpen = signal(!this.store.passwordChanged());
-  protected readonly changeOpen = signal(false);
-
-  protected changeNow(): void {
-    this.reminderOpen.set(false);
-    this.changeOpen.set(true);
-  }
-
-  protected later(): void {
-    this.reminderOpen.set(false);
-  }
-
-  protected logout(): void {
-    const done = () => void this.router.navigateByUrl(SIGN_IN_ROUTE);
-    this.store.logout().subscribe({ next: done, error: done });
-  }
+  protected readonly cards = [
+    {
+      title: 'Academic years',
+      help: 'April to March years; the one containing today is current.',
+      link: '/master-data/academic-years',
+      icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+    },
+    {
+      title: 'Standards',
+      help: 'Classes in display order, with the stream where it applies.',
+      link: '/master-data/standards',
+      icon: 'M12 2l10 5-10 5L2 7l10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+    },
+    {
+      title: 'Divisions',
+      help: 'Sections of a standard, for each academic year.',
+      link: '/master-data/divisions',
+      icon: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+    },
+    {
+      title: 'Student categories',
+      help: 'Codes such as RTE or STAFF and whether they affect fees.',
+      link: '/master-data/student-categories',
+      icon: 'M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01',
+    },
+  ];
 }

@@ -1,18 +1,26 @@
 <div class="grid min-h-screen grid-cols-1 bg-page md:grid-cols-2">
-  <aside class="hidden flex-col justify-center gap-4 bg-sidebar p-12 md:flex">
-    <span class="grid h-12 w-12 place-items-center rounded-control bg-accent text-xl font-bold text-white" aria-hidden="true">C</span>
-    <h1 class="text-3xl font-bold text-accent-text">CampusFlow</h1>
-    <p class="max-w-sm text-muted">Fees, payroll and funds for Birlasagar Higher Secondary School, in one place.</p>
+  <aside class="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#4b2fa8] via-accent to-[#9b7fe9] p-12 text-white md:flex">
+    <div class="flex items-center gap-3">
+      <span class="grid h-11 w-11 place-items-center rounded-xl bg-white/20 text-xl font-bold backdrop-blur" aria-hidden="true">C</span>
+      <span class="text-xl font-bold">CampusFlow</span>
+    </div>
+    <div>
+      <h1 class="m-0 max-w-md text-4xl font-bold leading-tight">Fees, payroll and funds, in one calm place.</h1>
+      <p class="mt-4 max-w-md text-white/80">Built for Birlasagar Higher Secondary School, Porbandar.</p>
+    </div>
+    <p class="text-sm text-white/60">One school, one admin, everything on this computer.</p>
+    <span class="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10" aria-hidden="true"></span>
+    <span class="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-white/10" aria-hidden="true"></span>
   </aside>
 
   <main class="flex items-center justify-center p-6">
     <form
-      class="w-full max-w-sm rounded-card border border-border bg-surface p-8"
+      class="w-full max-w-md rounded-card border border-border bg-surface p-10 shadow-xl shadow-accent/10"
       [formGroup]="form"
       (ngSubmit)="submit()"
       novalidate
     >
-      <h2 class="mb-1 text-2xl font-bold">Sign in</h2>
+      <h2 class="mb-1 text-3xl font-bold tracking-tight">Sign in</h2>
       <p class="mb-6 text-muted">Use the username and password given to you.</p>
 
       @if (notice(); as message) {

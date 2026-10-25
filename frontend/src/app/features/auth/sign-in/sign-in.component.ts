@@ -55,6 +55,13 @@ export class SignInComponent {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.resumeTimer));
+    // Asking who is signed in also makes the server set the XSRF-TOKEN cookie that the sign-in POST must send back,
+    // and sends an admin who is already signed in straight to the app.
+    this.store.ensureLoaded().subscribe((signedIn) => {
+      if (signedIn) {
+        void this.router.navigateByUrl('/');
+      }
+    });
   }
 
   protected toggleShowPassword(): void {

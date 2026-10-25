@@ -8,15 +8,22 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/sign-in/sign-in.component').then((m) => m.SignInComponent),
   },
   {
+    // Every signed-in screen lives inside the shell (sidebar and top bar).
     path: '',
-    pathMatch: 'full',
-    title: 'CampusFlow',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
-  },
-  {
-    path: 'master-data',
-    loadChildren: () => import('./features/masterdata/masterdata.routes').then((m) => m.MASTER_DATA_ROUTES),
+    loadComponent: () => import('./features/shell/shell.component').then((m) => m.ShellComponent),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        title: 'CampusFlow',
+        loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
+      },
+      {
+        path: 'master-data',
+        loadChildren: () => import('./features/masterdata/masterdata.routes').then((m) => m.MASTER_DATA_ROUTES),
+      },
+    ],
   },
   { path: '**', redirectTo: '' },
 ];
