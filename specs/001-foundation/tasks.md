@@ -162,7 +162,7 @@ description: "Task list for F0 Foundation"
 ### Tests for User Story 3
 
 - [X] T066 [P] [US3] `BT/masterdata/StudentCategoryIT.java`: seven seeded categories listed (FR-018); create with `code`, `name` and `affects_fees` all required, missing flag refused, duplicate `code` refused (FR-019); edit audited (FR-021); stale version conflict (FR-046); inactive/delete rules (FR-020)
-- [ ] T067 [P] [US3] `frontend/e2e/student-categories.spec.ts`: titles with FR ids; seeded list, add, duplicate code error, flag required (FR-018, FR-019)
+- [X] T067 [P] [US3] `frontend/e2e/student-categories.spec.ts`: titles with FR ids; seeded list, add, duplicate code error, flag required (FR-018, FR-019)
 
 ### Implementation for User Story 3
 
