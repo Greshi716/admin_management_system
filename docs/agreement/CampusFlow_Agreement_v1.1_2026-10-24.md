@@ -241,7 +241,8 @@ Permanent record of each student.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
-| GR No. | `gr_no` | Text | Required | Unique, never reused |
+| GR No. | `gr_no` | Text | Required | Typed by the admin from the school register. Unique, never reused. A student who leaves and returns gets a new GR No. |
+| Serial no. | `sr_no` | Number | Auto | System-generated internal serial number, never reused |
 | Surname | `surname` | Text | Required |  |
 | First name | `first_name` | Text | Required |  |
 | Father's / middle name | `middle_name` | Text | Optional |  |
@@ -254,12 +255,12 @@ Permanent record of each student.
 | Mobile 2 | `mobile_2` | Phone | Optional |  |
 | Address | `address` | Text | Required |  |
 | Aadhaar number 🔒 | `aadhaar` | Text | Optional | Shown masked |
-| Religion / Caste 🔒 | `religion_caste` | Text | Optional | Only if required on LC |
+| Religion / Caste 🔒 | `religion_caste` | Text | Optional | The school needs it; shown masked on lists |
 | Category | `category` | Link | Required |  |
 | Admission date | `admission_date` | Date | Required |  |
 | Admitted in standard | `admission_standard` | Link | Required |  |
 | Previous school | `previous_school` | Text | Optional |  |
-| Photo | `photo` | Image | Optional |  |
+| Photo | `photo` | Image | Optional | Uploaded by the admin; resized on upload |
 | Status | `status` | Choice | Auto | Active / Left |
 | Entry source | `source` | Choice | Auto | Manual / Google Form |
 
@@ -267,7 +268,7 @@ Permanent record of each student.
 
 Replaces the CLASSFORMATION sheet. One row per student per year.
 
-> G.R, S.NO, NAME, DIV, CATEGORY come from here; R.NO, DATE, PAID FEE, TOTAL, PENDING FEE are calculated from receipts.
+> G.R, NAME, DIV, CATEGORY come from here; R.NO, DATE, PAID FEE, TOTAL, PENDING FEE are calculated from receipts. Roll numbers are given by the class teacher and are not stored.
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
@@ -275,7 +276,6 @@ Replaces the CLASSFORMATION sheet. One row per student per year.
 | Academic year | `academic_year` | Link | Required |  |
 | Standard | `standard` | Link | Required |  |
 | Division | `division` | Link | Required |  |
-| Roll / serial no. | `roll_no` | Number | Optional | S.NO column of the class formation sheet |
 | Category (this year) | `category` | Link | Required |  |
 | Year status | `status` | Choice | Auto | Studying / Promoted / Detained / Left |
 
@@ -887,3 +887,6 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 24-10-2026 | Constitution Principle VI clarified (version 1.0.1): "logs" means application logs; the audit log may hold masked values. |
 | 24-10-2026 | Academic years have no inactive status and no stored `is_current` field. The current academic year is worked out from today's date (school's local date). This replaces the earlier row that gave academic years an `active` flag and a "make current" action. |
 | 24-10-2026 | No recovery code and no in-app password recovery. A forgotten password is reset by the developer (startup property, new random password in the credentials file). `recovery_code_hash` removed from users. The default-password reminder is a popup after each sign-in, not a banner. |
+| 25-10-2026 | Students: names in English; GR No. typed by the admin plus a system `sr_no`; roll number not stored; a returning student gets a new GR No; Aadhaar and religion/caste are kept (masked); photo uploaded by the admin; duplicate warning on the same first + middle + last name (a warning, not a block). |
+| 25-10-2026 | Admissions: the Google Form does not exist yet and will be created by us; from now on admissions go through it, but some are still entered by hand at the office. No Excel files of existing students: students are entered in the application. |
+| 25-10-2026 | Printed documents (receipts, payslips, LC, notices) are in English only. The school computer has 4 GB RAM and is the only computer that uses CampusFlow. |

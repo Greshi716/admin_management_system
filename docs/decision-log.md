@@ -15,6 +15,11 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 | 2026-10-24 | No mockup images are exported. Screens are built from `docs/design/ui-tokens.md`. | F0 UI |
 | 2026-10-24 | Passwords: the default is auto-generated and shown once; a popup after each sign-in asks to change it (not forced); forgotten passwords are reset by the developer. A new password must be at least 8 characters and different from the current one (minimum rule, owner can change). | F0 |
 | 2026-10-24 | Application data directory is the property `campusflow.data-dir` (default `./data`); `credentials-first-run.txt` is written there. Delivery and cleanup are decided in F11. | F0, F11 |
+| 2026-10-25 | Students: names in English; GR No. typed by the admin and a system `sr_no`; roll number not stored (the class teacher assigns it); a returning student gets a new GR No; Aadhaar and religion/caste are kept and shown masked; photo uploaded by the admin; warn (not block) on the same first + middle + last name. | F1 |
+| 2026-10-25 | Admissions: the Google Form is to be created by us. From now on admissions go through it, but some are still entered by hand. Existing students are typed into the application (no Excel import). | F1, F1b |
+| 2026-10-25 | Printed documents are in English only. One computer with 4 GB RAM runs CampusFlow and nothing else uses it over a network. | All, F11 |
+| 2026-10-25 | Target machine: Windows 10, 4 GB RAM, one computer, no Docker. F11 builds a single installer that bundles Java and PostgreSQL as Windows services. | F11 |
+| 2026-10-25 | Fee amounts per standard and category are set by the admin (FEE-01), so no financial rule is assumed for categories. | F2 |
 
 ## Open items
 
@@ -23,3 +28,7 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 - **First-run credentials file** (`credentials-first-run.txt`): who delivers it to the school, where it is stored, and who deletes it after first sign-in. Decide in the installer feature (F11).
 - **PrimeNG theme spike** (task T008): confirm the `definePreset` import paths against PrimeNG 22.1.4 and `@primeuix/themes` 3.1.0 before building screens.
 - **No current year between two years.** The admin is forced to create the next year (decided 24-10-2026). Year rollover (F4) needs no "make current" step: the new year becomes current on its start date. F1 and F2 specs should also refuse to run without a current year.
+- **School PC: target is Windows 10 (decided 25-10-2026), 4 GB RAM, one computer.** (It is Windows 8 today; the school will move to Windows 10.) Docker Desktop, current Chrome/Edge and (probably) current Java and PostgreSQL do not support Windows 8. Plan: tell the school to upgrade to Windows 10 or buy a small PC with 8 GB RAM, an SSD and Windows 11 before go-live. F11 builds one installer that bundles Java and PostgreSQL as Windows services (no Docker, no separate PostgreSQL install), limits memory, adds a desktop shortcut, and sets up the first-run credentials file and a weekly USB backup. Verify the vendors' supported Windows versions before promising anything. Ask the school: Windows 8 or 8.1, 32 or 64 bit.
+- **How the Google Form data reaches the app.** The PC may be offline or have no Google credentials. Recommended: the form is created with columns we define; the admin downloads the responses as an Excel or CSV file and uploads it into the approval page. Direct Google Sheets sync is possible later. Decide in F1b.
+- **Possible use of the form for existing students.** Since no Excel exists, the same form could collect data for existing students. Decide with the school.
+- **Existing students entry volume.** All current students are typed in by the admin; consider a faster entry screen (keyboard-friendly, Save and add next).
