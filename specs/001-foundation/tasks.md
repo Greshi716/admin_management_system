@@ -232,7 +232,7 @@ description: "Task list for F0 Foundation"
 
 ### Tests for User Story 6
 
-- [ ] T089 [P] [US6] `frontend/e2e/shell.spec.ts`: titles with FR ids; navigation, user name, current-year tag, Change password and Logout on every screen (FR-028); when today's date is inside no academic year: sign-in lands on Academic years with the create form, other menu items are disabled, a direct link to another screen redirects back, Change password and Logout still work, and creating a year covering today lifts the block (US6 scenario 2, FR-013); popup while the password is unchanged (FR-009); no full page reload on navigation (FR-037)
+- [X] T089 [P] [US6] `frontend/e2e/shell.spec.ts`: titles with FR ids; navigation, user name, current-year tag, Change password and Logout on every screen (FR-028); when today's date is inside no academic year: sign-in lands on Academic years with the create form, other menu items are disabled, a direct link to another screen redirects back, Change password and Logout still work, and creating a year covering today lifts the block (US6 scenario 2, FR-013); popup while the password is unchanged (FR-009); no full page reload on navigation (FR-037)
 - [ ] T090 [P] [US6] `frontend/e2e/look-and-feel.spec.ts`: loading state shown on slow responses (FR-038), success/error toast after save (FR-039), inline validation messages while typing (FR-040), layout usable at tablet width 768 px and desktop 1280 px (FR-041), Gujarati sample text renders with the Noto Sans Gujarati font (FR-042), and every screen uses the shared theme (computed accent colour equals `#6D4AE0`, input border contrast at least 3:1, controls at least 44 px) (FR-043)
 
 ### Implementation for User Story 6
