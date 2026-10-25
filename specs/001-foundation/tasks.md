@@ -129,12 +129,12 @@ description: "Task list for F0 Foundation"
 
 ### Tests for User Story 2
 
-- [ ] T050 [P] [US2] `BT/masterdata/AcademicYearIT.java`: create/view/edit with required fields and unique name (FR-010); `end_date` not after `start_date` and overlapping years refused with a message naming the other year (FR-011); the current year is the one containing today's date, tested with a fixed test clock set to Asia/Kolkata: first and last day of a year, a date between two years (no current year, no fallback), and never more than one (FR-012, FR-013, SC-003); academic years have no inactive status (FR-020)
-- [ ] T051 [P] [US2] `BT/masterdata/StandardIT.java`: required `name` and `display_order`, optional `stream` only Science or Commerce, unique name, default order by `display_order` (FR-014, FR-015)
-- [ ] T052 [P] [US2] `BT/masterdata/DivisionIT.java`: links to an existing year and standard only, duplicate `(year, standard, name)` refused, same name allowed in another year or standard (FR-016, FR-017)
-- [ ] T053 [P] [US2] `BT/masterdata/MasterDataRemovalIT.java`: deleting a referenced year (by a division) or standard (by a division) returns 409 "in use" (division and category references cannot exist in F0, so those assertions wait for a later feature); marking a standard, division or category inactive hides it from pick-lists but keeps it on existing records; an academic year has no inactive option; deleting an unreferenced record succeeds (FR-020)
-- [ ] T054 [P] [US2] `BT/masterdata/MasterDataConflictIT.java`: saving with a stale `version` returns 409 `STALE_VERSION` with the latest record, for year, standard and division (FR-046)
-- [ ] T055 [P] [US2] `BT/masterdata/MasterDataAuditIT.java`: create, edit, delete and inactive (standards, divisions) each write one audit entry (category audit is asserted in T066) with area `Master data`, old and new values in the same transaction; a failed change leaves no entry (FR-021, FR-023)
+- [X] T050 [P] [US2] `BT/masterdata/AcademicYearIT.java`: create/view/edit with required fields and unique name (FR-010); `end_date` not after `start_date` and overlapping years refused with a message naming the other year (FR-011); the current year is the one containing today's date, tested with a fixed test clock set to Asia/Kolkata: first and last day of a year, a date between two years (no current year, no fallback), and never more than one (FR-012, FR-013, SC-003); academic years have no inactive status (FR-020)
+- [X] T051 [P] [US2] `BT/masterdata/StandardIT.java`: required `name` and `display_order`, optional `stream` only Science or Commerce, unique name, default order by `display_order` (FR-014, FR-015)
+- [X] T052 [P] [US2] `BT/masterdata/DivisionIT.java`: links to an existing year and standard only, duplicate `(year, standard, name)` refused, same name allowed in another year or standard (FR-016, FR-017)
+- [X] T053 [P] [US2] `BT/masterdata/MasterDataRemovalIT.java`: deleting a referenced year (by a division) or standard (by a division) returns 409 "in use" (division and category references cannot exist in F0, so those assertions wait for a later feature); marking a standard, division or category inactive hides it from pick-lists but keeps it on existing records; an academic year has no inactive option; deleting an unreferenced record succeeds (FR-020)
+- [X] T054 [P] [US2] `BT/masterdata/MasterDataConflictIT.java`: saving with a stale `version` returns 409 `STALE_VERSION` with the latest record, for year, standard and division (FR-046)
+- [X] T055 [P] [US2] `BT/masterdata/MasterDataAuditIT.java`: create, edit, delete and inactive (standards, divisions) each write one audit entry (category audit is asserted in T066) with area `Master data`, old and new values in the same transaction; a failed change leaves no entry (FR-021, FR-023)
 - [ ] T056 [P] [US2] `frontend/e2e/academic-years.spec.ts`, `standards.spec.ts`, `divisions.spec.ts`: titles with FR ids; add year, overlap error, the current-year tag follows today's date, add standards and divisions, delete in use (inactive for standards, divisions and categories), two-window conflict (FR-010 to FR-017, FR-020, FR-046)
 
 ### Implementation for User Story 2
@@ -161,7 +161,7 @@ description: "Task list for F0 Foundation"
 
 ### Tests for User Story 3
 
-- [ ] T066 [P] [US3] `BT/masterdata/StudentCategoryIT.java`: seven seeded categories listed (FR-018); create with `code`, `name` and `affects_fees` all required, missing flag refused, duplicate `code` refused (FR-019); edit audited (FR-021); stale version conflict (FR-046); inactive/delete rules (FR-020)
+- [X] T066 [P] [US3] `BT/masterdata/StudentCategoryIT.java`: seven seeded categories listed (FR-018); create with `code`, `name` and `affects_fees` all required, missing flag refused, duplicate `code` refused (FR-019); edit audited (FR-021); stale version conflict (FR-046); inactive/delete rules (FR-020)
 - [ ] T067 [P] [US3] `frontend/e2e/student-categories.spec.ts`: titles with FR ids; seeded list, add, duplicate code error, flag required (FR-018, FR-019)
 
 ### Implementation for User Story 3

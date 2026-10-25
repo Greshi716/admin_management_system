@@ -36,11 +36,11 @@ class MasterDataAuditIT extends IntegrationTest {
 		api = SignedInClient.of(mvc);
 	}
 
-	private List<Map<String, Object>> entries(String entityPrefix) {
+	private List<Map<String, Object>> entries(String entity) {
 		return jdbc.queryForList("""
 				select a.area, a.action, a.entity, a.changes::text as changes, a.user_id
-				from audit_log a where a.entity like ? order by a.id
-				""", entityPrefix + "#%");
+				from audit_log a where a.entity = ? order by a.id
+				""", entity);
 	}
 
 	@Test
@@ -48,23 +48,23 @@ class MasterDataAuditIT extends IntegrationTest {
 		api.post("/api/academic-years", "{\"name\":\"2026-27\",\"startDate\":\"2026-04-01\",\"endDate\":\"2027-03-31\"}")
 			.andExpect(status().isCreated());
 		long id = jdbc.queryForObject("select id from academic_years", Long.class);
-		assertThat(entries("AcademicYear")).hasSize(1);
-		assertThat(entries("AcademicYear").get(0)).containsEntry("area", "Master data")
+		assertThat(entries("AcademicYear#" + id)).hasSize(1);
+		assertThat(entries("AcademicYear#" + id).get(0)).containsEntry("area", "Master data")
 			.containsEntry("action", "Create")
 			.containsEntry("entity", "AcademicYear#" + id);
-		assertThat(entries("AcademicYear").get(0).get("user_id")).isNotNull();
+		assertThat(entries("AcademicYear#" + id).get(0).get("user_id")).isNotNull();
 
 		api.put("/api/academic-years/" + id,
 				"{\"name\":\"2026-27x\",\"startDate\":\"2026-04-01\",\"endDate\":\"2027-03-31\",\"version\":0}")
 			.andExpect(status().isOk());
-		Map<String, Object> edit = entries("AcademicYear").get(1);
+		Map<String, Object> edit = entries("AcademicYear#" + id).get(1);
 		assertThat(edit).containsEntry("action", "Edit");
 		assertThat((String) edit.get("changes")).contains("2026-27x").contains("2026-27").contains("old").contains("new");
 
 		api.delete("/api/academic-years/" + id).andExpect(status().isNoContent());
-		assertThat(entries("AcademicYear")).hasSize(3);
-		assertThat(entries("AcademicYear").get(2)).containsEntry("action", "Delete");
-		assertThat((String) entries("AcademicYear").get(2).get("changes")).contains("2026-27x");
+		assertThat(entries("AcademicYear#" + id)).hasSize(3);
+		assertThat(entries("AcademicYear#" + id).get(2)).containsEntry("action", "Delete");
+		assertThat((String) entries("AcademicYear#" + id).get(2).get("changes")).contains("2026-27x");
 	}
 
 	@Test
@@ -81,10 +81,10 @@ class MasterDataAuditIT extends IntegrationTest {
 		api.put("/api/standards/" + standard + "/active", "{\"active\":false,\"version\":0}").andExpect(status().isOk());
 		api.put("/api/divisions/" + division + "/active", "{\"active\":false,\"version\":0}").andExpect(status().isOk());
 
-		assertThat(entries("Standard")).extracting((e) -> e.get("action")).containsExactly("Create", "Edit");
-		assertThat((String) entries("Standard").get(1).get("changes")).contains("active");
-		assertThat(entries("Division")).extracting((e) -> e.get("action")).containsExactly("Create", "Edit");
-		assertThat(entries("Division")).allSatisfy((e) -> assertThat(e).containsEntry("area", "Master data"));
+		assertThat(entries("Standard#" + standard)).extracting((e) -> e.get("action")).containsExactly("Create", "Edit");
+		assertThat((String) entries("Standard#" + standard).get(1).get("changes")).contains("active");
+		assertThat(entries("Division#" + division)).extracting((e) -> e.get("action")).containsExactly("Create", "Edit");
+		assertThat(entries("Division#" + division)).allSatisfy((e) -> assertThat(e).containsEntry("area", "Master data"));
 	}
 
 	@Test
