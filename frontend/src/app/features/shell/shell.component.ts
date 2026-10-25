@@ -22,6 +22,7 @@ const ICONS = {
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
   layers: 'M12 2l10 5-10 5L2 7l10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  shield: 'M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3zM9 12l2 2 4-4',
   tag: 'M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01',
 };
 
@@ -50,6 +51,7 @@ export class ShellComponent {
         { label: 'Student categories', link: '/master-data/student-categories', icon: ICONS.tag },
       ],
     },
+    { title: 'System', items: [{ label: 'Audit log', link: '/audit-log', icon: ICONS.shield }] },
   ];
 
   protected readonly initials = computed(() => {
