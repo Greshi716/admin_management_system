@@ -14,6 +14,10 @@ School fees, staff payroll and fund management for Birlasagar Higher Secondary S
 - Run the backend: `cd management && ./mvnw spring-boot:run`
 - Verify everything: `scripts/verify.sh` (Git Bash) or `scripts/verify.ps1` (PowerShell)
 - Start the dev database: `docker compose -f deploy/docker-compose.yml up -d` (PostgreSQL on 5432, database `admin_management_db`)
+- Run the frontend dev server: `cd frontend && npm install && npm start` (UI on http://localhost:4200, `/api` proxied to the backend on 8080)
+- Frontend unit tests: `cd frontend && npm test -- --watch=false`; browser tests: `npm run e2e` (starts its own backend with the test profile and the UI; stop any backend already on port 8080 first)
+- Production build of the UI into the backend: `scripts/build-frontend.sh` or `scripts/build-frontend.ps1` (copies it to `management/src/main/resources/static`, which is not committed)
+- First-run credentials: on a fresh database the backend writes the Admin password to `credentials-first-run.txt` in the data folder (`management/data/` when started from `management/`, set by `campusflow.data-dir`). Read it once; it is deleted when the password is changed. Never commit it.
 
 ## How we work
 - One feature at a time with Spec Kit: specify, clarify, plan, tasks, analyze, then implement one task at a time.
