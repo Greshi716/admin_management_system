@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./backups/**)",
+      "Read(./real-data/**)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./backups/**)",
+      "Edit(./real-data/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-main.sh\"", "timeout": 20 },
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-before-push.sh\"", "timeout": 1200 }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-migrations.sh\"", "timeout": 20 }
+        ]
+      }
+    ]
+  }
+}
