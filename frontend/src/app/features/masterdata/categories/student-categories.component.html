@@ -29,7 +29,7 @@
     <input  id="categoryCode" class="input mb-1 w-full" formControlName="code" />
     @if (serverMessage(form.controls.code); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.code.touched && form.controls.code.invalid) {
+    } @else if ((form.controls.code.touched || form.controls.code.dirty) && form.controls.code.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the category code.</p>
     } @else {
       <div class="mb-3"></div>
@@ -39,7 +39,7 @@
     <input  id="categoryName" class="input mb-1 w-full" formControlName="name" />
     @if (serverMessage(form.controls.name); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.name.touched && form.controls.name.invalid) {
+    } @else if ((form.controls.name.touched || form.controls.name.dirty) && form.controls.name.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the category name.</p>
     } @else {
       <div class="mb-3"></div>
@@ -60,7 +60,7 @@
     </fieldset>
     @if (serverMessage(form.controls.affectsFees); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.affectsFees.touched && form.controls.affectsFees.invalid) {
+    } @else if ((form.controls.affectsFees.touched || form.controls.affectsFees.dirty) && form.controls.affectsFees.invalid) {
       <p class="mb-3 text-sm text-error-text">Choose whether this category affects fees.</p>
     } @else {
       <div class="mb-3"></div>

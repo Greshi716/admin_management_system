@@ -24,7 +24,7 @@
     <input  id="yearName" class="input mb-1 w-full" formControlName="name" placeholder="2026-27" />
     @if (serverMessage(form.controls.name); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.name.touched && form.controls.name.invalid) {
+    } @else if ((form.controls.name.touched || form.controls.name.dirty) && form.controls.name.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the academic year name.</p>
     } @else {
       <div class="mb-3"></div>
@@ -34,7 +34,7 @@
     <input  id="yearStart" type="date" class="input mb-1 w-full" formControlName="startDate" />
     @if (serverMessage(form.controls.startDate); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.startDate.touched && form.controls.startDate.invalid) {
+    } @else if ((form.controls.startDate.touched || form.controls.startDate.dirty) && form.controls.startDate.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the start date.</p>
     } @else {
       <div class="mb-3"></div>
@@ -44,7 +44,7 @@
     <input  id="yearEnd" type="date" class="input mb-1 w-full" formControlName="endDate" />
     @if (serverMessage(form.controls.endDate); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.endDate.touched && form.controls.endDate.invalid) {
+    } @else if ((form.controls.endDate.touched || form.controls.endDate.dirty) && form.controls.endDate.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the end date.</p>
     } @else {
       <div class="mb-3"></div>

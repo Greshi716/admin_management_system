@@ -1,6 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../../shared/forms/api-error';
@@ -37,6 +38,7 @@ export class AcademicYearsComponent {
 
   private readonly http = inject(HttpClient);
   private readonly toast = inject(ToastService);
+  private readonly store = inject(AuthStore);
   private readonly table = viewChild.required(CampusTableComponent);
 
   protected readonly formOpen = signal(false);
@@ -53,6 +55,13 @@ export class AcademicYearsComponent {
     startDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     endDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
+
+  constructor() {
+    // With no year covering today the admin cannot go anywhere else, so the create form is ready at once (FR-013).
+    if (this.store.noCurrentYear()) {
+      this.add();
+    }
+  }
 
   protected get isEdit(): boolean {
     return this.editing !== null;
@@ -99,6 +108,7 @@ export class AcademicYearsComponent {
         this.toast.success(editing ? 'The academic year was changed.' : 'The academic year was added.');
         this.closeForm();
         this.table().reload();
+        this.store.refresh().subscribe(); // the current year may have changed, which lifts or restores the block
       },
       error: (error: unknown) => {
         this.busy.set(false);
@@ -137,6 +147,7 @@ export class AcademicYearsComponent {
         this.deleting.set(null);
         this.toast.success('The academic year was deleted.', 'Deleted');
         this.table().reload();
+        this.store.refresh().subscribe();
       },
       error: () => {
         // The error interceptor shows the server's reason, for example that the year is in use.

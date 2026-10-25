@@ -29,7 +29,7 @@
     <input  id="standardName" class="input mb-1 w-full" formControlName="name" />
     @if (serverMessage(form.controls.name); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.name.touched && form.controls.name.invalid) {
+    } @else if ((form.controls.name.touched || form.controls.name.dirty) && form.controls.name.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the standard name.</p>
     } @else {
       <div class="mb-3"></div>
@@ -39,7 +39,7 @@
     <input  id="standardOrder" type="number" class="input mb-1 w-full" formControlName="displayOrder" />
     @if (serverMessage(form.controls.displayOrder); as message) {
       <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
-    } @else if (form.controls.displayOrder.touched && form.controls.displayOrder.invalid) {
+    } @else if ((form.controls.displayOrder.touched || form.controls.displayOrder.dirty) && form.controls.displayOrder.invalid) {
       <p class="mb-3 text-sm text-error-text">Enter the display order.</p>
     } @else {
       <div class="mb-3"></div>
