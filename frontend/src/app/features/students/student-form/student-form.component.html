@@ -1,6 +1,12 @@
 <div class="mb-6">
-  <h1 class="m-0 text-3xl font-bold tracking-tight">Register student</h1>
-  <p class="mt-1 text-muted">Enter the student as in the admission register. Fields marked * are required.</p>
+  <h1 class="m-0 text-3xl font-bold tracking-tight">{{ editId() === null ? 'Register student' : 'Edit student' }}</h1>
+  <p class="mt-1 text-muted">
+    @if (editId() === null) {
+      Enter the student as in the admission register. Fields marked * are required.
+    } @else {
+      Change the details and save. The class and category are changed on the class history of the profile.
+    }
+  </p>
 </div>
 
 <ng-template #fieldError let-control="control" let-message="message">
@@ -26,7 +32,7 @@
     </div>
   }
 
-  <form [formGroup]="form" (ngSubmit)="save(false)" novalidate class="grid max-w-3xl gap-4 sm:grid-cols-2">
+  <form [formGroup]="form" (ngSubmit)="editId() === null ? save(false) : saveEdit()" novalidate class="grid max-w-3xl gap-4 sm:grid-cols-2">
     <div>
       <label class="mb-1 block text-sm font-semibold" for="grNo">GR No. *</label>
       <input id="grNo" #grNoInput class="input w-full" formControlName="grNo" autocomplete="off" />
@@ -129,16 +135,19 @@
       <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.religionCaste, message: '' }" />
     </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-semibold" for="categoryId">Category *</label>
-      <select id="categoryId" class="input w-full" formControlName="categoryId">
-        <option [ngValue]="null" disabled>Choose</option>
-        @for (category of pickLists()?.categories ?? []; track category.id) {
-          <option [ngValue]="category.id">{{ category.name }}</option>
-        }
-      </select>
-      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.categoryId, message: 'Choose the category.' }" />
-    </div>
+    @if (editId() === null) {
+      <div>
+        <label class="mb-1 block text-sm font-semibold" for="categoryId">Category *</label>
+        <select id="categoryId" class="input w-full" formControlName="categoryId">
+          <option [ngValue]="null" disabled>Choose</option>
+          @for (category of pickLists()?.categories ?? []; track category.id) {
+            <option [ngValue]="category.id">{{ category.name }}</option>
+          }
+        </select>
+        <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.categoryId, message: 'Choose the category.' }" />
+      </div>
+
+    }
 
     <div>
       <label class="mb-1 block text-sm font-semibold" for="admissionDate">Admission date *</label>
@@ -163,49 +172,56 @@
       <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.previousSchool, message: '' }" />
     </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-semibold" for="standardId">Standard (this year) *</label>
-      <select id="standardId" class="input w-full" formControlName="standardId">
-        <option [ngValue]="null" disabled>Choose</option>
-        @for (standard of pickLists()?.standards ?? []; track standard.id) {
-          <option [ngValue]="standard.id">{{ standard.name }}</option>
-        }
-      </select>
-      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.standardId, message: 'Choose the standard.' }" />
-    </div>
+    @if (editId() === null) {
+      <div>
+        <label class="mb-1 block text-sm font-semibold" for="standardId">Standard (this year) *</label>
+        <select id="standardId" class="input w-full" formControlName="standardId">
+          <option [ngValue]="null" disabled>Choose</option>
+          @for (standard of pickLists()?.standards ?? []; track standard.id) {
+            <option [ngValue]="standard.id">{{ standard.name }}</option>
+          }
+        </select>
+        <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.standardId, message: 'Choose the standard.' }" />
+      </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-semibold" for="divisionId">Division (this year) *</label>
-      <select id="divisionId" class="input w-full" formControlName="divisionId">
-        <option [ngValue]="null" disabled>Choose</option>
-        @for (division of divisions(); track division.id) {
-          <option [ngValue]="division.id">{{ division.name }}</option>
+      <div>
+        <label class="mb-1 block text-sm font-semibold" for="divisionId">Division (this year) *</label>
+        <select id="divisionId" class="input w-full" formControlName="divisionId">
+          <option [ngValue]="null" disabled>Choose</option>
+          @for (division of divisions(); track division.id) {
+            <option [ngValue]="division.id">{{ division.name }}</option>
+          }
+        </select>
+        @if (noDivision()) {
+          <p class="mt-1 text-sm text-error-text" role="alert" data-testid="no-division">
+            Add a division for this standard under Setup
+          </p>
         }
-      </select>
-      @if (noDivision()) {
-        <p class="mt-1 text-sm text-error-text" role="alert" data-testid="no-division">
-          Add a division for this standard under Setup
-        </p>
-      }
-      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.divisionId, message: 'Choose the division.' }" />
-    </div>
+        <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.divisionId, message: 'Choose the division.' }" />
+      </div>
 
-    <div class="sm:col-span-2">
-      <span class="mb-1 block text-sm font-semibold">Photo</span>
-      <app-photo-upload [error]="photoError()" [disabled]="busy()" (chosen)="photoChosen($event)" (removed)="photoRemoved()" />
-    </div>
+      <div class="sm:col-span-2">
+        <span class="mb-1 block text-sm font-semibold">Photo</span>
+        <app-photo-upload [error]="photoError()" [disabled]="busy()" (chosen)="photoChosen($event)" (removed)="photoRemoved()" />
+      </div>
+
+    }
 
     <div class="flex flex-wrap gap-2 sm:col-span-2">
       <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy() || saved() !== null">Save</button>
-      <button
-        type="button"
-        class="btn btn-secondary btn-outlined"
-        [disabled]="busy() || saved() !== null"
-        (click)="save(true)"
-      >
-        Save and add next
-      </button>
-      <a class="btn btn-secondary btn-outlined" routerLink="/students">Cancel</a>
+      @if (editId() === null) {
+        <button
+          type="button"
+          class="btn btn-secondary btn-outlined"
+          [disabled]="busy() || saved() !== null"
+          (click)="save(true)"
+        >
+          Save and add next
+        </button>
+      }
+      <a class="btn btn-secondary btn-outlined" [routerLink]="editId() === null ? ['/students'] : ['/students', editId()]">Cancel</a>
     </div>
   </form>
 }
+
+<app-stale-version-dialog [latest]="stale()" [fields]="staleFields" (useLatest)="useLatest()" (keepMine)="keepMine()" />

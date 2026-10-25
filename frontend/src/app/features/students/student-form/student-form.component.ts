@@ -2,10 +2,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { problemOf } from '../../../core/http/api-problem';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
+import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../../shared/forms/api-error';
+import { StaleField, StaleVersionDialogComponent } from '../../../shared/forms/stale-version-dialog.component';
 import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
 import { PhotoUploadComponent } from '../../../shared/ui/photo-upload.component';
 import { NameMatch, PickLists, StudentInput, StudentsService } from '../students.service';
@@ -21,7 +23,14 @@ type Gender = 'Male' | 'Female' | 'Other' | '';
  */
 @Component({
   selector: 'app-student-form',
-  imports: [ReactiveFormsModule, RouterLink, NgTemplateOutlet, PageSkeletonComponent, PhotoUploadComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    NgTemplateOutlet,
+    PageSkeletonComponent,
+    PhotoUploadComponent,
+    StaleVersionDialogComponent,
+  ],
   templateUrl: './student-form.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -29,6 +38,7 @@ export class StudentFormComponent implements OnInit {
   private readonly students = inject(StudentsService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   private readonly grNoInput = viewChild<ElementRef<HTMLInputElement>>('grNoInput');
   private readonly photoUpload = viewChild(PhotoUploadComponent);
@@ -41,6 +51,19 @@ export class StudentFormComponent implements OnInit {
   protected readonly photoError = signal<string | null>(null);
   /** Set once the student is stored; the form is then locked so the same student cannot be saved twice. */
   protected readonly saved = signal<{ id: number; grNo: string } | null>(null);
+  /** The student being edited (route /students/:id/edit); null when registering. */
+  protected readonly editId = signal<number | null>(null);
+  /** The latest saved record after a stale save; shown in the stale-version dialog. */
+  protected readonly stale = signal<Record<string, unknown> | null>(null);
+  protected readonly staleFields: StaleField[] = [
+    { field: 'grNo', label: 'GR No.' },
+    { field: 'surname', label: 'Surname' },
+    { field: 'firstName', label: 'First name' },
+    { field: 'address', label: 'Address' },
+    { field: 'mobile1', label: 'Mobile 1' },
+    { field: 'status', label: 'Status' },
+  ];
+  private version = 0;
   /** The message after "Save and add next", naming the student just saved. */
   protected readonly lastSaved = signal<string | null>(null);
 
@@ -91,6 +114,11 @@ export class StudentFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam !== null) {
+      this.startEdit(Number(idParam));
+      return;
+    }
     this.form.controls.standardId.valueChanges.subscribe((standard) => {
       this.chosenStandard.set(standard);
       this.form.controls.divisionId.reset(null);
@@ -104,6 +132,96 @@ export class StudentFormComponent implements OnInit {
     });
   }
 
+  /** Edit mode: the category and the class belong to the yearly class record, so they are not part of this form. */
+  private startEdit(id: number): void {
+    this.editId.set(id);
+    for (const control of [this.form.controls.categoryId, this.form.controls.standardId, this.form.controls.divisionId]) {
+      control.clearValidators();
+      control.updateValueAndValidity();
+    }
+    forkJoin({ values: this.students.editForm(id), lists: this.students.pickLists() }).subscribe({
+      next: ({ values, lists }) => {
+        this.pickLists.set(lists);
+        this.fill(values);
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false), // the error interceptor has shown the reason
+    });
+  }
+
+  private fill(values: StudentInput): void {
+    this.version = values.version ?? 0;
+    this.form.patchValue({
+      grNo: values.grNo,
+      surname: values.surname,
+      firstName: values.firstName,
+      middleName: values.middleName ?? '',
+      gender: values.gender,
+      dob: values.dob,
+      birthPlace: values.birthPlace ?? '',
+      fatherName: values.fatherName ?? '',
+      motherName: values.motherName ?? '',
+      mobile1: values.mobile1,
+      mobile2: values.mobile2 ?? '',
+      address: values.address,
+      aadhaar: values.aadhaar ?? '',
+      religionCaste: values.religionCaste ?? '',
+      admissionDate: values.admissionDate,
+      admissionStandardId: values.admissionStandardId,
+      previousSchool: values.previousSchool ?? '',
+    });
+    this.form.markAsPristine();
+  }
+
+  /** Saves the edit against the version that was loaded; a stale save shows the latest values (FR-018). */
+  protected saveEdit(): void {
+    const id = this.editId();
+    if (id === null || this.busy()) {
+      return;
+    }
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.busy.set(true);
+    this.students.update(id, { ...this.toInput(), version: this.version }).subscribe({
+      next: (student) => {
+        this.busy.set(false);
+        this.toast.success(`Student ${student.grNo} was saved.`);
+        void this.router.navigate(['/students', id]);
+      },
+      error: (error: unknown) => {
+        this.busy.set(false);
+        if (error instanceof HttpErrorResponse && problemOf(error.error)?.code === STALE_VERSION) {
+          this.stale.set((problemOf(error.error)?.current ?? {}) as Record<string, unknown>);
+          return;
+        }
+        const unmatched = applyFieldErrors(this.form, error);
+        if (unmatched.length > 0) {
+          this.toast.error(unmatched.map((e) => e.message).join(' '));
+        }
+      },
+    });
+  }
+
+  /** Reloads the saved record (with the full Aadhaar) into the form and drops what was typed. */
+  protected useLatest(): void {
+    const id = this.editId();
+    this.stale.set(null);
+    if (id !== null) {
+      this.students.editForm(id).subscribe((values) => this.fill(values));
+    }
+  }
+
+  /** Keeps what was typed; the next save is made against the latest version. */
+  protected keepMine(): void {
+    const latest = this.stale();
+    if (latest && typeof latest['version'] === 'number') {
+      this.version = latest['version'];
+    }
+    this.stale.set(null);
+  }
+
   /** Looks for students with the same names when the name fields lose focus; it never blocks saving. */
   protected checkNames(): void {
     const { surname, firstName, middleName } = this.form.getRawValue();
@@ -111,7 +229,7 @@ export class StudentFormComponent implements OnInit {
       this.matches.set([]);
       return;
     }
-    this.students.nameMatches(surname.trim(), firstName.trim(), middleName.trim()).subscribe({
+    this.students.nameMatches(surname.trim(), firstName.trim(), middleName.trim(), this.editId() ?? undefined).subscribe({
       next: (found) => this.matches.set(found),
       error: () => this.matches.set([]),
     });

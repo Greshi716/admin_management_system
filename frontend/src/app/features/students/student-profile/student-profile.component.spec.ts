@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { HistoryResult, Student, StudentsService } from '../students.service';
 import { StudentProfileComponent } from './student-profile.component';
 
@@ -77,10 +78,14 @@ const HISTORY: HistoryResult = {
 describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
   let fixture: ComponentFixture<StudentProfileComponent>;
   let element: HTMLElement;
-  let service: { get: ReturnType<typeof vi.fn>; history: ReturnType<typeof vi.fn> };
+  let service: { get: ReturnType<typeof vi.fn>; history: ReturnType<typeof vi.fn>; markLeft: ReturnType<typeof vi.fn> };
 
   function create(history: HistoryResult = HISTORY, student: unknown = of(STUDENT)): void {
-    service = { get: vi.fn().mockReturnValue(student), history: vi.fn().mockReturnValue(of(history)) };
+    service = {
+      get: vi.fn().mockReturnValue(student),
+      history: vi.fn().mockReturnValue(of(history)),
+      markLeft: vi.fn(),
+    };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -175,5 +180,56 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     create(HISTORY, throwError(() => new Error('404')));
 
     expect(element.textContent).toContain('could not be loaded');
+  });
+
+  const button = (label: string) =>
+    Array.from(element.querySelectorAll('button')).find((b) => b.textContent?.trim() === label);
+
+  it('shows Mark as left for an Active student and not for a Left one (FR-004)', () => {
+    create();
+    expect(button('Mark as left')).toBeDefined();
+  });
+
+  it('hides Mark as left for a Left student', () => {
+    create(HISTORY, of({ ...STUDENT, status: 'Left' }));
+    expect(button('Mark as left')).toBeUndefined();
+  });
+
+  it('asks for a confirmation before marking as left and sends the loaded version', () => {
+    create();
+    service.markLeft.mockReturnValue(of({ ...STUDENT, status: 'Left' }));
+    service.get.mockReturnValue(of({ ...STUDENT, status: 'Left', version: 1 }));
+
+    button('Mark as left')?.click();
+    fixture.detectChanges();
+    expect(service.markLeft).not.toHaveBeenCalled();
+    const confirm = Array.from(element.querySelectorAll('button')).filter((b) => b.textContent?.trim() === 'Mark as left')[1];
+    confirm.click();
+    fixture.detectChanges();
+
+    expect(service.markLeft).toHaveBeenCalledWith(5, 0);
+    expect(element.querySelector('[data-testid="status-badge"]')?.textContent).toBe('Left');
+    expect(button('Mark as left')).toBeUndefined();
+  });
+
+  it('shows the stale-version dialog when the student was changed elsewhere (FR-018)', () => {
+    create();
+    service.markLeft.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'STALE_VERSION', current: { ...STUDENT, version: 3 } } })),
+    );
+
+    button('Mark as left')?.click();
+    fixture.detectChanges();
+    Array.from(element.querySelectorAll('button')).filter((b) => b.textContent?.trim() === 'Mark as left')[1].click();
+    fixture.detectChanges();
+
+    expect(element.querySelector('[data-testid="latest-values"]')).not.toBeNull();
+  });
+
+  it('has a Change button on every class record row (FR-006)', () => {
+    create();
+    const rows = Array.from(element.querySelectorAll('[data-testid="class-history"] tbody tr'));
+
+    expect(rows.every((row) => row.textContent?.includes('Change'))).toBe(true);
   });
 });
