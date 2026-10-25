@@ -45,10 +45,10 @@ test.describe('sign-in and sign-out', () => {
     for (let attempt = 1; attempt <= 5; attempt++) {
       await page.getByLabel('Username').fill(TEST_ADMIN.username);
       await page.getByLabel('Password', { exact: true }).fill('not-the-password');
+      // Wait for each answer: the notice of the previous attempt is still on screen, so it cannot be the signal.
+      const answer = page.waitForResponse((response) => response.url().endsWith('/api/auth/login'));
       await page.getByRole('button', { name: 'Sign in' }).click();
-      if (attempt < 5) {
-        await expect(page.getByTestId('wrong-credentials')).toBeVisible();
-      }
+      await answer;
     }
 
     const notice = page.getByTestId('paused-notice');

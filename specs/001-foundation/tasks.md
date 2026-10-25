@@ -135,7 +135,7 @@ description: "Task list for F0 Foundation"
 - [X] T053 [P] [US2] `BT/masterdata/MasterDataRemovalIT.java`: deleting a referenced year (by a division) or standard (by a division) returns 409 "in use" (division and category references cannot exist in F0, so those assertions wait for a later feature); marking a standard, division or category inactive hides it from pick-lists but keeps it on existing records; an academic year has no inactive option; deleting an unreferenced record succeeds (FR-020)
 - [X] T054 [P] [US2] `BT/masterdata/MasterDataConflictIT.java`: saving with a stale `version` returns 409 `STALE_VERSION` with the latest record, for year, standard and division (FR-046)
 - [X] T055 [P] [US2] `BT/masterdata/MasterDataAuditIT.java`: create, edit, delete and inactive (standards, divisions) each write one audit entry (category audit is asserted in T066) with area `Master data`, old and new values in the same transaction; a failed change leaves no entry (FR-021, FR-023)
-- [ ] T056 [P] [US2] `frontend/e2e/academic-years.spec.ts`, `standards.spec.ts`, `divisions.spec.ts`: titles with FR ids; add year, overlap error, the current-year tag follows today's date, add standards and divisions, delete in use (inactive for standards, divisions and categories), two-window conflict (FR-010 to FR-017, FR-020, FR-046)
+- [X] T056 [P] [US2] `frontend/e2e/academic-years.spec.ts`, `standards.spec.ts`, `divisions.spec.ts`: titles with FR ids; add year, overlap error, the current-year tag follows today's date, add standards and divisions, delete in use (inactive for standards, divisions and categories), two-window conflict (FR-010 to FR-017, FR-020, FR-046)
 
 ### Implementation for User Story 2
 
