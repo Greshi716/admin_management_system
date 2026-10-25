@@ -15,6 +15,7 @@ import com.admin.management.masterdata.api.MasterDataLookup.PickLists;
 import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
 import com.admin.management.shared.web.ApiProblem.FieldError;
 import com.admin.management.shared.web.ConflictException;
+import com.admin.management.shared.web.NotFoundException;
 import com.admin.management.shared.web.ValidationException;
 
 /**
@@ -71,6 +72,19 @@ public class StudentService {
 		audit.created(StudentAudit.STUDENT, student.getId(), student.snapshot());
 		audit.created(StudentAudit.ENROLLMENT, enrollment.getId(), enrollment.snapshot());
 		return toDto(student);
+	}
+
+	/**
+	 * The values for the edit form, with the FULL Aadhaar and religion/caste. The only place they leave the server
+	 * unmasked (FR-010). The category is not part of an edit (the yearly one changes on the class record).
+	 */
+	@Transactional(readOnly = true)
+	public StudentInput editForm(Long id) {
+		Student s = students.findById(id).orElseThrow(() -> new NotFoundException("Student", id));
+		return new StudentInput(s.getVersion(), s.getGrNo(), s.getSurname(), s.getFirstName(), s.getMiddleName(),
+				s.getGender(), s.getDob(), s.getBirthPlace(), s.getFatherName(), s.getMotherName(), s.getMobile1(),
+				s.getMobile2(), s.getAddress(), s.getAadhaar(), s.getReligionCaste(), null, s.getAdmissionDate(),
+				s.getAdmissionStandardId(), s.getPreviousSchool(), null, null);
 	}
 
 	/** Students (any status) with the same three names; never blocks a save (FR-003). */
