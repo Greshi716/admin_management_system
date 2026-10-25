@@ -26,6 +26,10 @@ export const routes: Routes = [
         loadChildren: () => import('./features/audit/audit.routes').then((m) => m.AUDIT_ROUTES),
       },
       {
+        path: 'students',
+        loadChildren: () => import('./features/students/students.routes').then((m) => m.STUDENTS_ROUTES),
+      },
+      {
         path: 'master-data',
         loadChildren: () => import('./features/masterdata/masterdata.routes').then((m) => m.MASTER_DATA_ROUTES),
       },
