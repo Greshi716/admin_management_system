@@ -71,6 +71,17 @@ class AuditAppendOnlyIT extends IntegrationTest {
 			.isEqualTo(1);
 	}
 
+	@Test
+	void theDatabaseRejectsTruncate() {
+		String entity = insertOne();
+
+		assertThatThrownBy(() -> jdbc.execute("truncate table audit_log"))
+			.isInstanceOf(DataAccessException.class)
+			.hasMessageContaining("append-only");
+		assertThat(jdbc.queryForObject("select count(*) from audit_log where entity = ?", Long.class, entity))
+			.isEqualTo(1);
+	}
+
 	private String insertOne() {
 		String entity = "append-only-" + UUID.randomUUID();
 		jdbc.update("insert into audit_log (area, action, entity) values ('Fees', 'Create', ?)", entity);
