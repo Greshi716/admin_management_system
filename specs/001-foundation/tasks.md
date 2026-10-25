@@ -147,7 +147,7 @@ description: "Task list for F0 Foundation"
 - [X] T062 [US2] Controllers `AcademicYearController.java`, `StandardController.java`, `DivisionController.java` implementing `/api/academic-years`, `/api/standards`, `/api/divisions` including `/search`, `/export`, `/{id}` and, for standards and divisions only, `/{id}/active` (academic years have no `/active` and no `/make-current`) per `contracts/openapi.yaml`, using `TableEndpoints` (FR-034)
 - [X] T063 [P] [US2] `FE/features/masterdata/academic-years/` list page (CampusTable), create/edit form, a "Current" tag on the year that contains today's date (no Make current action and no inactive toggle), delete with in-use message, stale-version dialog showing latest values (FR-010 to FR-013, FR-020, FR-040, FR-046)
 - [X] T064 [P] [US2] `FE/features/masterdata/standards/` and `FE/features/masterdata/divisions/` pages (division form offers only active standards and all academic years, FR-016); both pages use the same stale-version dialog as the years page (FR-046)
-- [ ] T065 [US2] `FE/features/masterdata/masterdata.routes.ts` registering the three pages behind the auth guard
+- [X] T065 [US2] `FE/features/masterdata/masterdata.routes.ts` registering the three pages behind the auth guard
 
 **Checkpoint**: Years, standards and divisions fully usable alongside Story 1.
 

@@ -14,5 +14,9 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
   },
+  {
+    path: 'master-data',
+    loadChildren: () => import('./features/masterdata/masterdata.routes').then((m) => m.MASTER_DATA_ROUTES),
+  },
   { path: '**', redirectTo: '' },
 ];

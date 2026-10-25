@@ -10,6 +10,12 @@
 <main class="p-6">
   <h1 class="text-2xl font-bold" data-testid="welcome">Welcome, {{ store.user()?.name }}</h1>
   <p class="mt-2 text-muted">The screens for fees, payroll and funds will appear here.</p>
+  <nav class="mt-6 flex flex-wrap gap-3" aria-label="Master data">
+    <a routerLink="/master-data/academic-years" class="text-accent-text underline">Academic years</a>
+    <a routerLink="/master-data/standards" class="text-accent-text underline">Standards</a>
+    <a routerLink="/master-data/divisions" class="text-accent-text underline">Divisions</a>
+    <a routerLink="/master-data/student-categories" class="text-accent-text underline">Student categories</a>
+  </nav>
 </main>
 
 <p-dialog

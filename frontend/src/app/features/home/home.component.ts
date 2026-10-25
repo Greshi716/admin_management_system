@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Button } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
 import { AuthStore } from '../../core/auth/auth.store';
@@ -13,7 +13,7 @@ import { ChangePasswordDialogComponent } from '../auth/change-password/change-pa
  */
 @Component({
   selector: 'app-home',
-  imports: [Button, Dialog, ChangePasswordDialogComponent],
+  imports: [Button, Dialog, RouterLink, ChangePasswordDialogComponent],
   templateUrl: './home.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
