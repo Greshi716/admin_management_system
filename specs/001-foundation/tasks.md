@@ -242,7 +242,7 @@ description: "Task list for F0 Foundation"
 - [X] T093 [US6] `FE/core/layout/no-current-year.notice.ts` and link to the academic years page (US6 scenario 2)
 - [X] T094 [P] [US6] `FE/shared/ui/page-skeleton.component.ts` and use it in all list and form pages (FR-038)
 - [X] T095 [US6] Wire success and error toasts into every create, edit, delete and password action (FR-039), and field-level validation display via `FE/shared/forms/api-error.ts` (FR-040)
-- [ ] T096 [P] [US6] Responsive pass of the shell and forms at 768 px and up in `FE/core/layout/shell.component.css` (FR-041)
+- [X] T096 [P] [US6] Responsive pass of the shell and forms at 768 px and up in `FE/core/layout/shell.component.css` (FR-041)
 - [ ] T097 [US6] Theme conformance pass: verify every page uses tokens from `FE/theme/campusflow-preset.ts` only (no hard-coded colours elsewhere) (FR-043)
 
 **Checkpoint**: All six stories complete.

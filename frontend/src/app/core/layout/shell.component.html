@@ -62,7 +62,7 @@
           </span>
         }
       </div>
-      <div class="flex items-center gap-2 sm:gap-3">
+      <div class="ml-auto flex items-center gap-2 sm:gap-3">
         <span class="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-sm font-bold text-accent-text" aria-hidden="true">{{ initials() }}</span>
         <span class="hidden text-sm font-semibold sm:block" data-testid="user-name">{{ store.user()?.name }}</span>
         <button type="button" (click)="changeOpen.set(true)" class="btn btn-secondary btn-outlined btn-sm">Change password</button>
