@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.admin.management.audit.AuditService;
-import com.admin.management.audit.SensitiveMasker;
+import com.admin.management.shared.masking.SensitiveMasker;
 
 /**
  * Counts failed sign-ins, pauses sign-in after 5 in a row for 5 minutes, and audits every attempt (FR-022, FR-044).

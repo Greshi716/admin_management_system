@@ -1,4 +1,4 @@
-package com.admin.management.audit;
+package com.admin.management.shared.masking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

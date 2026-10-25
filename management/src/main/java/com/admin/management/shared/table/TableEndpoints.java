@@ -10,8 +10,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.admin.management.audit.AuditService;
-import com.admin.management.audit.SensitiveMasker;
+import com.admin.management.shared.masking.SensitiveMasker;
 import com.admin.management.shared.excel.ExcelExporter;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,14 +26,14 @@ public class TableEndpoints {
 
 	private final ExcelExporter exporter;
 
-	private final AuditService audit;
+	private final ExportRecorder exports;
 
 	private final Clock clock;
 
-	public TableEndpoints(TableQueryService queries, ExcelExporter exporter, AuditService audit, Clock clock) {
+	public TableEndpoints(TableQueryService queries, ExcelExporter exporter, ExportRecorder exports, Clock clock) {
 		this.queries = queries;
 		this.exporter = exporter;
-		this.audit = audit;
+		this.exports = exports;
 		this.clock = clock;
 	}
 
@@ -68,7 +67,7 @@ public class TableEndpoints {
 			}
 			throw ex;
 		}
-		audit.recordIndependent(area, "Export", listName, auditChanges(def, request, rows), null);
+		exports.recordExport(area, listName, auditChanges(def, request, rows));
 	}
 
 	private String fileName(String listName) {

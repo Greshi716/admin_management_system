@@ -19,7 +19,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.stereotype.Component;
 
-import com.admin.management.audit.SensitiveMasker;
+import com.admin.management.shared.masking.SensitiveMasker;
 import com.admin.management.shared.table.ColumnDef;
 import com.admin.management.shared.time.ClockConfig;
 
