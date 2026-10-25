@@ -15,6 +15,7 @@ import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -62,6 +63,11 @@ public class ApiExceptionHandler {
 	@ExceptionHandler(ValidationException.class)
 	ResponseEntity<ApiProblem> invalidRequest(ValidationException ex) {
 		return validation(ex.getFieldErrors());
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ResponseEntity<ApiProblem> tooLarge(MaxUploadSizeExceededException ex) {
+		return validation(List.of(new ApiProblem.FieldError("file", "The file is larger than 5 MB.")));
 	}
 
 	@ExceptionHandler(NotFoundException.class)
