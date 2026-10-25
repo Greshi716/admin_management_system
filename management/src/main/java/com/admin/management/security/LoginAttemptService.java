@@ -71,16 +71,14 @@ public class LoginAttemptService {
 					Map.of("event", "failed"), null);
 			return Optional.empty();
 		}
-		User user = found.get();
-		user.failedOnce();
-		audit.recordIndependent(user.getId(), null, AREA, "Login", ENTITY, Map.of("event", "failed"), null);
-		if (user.getFailedAttempts() < MAX_FAILURES) {
-			users.save(user);
+		Long id = found.get().getId();
+		users.addFailedAttempt(id);
+		audit.recordIndependent(id, null, AREA, "Login", ENTITY, Map.of("event", "failed"), null);
+		if (users.failedAttempts(id) < MAX_FAILURES) {
 			return Optional.empty();
 		}
-		user.pauseUntil(clock.instant().plus(PAUSE));
-		users.save(user);
-		audit.recordIndependent(user.getId(), null, AREA, "Login", ENTITY,
+		users.pause(id, clock.instant().plus(PAUSE));
+		audit.recordIndependent(id, null, AREA, "Login", ENTITY,
 				Map.of("event", "paused", "minutes", PAUSE.toMinutes()), null);
 		return Optional.of(PAUSE);
 	}

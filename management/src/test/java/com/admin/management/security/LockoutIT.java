@@ -8,6 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +38,9 @@ class LockoutIT extends IntegrationTest {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	@Autowired
+	LoginAttemptService attempts;
 
 	@BeforeEach
 	void cleanState() {
@@ -84,6 +94,32 @@ class LockoutIT extends IntegrationTest {
 		failTimes(4);
 
 		SignIn.login(mvc, new MockHttpSession(), TestAdmin.USERNAME, TestAdmin.PASSWORD).andExpect(status().isOk());
+	}
+
+	@Test
+	void failuresAtTheSameMomentAreAllCountedAndNeverAnError() throws Exception {
+		int threads = 4;
+		ExecutorService pool = Executors.newFixedThreadPool(threads);
+		try {
+			CountDownLatch go = new CountDownLatch(1);
+			List<Future<?>> done = new ArrayList<>();
+			for (int i = 0; i < threads; i++) {
+				done.add(pool.submit(() -> {
+					go.await();
+					attempts.recordFailure(TestAdmin.USERNAME);
+					return null;
+				}));
+			}
+			go.countDown();
+			for (Future<?> future : done) {
+				future.get(30, TimeUnit.SECONDS); // throws if any call failed, for example on a stale row version
+			}
+		}
+		finally {
+			pool.shutdownNow();
+		}
+
+		assertThat(jdbc.queryForObject("select failed_attempts from users", Integer.class)).isEqualTo(threads);
 	}
 
 	private void failTimes(int times) throws Exception {

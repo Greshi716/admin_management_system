@@ -118,16 +118,6 @@ public class User {
 		this.lockedUntil = null;
 	}
 
-	public void failedOnce() {
-		this.failedAttempts++;
-	}
-
-	/** Starts the pause and gives a fresh set of attempts once it ends. */
-	public void pauseUntil(Instant until) {
-		this.lockedUntil = until;
-		this.failedAttempts = 0;
-	}
-
 	public void clearFailures() {
 		this.failedAttempts = 0;
 		this.lockedUntil = null;
