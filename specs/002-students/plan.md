@@ -72,7 +72,7 @@ management/src/main/java/com/admin/management/
 │   ├── Student, StudentEnrollment, StudentPhoto            # entities (ids of master data are plain Long)
 │   ├── StudentRepository, EnrollmentRepository, PhotoRepository
 │   ├── StudentService, PhotoService (resize), StudentAudit
-│   └── StudentController, StudentPhotoController, dto records
+│   └── StudentController (register, edit), StudentListController, StudentProfileController, StudentPhotoController, dto records
 ├── shared/table/                    # CHANGE: refuse filter and sort on sensitive columns (research R4)
 ├── shared/masking/SensitiveMasker   # CHANGE: add "religionCaste" to MASKED
 └── audit/                           # CHANGE: AuditService.history(area, entities) read method + test (research R12); area is free text, no other change
@@ -100,7 +100,7 @@ frontend/e2e/                        # NEW students specs; shell/look-and-feel s
 5. **Aadhaar and religion/caste are stored as plain text** in PostgreSQL, with no field-level encryption (owner decision, decision log 25-10-2026). They are masked wherever shown except the edit form. The whole database is one backup file.
 6. **Mark as left** is a button on the profile for an Active student only, with a confirmation, calling `PUT /students/{id}/left` (FR-004, FR-009). There is no prepare-LC action.
 7. **Stale saves** (FR-018): `@Version` on `students` and `student_enrollments`; student edit, class-record edit and Mark as left return the F0 409 `STALE_VERSION` with the latest record.
-8. **History block on the profile** (FR-019): `GET /students/{id}/history` reads the audit entries for `Student#id` and for the student's `StudentEnrollment#id` values through a new read method on the public `AuditService` (research R12). No new table; `students -> audit` is already an allowed dependency.
+8. **History block on the profile** (FR-019): `GET /students/{id}/history` reads the audit entries for `Student#id` and for the student's `StudentEnrollment#id` values through a new read method `history(area, entities, limit)` on the public `AuditService` (research R12). No new table; `students -> audit` is already an allowed dependency.
 9. **Mobile numbers are shown in full** on the profile and list (owner decision); the student-level category is stored at registration only; the screens show the yearly category.
 
 10. **Security of the edit endpoint**: `GET /students/{id}/edit` returns the full Aadhaar and religion/caste, so it sends `Cache-Control: no-store`; a test checks the header (plan review S7).
