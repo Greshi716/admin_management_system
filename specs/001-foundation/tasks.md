@@ -185,7 +185,7 @@ description: "Task list for F0 Foundation"
 - [X] T071 [P] [US4] `BT/audit/AuditLogQueryIT.java`: filter by date range, month, year, area and action returns only matching rows; `from` after `to` returns 422 (FR-026, SC-005)
 - [X] T072 [P] [US4] `BT/audit/AuditAppendOnlyIT.java`: no HTTP method exists to edit or delete an entry, and the database rejects UPDATE/DELETE (FR-024)
 - [X] T073 [P] [US4] `BT/audit/AuditTransactionIT.java`: a change that rolls back leaves no entry; `AuditService.record` outside a transaction fails (FR-023)
-- [ ] T074 [P] [US4] `BT/audit/AuditMaskingIT.java`: a changed field marked sensitive appears masked with the last 4 characters; password and hash never appear (FR-025)
+- [X] T074 [P] [US4] `BT/audit/AuditMaskingIT.java`: a changed field marked sensitive appears masked with the last 4 characters; password and hash never appear (FR-025)
 - [ ] T075 [P] [US4] `BT/audit/AuditExtensibilityIT.java`: a test-only module records area `Fees` with action `Cancel` and a reason, and the entry is listed and filterable without any schema change (FR-027)
 - [ ] T076 [P] [US4] `frontend/e2e/audit-log.spec.ts`: titles with FR ids; login and edit entries visible, date/month/year/area/action filters, no edit or delete control (FR-021, FR-022, FR-024, FR-026)
 
