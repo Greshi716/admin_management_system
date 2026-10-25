@@ -42,3 +42,20 @@ Second round (M5, M6, M8, M10, M12) added at the end of the Fixed table. First-r
 ## Spec gaps
 
 None found.
+
+## Third round: self-review findings R1, R4, R5, R6
+
+Source: `self-review.md` (APPROVED, 6 should fix). Final `bash scripts/verify.sh` (JDK 21): **VERIFY OK**, backend tests 0 failures, Playwright 68 passed, FR coverage 46 of 46.
+
+| Id | What changed | Commit |
+|----|--------------|--------|
+| R1 | New `AuditService.recordFor(userId, ...)` (`MANDATORY`). `FirstRunBootstrap.resetAdminPassword()` saves the audit entry inside the same transaction as the new password and the credentials file. New test: when the audit insert fails, the password hash and the file are unchanged (it fails against the old code). | 42a6851 |
+| R4 | `TableQueryStreamIT`: a row committed on another connection after the first chunk must not repeat or skip a row. Checked: passes with `REPEATABLE_READ`, fails without it. | 8173421 |
+| R5 | CLAUDE.md layout and verify lines, decision log (UI direction row, PrimeNG dropped row, spike item closed). | 1bd52dd |
+| R6 | plan.md and tasks.md (V5 is the TRUNCATE trigger, next index migration is V6), data-model.md, quickstart.md (credentials file, e2e and port 8080, SC-008 timed step 13), openapi.yaml and `TableRequest` Javadoc. | 1bd52dd |
+
+Not fixed in this round (not requested): R2 and R3 need the owner (see below), R7 to R15 are minor.
+
+- **R2**: the "Audit log" area is still only in the decision log. The owner decides: record exports under Security, or update the agreement, spec and data model.
+- **R3**: the owner must confirm the constitution 1.0.1 approval line, or it is removed.
+- CLAUDE.md: the uncommitted "Hooks" line in the working tree is not mine and was left out of the commit.
