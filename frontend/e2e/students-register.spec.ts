@@ -135,8 +135,11 @@ test.describe('register a student', () => {
     await expectSaved(page, 'Testphoto');
 
     const [student] = await matchesOf(page, 'Testphoto');
+    // the photo is sent right after the student is created, so wait for it
+    await expect
+      .poll(async () => (await page.context().request.get(`/api/students/${student.id}/photo`)).status())
+      .toBe(200);
     const photo = await page.context().request.get(`/api/students/${student.id}/photo`);
-    expect(photo.status()).toBe(200);
     expect(photo.headers()['content-type']).toContain('image/jpeg');
   });
 
