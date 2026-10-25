@@ -1,16 +1,12 @@
 package com.admin.management.audit;
 
-import java.util.List;
 import java.util.Map;
 
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.admin.management.shared.CurrentUserProvider;
 import com.admin.management.shared.masking.SensitiveMasker;
 
 /**
@@ -26,11 +22,11 @@ public class AuditService {
 
 	private final AuditRepository repository;
 
-	private final JdbcTemplate jdbc;
+	private final CurrentUserProvider currentUser;
 
-	AuditService(AuditRepository repository, JdbcTemplate jdbc) {
+	AuditService(AuditRepository repository, CurrentUserProvider currentUser) {
 		this.repository = repository;
-		this.jdbc = jdbc;
+		this.currentUser = currentUser;
 	}
 
 	/** Records a change in the caller's transaction; fails when there is none. */
@@ -64,14 +60,8 @@ public class AuditService {
 
 	/** The signed-in user's id, or null when nobody is signed in. The audit log keeps a foreign key to users. */
 	private Long currentUserId() {
-		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication == null || !authentication.isAuthenticated()
-				|| authentication instanceof AnonymousAuthenticationToken) {
-			return null;
-		}
-		List<Long> ids = jdbc.queryForList("select id from users where username = ?", Long.class,
-				authentication.getName());
-		return ids.isEmpty() ? null : ids.get(0);
+		return currentUser.currentUserId().orElse(null);
 	}
+
 
 }

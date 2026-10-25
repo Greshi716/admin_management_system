@@ -52,7 +52,7 @@ public class AuditEntry {
 	@Column(updatable = false)
 	private String reason;
 
-	/** Read-only, for the audit log list: the user's sign-in name, so the list needs no other module's classes. */
+	/** Read-only, for the audit log list: the user's sign-in name, so the list needs no other module's classes. Accepted exception to table isolation, see docs/decision-log.md. */
 	@Formula("(select u.username from users u where u.id = user_id)")
 	private String userName;
 

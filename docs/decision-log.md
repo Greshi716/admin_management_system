@@ -23,6 +23,7 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 
 ## Open items
 
+- **Accepted exception: audit list reads user names.** `AuditEntry.userName` is a read-only `@Formula` that joins `users` to show the sign-in name (review S4, 25-10-2026). The foreign key `audit_log.user_id` already ties the two tables; writes go through `CurrentUserProvider`. Revisit if the security module changes its user table.
 - **Audit masking for money fields.** The masking rule shows only the last 4 characters of sensitive fields. For salary and fee amounts that would hide the before/after values that constitution Principle III requires. Decide the rule for amount fields when F5 (staff) and F8 (payroll) are specified.
 - **Seed values for `affects_fees`.** Ask the school which categories carry a separate fee (client questions, fee section).
 - **First-run credentials file** (`credentials-first-run.txt`): who delivers it to the school, where it is stored, and who deletes it after first sign-in. Decide in the installer feature (F11).
