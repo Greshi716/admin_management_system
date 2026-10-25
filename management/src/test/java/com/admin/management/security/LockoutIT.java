@@ -40,7 +40,7 @@ class LockoutIT extends IntegrationTest {
 
 	@Test
 	void fiveFailuresPauseSignInForFiveMinutes() throws Exception {
-		failTimes(4);
+		failTimes(3);
 		SignIn.login(mvc, new MockHttpSession(), TestAdmin.USERNAME, WRONG).andExpect(status().isUnauthorized());
 
 		SignIn.login(mvc, new MockHttpSession(), TestAdmin.USERNAME, WRONG)

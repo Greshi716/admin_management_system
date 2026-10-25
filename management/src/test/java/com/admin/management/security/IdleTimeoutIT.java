@@ -19,9 +19,9 @@ import org.apache.catalina.Session;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.server.context.ServletWebServerApplicationContext;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.tomcat.TomcatWebServer;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.admin.management.support.Covers;
 import com.admin.management.support.ServerIntegrationTest;
