@@ -74,8 +74,9 @@ public record ColumnDef<T>(String field, String header, ColumnType type, boolean
 		return new ColumnDef<>(field, header, type, false, sensitive, true, true, expression);
 	}
 
+	/** Values are masked in lists, exports and the audit log; the column is not searched, so a search cannot probe the full value. */
 	public ColumnDef<T> asSensitive() {
-		return new ColumnDef<>(field, header, type, searchable, true, hidden, internal, expression);
+		return new ColumnDef<>(field, header, type, false, true, hidden, internal, expression);
 	}
 
 	public ColumnDef<T> asHidden() {

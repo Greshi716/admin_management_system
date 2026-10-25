@@ -48,9 +48,4 @@ public record TableRequest(Integer first, Integer rows, String sortField, Intege
 		}
 	}
 
-	/** Same request without paging, for an export of everything that matches. */
-	public TableRequest forExport() {
-		return new TableRequest(0, DEFAULT_ROWS, sortField, sortOrder, globalFilter, filters);
-	}
-
 }
