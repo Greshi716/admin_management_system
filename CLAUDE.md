@@ -27,6 +27,9 @@ School fees, staff payroll and fund management for Birlasagar Higher Secondary S
 - Commit after every task.
 - Starting a feature: follow `.claude/rules/git-workflow.md` (update main, create the feature branch, then run `/speckit-specify`). `/start-feature <short-name>` does it in one step.
 - Never commit directly to `main`.
+- Run one phase or story only: `/run-tests us1` (also phase-1, phase-2, us2 to us6, all).
+- Finishing a feature in one go (after all tasks are done): `/finish-feature` runs diff review (`diff-reviewer` agent), fix, tests, fix, self-review, fix, then push and tag. The individual steps below can also be run alone.
+- Finishing a feature (after all tasks are done): `/feature-tests` (test-planner, test-implementer and test-executor agents), then `/fix-findings`, then `/self-review` (repeat the last two until APPROVED), then `/push-feature` (pushes the branch and a tag like `001-foundation-v1`). Reports are in `docs/reports/<feature>/`. Agents are in `.claude/agents/`.
 
 ## Never do
 - Never use float or double for money. Use BigDecimal in Java and NUMERIC(12,2) in the database.
