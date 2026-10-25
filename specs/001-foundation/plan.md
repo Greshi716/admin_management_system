@@ -82,7 +82,7 @@ management/
 │   └── audit/                                # AuditService (public), AuditEntry, AuditController, SensitiveMasker
 ├── src/main/resources/
 │   ├── application.properties
-│   └── db/migration/                         # V1__baseline.sql (untouched), V2__users_audit.sql, V3__master_data.sql, V4__categories.sql, V5__table_indexes.sql (only if needed)
+│   └── db/migration/                         # V1__baseline.sql (untouched), V2__users_audit.sql, V3__master_data.sql, V4__categories.sql, V5__audit_log_no_truncate.sql (a later index migration would be V6)
 └── src/test/java/com/admin/management/       # integration + unit tests, @Covers("FR-xxx")
 
 frontend/

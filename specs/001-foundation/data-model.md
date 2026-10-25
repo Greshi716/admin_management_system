@@ -97,7 +97,7 @@ confirmed by the school (see Open point below).
 | changes | jsonb | old/new values, masked per FR-025; auth event type for Security rows |
 | reason | text | optional; required later for cancellations |
 
-Append-only: a trigger raises an exception on UPDATE and DELETE (FR-024). Indexes: `(at)`,
+Append-only: a trigger raises an exception on UPDATE and DELETE, and a statement trigger (V5) on TRUNCATE (FR-024). Indexes: `(at)`,
 `(area, action, at)`.
 
 ## Relationships

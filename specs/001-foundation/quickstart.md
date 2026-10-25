@@ -34,7 +34,7 @@ cd frontend   ; npm install ; npm start        # UI on http://localhost:4200, /a
 
 First start with an empty `users` table writes `credentials-first-run.txt` in the application
 data directory (path printed in the log) with the generated Admin password.
-Read it once, then delete it.
+The file is deleted automatically when the password is changed (FR-009). Never commit it.
 
 ## 3. Manual smoke scenarios
 
@@ -52,6 +52,7 @@ Read it once, then delete it.
 | 10 | Open Audit Log, filter by today, area Security | Login and failed-login entries; no edit/delete control | FR-021..FR-026 |
 | 11 | In any list: search, filter a column, sort, export | Excel has all matching rows and all columns | FR-029..FR-033 |
 | 12 | Start once with `campusflow.reset-admin-password=true` (developer procedure, `docs/runbooks/reset-admin-password.md`) | New password in the credentials file, old password rejected, popup shown again, reset audited | FR-045 |
+| 13 | Timed (SC-008, by a person, unaided): add an academic year, its divisions and a new student category | Done in under 10 minutes | SC-008 |
 
 ## 4. Automated UI tests
 

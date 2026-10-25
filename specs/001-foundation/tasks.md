@@ -217,7 +217,7 @@ description: "Task list for F0 Foundation"
 ### Implementation for User Story 5
 
 - [X] T086 [US5] In `FE/shared/table/campus-table.component.ts` (after T027): empty-state text, and Export on an empty result downloads a file with headings only and still writes the audit entry (FR-030, FR-038)
-- [X] T087 [P] [US5] (not needed: T083 met every target with no extra index, see the numbers in T083 report; no V5 migration) Add indexes needed for the search and sort columns of each list in a new migration `management/src/main/resources/db/migration/V5__table_indexes.sql` only if T083 shows the targets are missed (FR-035)
+- [X] T087 [P] [US5] (not needed: T083 met every target with no extra index, see the numbers in T083 report; no index migration; V5 is the audit-log TRUNCATE trigger, so any later index migration is V6) Add indexes needed for the search and sort columns of each list in a new migration `management/src/main/resources/db/migration/V5__table_indexes.sql` only if T083 shows the targets are missed (FR-035)
 - [X] T088 [US5] (already true in TableEndpoints and TableQueryService; checked by the heap and concurrency test in TablePerformanceIT) Ensure the export streams in chunks without loading all rows into memory (check heap use in `TablePerformanceIT`) and that other requests stay responsive during a large export in `BE/shared/table/TableEndpoints.java`
 
 **Checkpoint**: Table behaviour verified on all lists.

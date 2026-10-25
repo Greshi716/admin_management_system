@@ -7,7 +7,7 @@ import com.admin.management.shared.web.ApiProblem;
 import com.admin.management.shared.web.ValidationException;
 
 /**
- * A list query. It mirrors PrimeNG's lazy-load event so the table sends it unchanged
+ * A list query: page, sort, search and column filters, as the standard table sends them
  * (contracts/openapi.yaml {@code TableRequest}).
  *
  * @param sortOrder 1 ascending, -1 descending

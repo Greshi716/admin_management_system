@@ -4,7 +4,7 @@ School fees, staff payroll and fund management for Birlasagar Higher Secondary S
 
 ## Layout
 - `management/`: Spring Boot backend (Java 21, Maven, package `com.admin.management`). Where the docs say "backend", this is the folder.
-- `frontend/`: Angular app (not created yet).
+- `frontend/`: Angular app (Tailwind, plain components; PrimeNG was dropped, see the decision log).
 - `docs/agreement/`: the product agreement. The latest version is the source of truth for features, data and calculation rules.
 - `.specify/` and `specs/`: Spec Kit constitution, templates and per-feature specs.
 - `deploy/`, `scripts/`, `tools/`: Docker files, helper scripts, custom tools.
@@ -12,7 +12,7 @@ School fees, staff payroll and fund management for Birlasagar Higher Secondary S
 ## Commands
 - Build and test the backend: `cd management && ./mvnw verify` (PowerShell: `.\mvnw.cmd verify`)
 - Run the backend: `cd management && ./mvnw spring-boot:run`
-- Verify everything: `scripts/verify.sh` (Git Bash) or `scripts/verify.ps1` (PowerShell)
+- Verify everything: `scripts/verify.sh` (Git Bash) or `scripts/verify.ps1` (PowerShell). It runs the backend tests, the frontend build and unit tests, the Playwright browser tests (port 8080 must be free, JDK 21 required) and the FR coverage check
 - Start the dev database: `docker compose -f deploy/docker-compose.yml up -d` (PostgreSQL on 5432, database `admin_management_db`)
 - Run the frontend dev server: `cd frontend && npm install && npm start` (UI on http://localhost:4200, `/api` proxied to the backend on 8080)
 - Frontend unit tests: `cd frontend && npm test -- --watch=false`; browser tests: `npm run e2e` (starts its own backend with the test profile and the UI; stop any backend already on port 8080 first)

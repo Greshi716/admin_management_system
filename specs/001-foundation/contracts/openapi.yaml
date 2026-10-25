@@ -309,7 +309,7 @@ components:
           properties: { id: { type: integer, format: int64 }, active: { type: boolean } }
     TableRequest:
       type: object
-      description: Mirrors PrimeNG's lazy-load event so the table passes it through unchanged.
+      description: The list query sent by the standard table: page, sort, search and column filters.
       properties:
         first: { type: integer, minimum: 0, default: 0 }
         rows: { type: integer, enum: [10, 25, 50, 100], default: 25 }
