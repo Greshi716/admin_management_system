@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { callApi, clearMasterData } from './support/master-data';
-import { academicYearAround, resetTestAdmin, signInAsTestAdmin } from './support/test-data';
+import { resetTestAdmin, signInAsTestAdmin } from './support/test-data';
 
 const ACCENT = 'rgb(109, 74, 224)'; // #6D4AE0
 const MIN_CONTROL_HEIGHT = 44;
@@ -18,8 +18,7 @@ const SCREENS = [
 async function signInWithCurrentYear(page: Page): Promise<void> {
   await resetTestAdmin(page, { passwordChanged: true });
   await signInAsTestAdmin(page);
-  await clearMasterData(page);
-  await callApi(page, 'POST', '/api/academic-years', academicYearAround());
+  await clearMasterData(page); // leaves the academic year around today
 }
 
 /** Contrast ratio between two CSS colours given as rgb(...) strings (WCAG 2.x). */

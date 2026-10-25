@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { currentYearGuard } from './core/auth/current-year.guard';
 
 export const routes: Routes = [
   {
@@ -11,7 +12,8 @@ export const routes: Routes = [
     // Every signed-in screen lives inside the shell (sidebar and top bar).
     path: '',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/shell/shell.component').then((m) => m.ShellComponent),
+    canActivateChild: [currentYearGuard],
+    loadComponent: () => import('./core/layout/shell.component').then((m) => m.ShellComponent),
     children: [
       {
         path: '',

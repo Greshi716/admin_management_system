@@ -7,8 +7,11 @@ async function openYears(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Academic years' })).toBeVisible();
 }
 
-async function addYear(page: Page, year: YearDates): Promise<void> {
-  await page.getByRole('button', { name: 'Add academic year' }).click();
+/** Fills the create form; opens it first unless it is already open (it opens by itself while no year covers today). */
+async function addYear(page: Page, year: YearDates, options: { alreadyOpen?: boolean } = {}): Promise<void> {
+  if (!options.alreadyOpen) {
+    await page.getByRole('button', { name: 'Add academic year' }).click();
+  }
   await page.getByLabel('Name', { exact: true }).fill(year.name);
   await page.getByLabel('Start date', { exact: true }).fill(year.startDate);
   await page.getByLabel('End date', { exact: true }).fill(year.endDate);
@@ -18,13 +21,15 @@ async function addYear(page: Page, year: YearDates): Promise<void> {
 test.describe('academic years', () => {
   test.beforeEach(async ({ page }) => {
     await signInAsTestAdmin(page);
-    await clearMasterData(page);
+    await clearMasterData(page, { currentYear: false });
   });
 
   test('FR-010: the admin adds an academic year and sees it in the list', async ({ page }) => {
     await openYears(page);
     const year = academicYearAround();
-    await addYear(page, year);
+    // no year covers today yet, so the create form is already open (FR-013)
+    await expect(page.getByRole('dialog', { name: 'Add academic year' })).toBeVisible();
+    await addYear(page, year, { alreadyOpen: true });
 
     await expect(page.getByRole('row', { name: new RegExp(year.name) })).toBeVisible();
   });

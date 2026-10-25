@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { ensureCurrentYearThenSignOut } from './support/master-data';
 import { resetTestAdmin, TEST_ADMIN } from './support/test-data';
 
 const WRONG_MESSAGE = 'The username or password is not correct.';
@@ -12,7 +13,8 @@ async function signInThroughTheForm(page: Page, username: string, password: stri
 
 test.describe('sign-in and sign-out', () => {
   test.beforeEach(async ({ page }) => {
-    await resetTestAdmin(page);
+    await resetTestAdmin(page); // first: it also lifts a lock-out left by an earlier test
+    await ensureCurrentYearThenSignOut(page); // with no current year the app opens Academic years, not the home page
   });
 
   test('FR-007: a screen address without a session shows the sign-in page', async ({ page }) => {
@@ -91,6 +93,7 @@ test.describe('sign-in and sign-out', () => {
 test.describe('change-password popup', () => {
   test.beforeEach(async ({ page }) => {
     await resetTestAdmin(page, { passwordChanged: false });
+    await ensureCurrentYearThenSignOut(page);
   });
 
   test.afterEach(async ({ page }) => {

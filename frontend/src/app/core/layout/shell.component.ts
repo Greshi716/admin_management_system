@@ -1,15 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { SIGN_IN_ROUTE } from '../../core/auth/auth.guard';
-import { AuthStore } from '../../core/auth/auth.store';
-import { ChangePasswordDialogComponent } from '../auth/change-password/change-password-dialog.component';
-import { DialogComponent } from '../../shared/ui/dialog.component';
+import { ChangePasswordDialogComponent } from '../../features/auth/change-password/change-password-dialog.component';
+import { PageSkeletonComponent } from '../../shared/ui/page-skeleton.component';
+import { SIGN_IN_ROUTE } from '../auth/auth.guard';
+import { AuthStore } from '../auth/auth.store';
+import { ACADEMIC_YEARS_ROUTE } from '../auth/current-year.guard';
+import { NoCurrentYearNoticeComponent } from './no-current-year.notice';
+import { PasswordPopupComponent } from './password-popup.component';
 
 interface NavItem {
   label: string;
   link: string;
   /** Path of a 24x24 outline icon. */
   icon: string;
+  /** Stays open while today falls in no academic year (FR-013). */
+  alwaysOpen?: boolean;
 }
 
 interface NavGroup {
@@ -27,12 +32,23 @@ const ICONS = {
 };
 
 /**
- * The frame around every signed-in screen: sidebar, top bar with the user menu, and the reminder popup that asks
- * the admin to change the default password until it is changed (FR-006, FR-009).
+ * The frame around every signed-in screen (FR-028): sidebar menu, top bar with the user's name, the current
+ * academic year, Change password and Log out, and the reminder popup that asks the admin to change the default
+ * password until it is changed (FR-006, FR-009). While today falls in no academic year it shows the blocking
+ * notice and closes every menu item except Academic years (FR-013). Modules that are not built yet are left out
+ * of the menu.
  */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, DialogComponent, ChangePasswordDialogComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    ChangePasswordDialogComponent,
+    PasswordPopupComponent,
+    NoCurrentYearNoticeComponent,
+    PageSkeletonComponent,
+  ],
   templateUrl: './shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -45,7 +61,7 @@ export class ShellComponent {
     {
       title: 'Master data',
       items: [
-        { label: 'Academic years', link: '/master-data/academic-years', icon: ICONS.calendar },
+        { label: 'Academic years', link: ACADEMIC_YEARS_ROUTE, icon: ICONS.calendar, alwaysOpen: true },
         { label: 'Standards', link: '/master-data/standards', icon: ICONS.layers },
         { label: 'Divisions', link: '/master-data/divisions', icon: ICONS.grid },
         { label: 'Student categories', link: '/master-data/student-categories', icon: ICONS.tag },
@@ -66,17 +82,12 @@ export class ShellComponent {
     );
   });
 
-  /** Shown after every sign-in until the password has been changed. */
-  protected readonly reminderOpen = signal(!this.store.passwordChanged());
+  /** True while a screen is being opened, so the content area shows a placeholder instead of the old screen. */
+  protected readonly navigating = computed(() => this.router.currentNavigation() !== null);
   protected readonly changeOpen = signal(false);
 
-  protected changeNow(): void {
-    this.reminderOpen.set(false);
-    this.changeOpen.set(true);
-  }
-
-  protected later(): void {
-    this.reminderOpen.set(false);
+  protected closed(item: NavItem): boolean {
+    return this.store.noCurrentYear() && !item.alwaysOpen;
   }
 
   protected logout(): void {

@@ -21,7 +21,7 @@ test.describe('app shell', () => {
   test.beforeEach(async ({ page }) => {
     await resetTestAdmin(page, { passwordChanged: true });
     await signInAsTestAdmin(page);
-    await clearMasterData(page);
+    await clearMasterData(page, { currentYear: false });
   });
 
   test('FR-028: every screen shows the menu, the user name, the current year, Change password and Log out', async ({
@@ -84,6 +84,9 @@ test.describe('app shell', () => {
     await expect(page).toHaveURL(/\/master-data\/academic-years$/);
     await page.goto('/audit-log');
     await expect(page).toHaveURL(/\/master-data\/academic-years$/);
+    // the create form opens again on every visit to Academic years while there is no current year
+    await expect(page.getByRole('dialog', { name: 'Add academic year' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
 
     await page.getByRole('button', { name: 'Change password' }).click();
     await expect(page.getByRole('dialog', { name: 'Change password' })).toBeVisible();

@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { academicYearAround, signInAsTestAdmin } from './test-data';
 
 const SEEDED_CATEGORY_CODES = ['O/S', 'CEW', 'W', 'STAFF', 'S STAFF', 'RTE', 'CASUAL'];
 
@@ -30,10 +31,33 @@ async function allRows(page: Page, path: string): Promise<any[]> {
 }
 
 /**
- * Empties the master data a spec creates (divisions, then academic years, then standards) and removes categories
- * that are not in the seed, so specs do not depend on each other. Call after signInAsTestAdmin.
+ * Makes sure one academic year covers today and returns it. Without one the app blocks every screen but Academic
+ * years (FR-013), so a spec that is not about that block needs it. Call after signInAsTestAdmin.
  */
-export async function clearMasterData(page: Page): Promise<void> {
+export async function ensureCurrentYear(page: Page): Promise<{ id: number; name: string; version: number }> {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const years: { id: number; name: string; version: number; startDate: string; endDate: string }[] = (
+    await callApi(page, 'GET', '/api/academic-years')
+  ).body;
+  const covering = years.find((year) => year.startDate <= today && today <= year.endDate);
+  return covering ?? (await callApi(page, 'POST', '/api/academic-years', academicYearAround())).body;
+}
+
+/** For a spec that starts signed out (auth.spec): makes sure a current year exists, then drops the session. */
+export async function ensureCurrentYearThenSignOut(page: Page): Promise<void> {
+  await signInAsTestAdmin(page);
+  await ensureCurrentYear(page);
+  await page.context().clearCookies();
+}
+
+/**
+ * Empties the master data a spec creates (divisions, then academic years, then standards) and removes categories
+ * that are not in the seed, so specs do not depend on each other. Call after signInAsTestAdmin. Unless told
+ * otherwise it then adds the academic year around today, because with no current year the app blocks every screen
+ * but Academic years (FR-013); pass `{ currentYear: false }` for a spec that wants none.
+ */
+export async function clearMasterData(page: Page, options: { currentYear?: boolean } = {}): Promise<void> {
   for (const row of await allRows(page, '/api/divisions')) {
     await callApi(page, 'DELETE', `/api/divisions/${row.id}`);
   }
@@ -47,5 +71,8 @@ export async function clearMasterData(page: Page): Promise<void> {
     if (!SEEDED_CATEGORY_CODES.includes(row.code)) {
       await callApi(page, 'DELETE', `/api/student-categories/${row.id}`);
     }
+  }
+  if (options.currentYear !== false) {
+    await ensureCurrentYear(page);
   }
 }

@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
-import { callApi, clearMasterData } from './support/master-data';
-import { academicYearAround, signInAsTestAdmin } from './support/test-data';
+import { callApi, clearMasterData, ensureCurrentYear } from './support/master-data';
+import { signInAsTestAdmin } from './support/test-data';
 
 async function openDivisions(page: Page): Promise<void> {
   await page.goto('/master-data/divisions');
@@ -14,7 +14,7 @@ test.describe('divisions', () => {
   test.beforeEach(async ({ page }) => {
     await signInAsTestAdmin(page);
     await clearMasterData(page);
-    yearId = (await callApi(page, 'POST', '/api/academic-years', academicYearAround())).body.id;
+    yearId = (await ensureCurrentYear(page)).id;
     standardId = (await callApi(page, 'POST', '/api/standards', { name: 'Standard 1', displayOrder: 1 })).body.id;
   });
 

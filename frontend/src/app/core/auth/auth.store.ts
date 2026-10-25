@@ -22,6 +22,10 @@ export class AuthStore {
   readonly signedIn = computed(() => this.current() !== null);
   /** True when there is nothing to remind the admin about (or nobody is signed in). */
   readonly passwordChanged = computed(() => this.current()?.passwordChanged ?? true);
+  /** Name of the academic year that contains today, or null when there is none (FR-013). */
+  readonly currentYear = computed(() => this.current()?.currentAcademicYear ?? null);
+  /** True when someone is signed in and today falls in no academic year: only Academic years is open then. */
+  readonly noCurrentYear = computed(() => this.current() !== null && this.currentYear() === null);
   readonly idleTimeoutSeconds = computed(() => this.current()?.idleTimeoutSeconds ?? DEFAULT_IDLE_SECONDS);
   /** A message for the sign-in page, for example after the session ended. */
   readonly notice = signal<string | null>(null);
@@ -51,6 +55,18 @@ export class AuthStore {
         this.asked.set(true);
         this.notice.set(null);
       }),
+    );
+  }
+
+  /**
+   * Asks the server again who is signed in, so the current academic year is up to date after a year was added or
+   * deleted. Keeps the last answer when the call fails.
+   */
+  refresh(): Observable<void> {
+    return this.http.get<Me>(ME_URL).pipe(
+      tap((me) => this.current.set(me)),
+      map(() => undefined),
+      catchError(() => of(undefined)),
     );
   }
 

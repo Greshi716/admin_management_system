@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
-import { callApi, clearMasterData } from './support/master-data';
-import { academicYearAround, signInAsTestAdmin } from './support/test-data';
+import { callApi, clearMasterData, ensureCurrentYear } from './support/master-data';
+import { signInAsTestAdmin } from './support/test-data';
 
 async function openStandards(page: Page): Promise<void> {
   await page.goto('/master-data/standards');
@@ -39,7 +39,7 @@ test.describe('standards', () => {
     page,
   }) => {
     const standard = (await callApi(page, 'POST', '/api/standards', { name: 'Standard 1', displayOrder: 1 })).body;
-    const year = (await callApi(page, 'POST', '/api/academic-years', academicYearAround())).body;
+    const year = await ensureCurrentYear(page);
     await callApi(page, 'POST', '/api/divisions', { academicYearId: year.id, standardId: standard.id, name: 'A' });
     await openStandards(page);
 
