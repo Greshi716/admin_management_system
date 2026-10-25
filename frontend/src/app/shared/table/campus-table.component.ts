@@ -1,5 +1,16 @@
 import { HttpClient, HttpResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, input, model, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  contentChild,
+  inject,
+  input,
+  model,
+  signal,
+  TemplateRef,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
@@ -29,13 +40,15 @@ import {
  */
 @Component({
   selector: 'campus-table',
-  imports: [Table, SortableColumn, SortIcon, ColumnFilter, Button, InputText, Skeleton],
+  imports: [Table, SortableColumn, SortIcon, ColumnFilter, Button, InputText, Skeleton, NgTemplateOutlet],
   templateUrl: './campus-table.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CampusTableComponent {
   readonly columns = input.required<CampusColumn[]>();
   readonly endpoint = input.required<string>();
+  /** Optional per-row buttons: give the table an ng-template named rowActions; it receives the row. */
+  protected readonly rowActions = contentChild<TemplateRef<{ $implicit: Record<string, unknown> }>>('rowActions');
 
   protected readonly pageSizes = [...PAGE_SIZES];
   protected readonly first = model<number | null | undefined>(0);
@@ -91,6 +104,11 @@ export class CampusTableComponent {
         }
         this.loading.set(false);
       });
+  }
+
+  /** Loads the current page again, for example after a row was added, changed or deleted. */
+  reload(): void {
+    this.loadRequested.next();
   }
 
   /** PrimeNG calls this on first display, page change, page size change, sort and column filter. */

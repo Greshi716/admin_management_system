@@ -109,6 +109,9 @@
             </div>
           </th>
         }
+        @if (rowActions()) {
+          <th class="w-px whitespace-nowrap">Actions</th>
+        }
       </tr>
     </ng-template>
 
@@ -118,8 +121,19 @@
           <td>
             @if (loading()) {
               <p-skeleton height="1.1rem" />
+            } @else if (column.tag) {
+              @if (row[column.field] === true) {
+                <span class="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-text">{{ column.tag }}</span>
+              }
             } @else {
               {{ formatCell(row[column.field], column.type) }}
+            }
+          </td>
+        }
+        @if (rowActions(); as actions) {
+          <td class="whitespace-nowrap">
+            @if (!loading()) {
+              <ng-container [ngTemplateOutlet]="actions" [ngTemplateOutletContext]="{ $implicit: row }" />
             }
           </td>
         }
@@ -128,7 +142,7 @@
 
     <ng-template #emptymessage>
       <tr>
-        <td [attr.colspan]="visibleColumns().length" class="py-10 text-center text-muted">
+        <td [attr.colspan]="visibleColumns().length + (rowActions() ? 1 : 0)" class="py-10 text-center text-muted">
           <p class="font-semibold text-ink">No rows found</p>
           <p>Try a different search, or clear the column filters.</p>
         </td>

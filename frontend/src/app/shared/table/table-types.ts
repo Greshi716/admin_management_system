@@ -6,6 +6,8 @@ export interface CampusColumn {
   type?: 'text' | 'number' | 'date' | 'boolean';
   /** Hidden columns are not shown on screen but are still in the Excel export (FR-033). */
   hidden?: boolean;
+  /** For a boolean column: show this text as a tag when the value is true, and nothing when it is false. */
+  tag?: string;
 }
 
 export interface TableFilter {
