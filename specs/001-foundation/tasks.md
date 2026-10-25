@@ -115,7 +115,7 @@ description: "Task list for F0 Foundation"
 - [ ] T046 [P] [US1] `FE/features/auth/sign-in/sign-in.component.ts`: sign-in page per `docs/design/ui-tokens.md`, shows lock-out message and retry time, generic wrong-credentials message (FR-004, FR-044)
 - [ ] T047 [P] [US1] `FE/features/auth/change-password/change-password-dialog.component.ts`: change-password form (current, new, confirm; 8 characters minimum) used by the popup (T092) and the user menu (FR-009)
 - [x] T048 Merged into T047 (one change-password dialog; no separate work)
-- [ ] T049 [US1] `FE/core/auth/idle-watch.service.ts`: on a 401 after inactivity send the user to sign-in with a message (FR-008); the app must make no background or polling requests, because any API call extends the session and would stop the 10-minute timeout from ever firing
+- [X] T049 [US1] `FE/core/auth/idle-watch.service.ts`: on a 401 after inactivity send the user to sign-in with a message (FR-008); the app must make no background or polling requests, because any API call extends the session and would stop the 10-minute timeout from ever firing
 
 **Checkpoint**: User Story 1 works on its own with an empty shell page.
 

@@ -1,25 +1,25 @@
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { IdleWatchService } from '../auth/idle-watch.service';
 import { ToastService } from '../toast/toast.service';
 import { errorInterceptor } from './error.interceptor';
 
-describe('errorInterceptor (FR-039, FR-046)', () => {
+describe('errorInterceptor (FR-008, FR-039, FR-046)', () => {
   let http: HttpClient;
   let controller: HttpTestingController;
   let toast: { error: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn> };
-  let router: { url: string; navigateByUrl: ReturnType<typeof vi.fn> };
+  let idleWatch: { sessionEnded: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     toast = { error: vi.fn(), warn: vi.fn() };
-    router = { url: '/students', navigateByUrl: vi.fn().mockResolvedValue(true) };
+    idleWatch = { sessionEnded: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
         { provide: ToastService, useValue: toast },
-        { provide: Router, useValue: router },
+        { provide: IdleWatchService, useValue: idleWatch },
       ],
     });
     http = TestBed.inject(HttpClient);
@@ -83,43 +83,40 @@ describe('errorInterceptor (FR-039, FR-046)', () => {
     expect(toast.error).toHaveBeenCalledWith('That record was not found. It may have been removed.');
   });
 
-  it('on 401 tells the admin the session ended and goes to sign-in', () => {
+  it('on 401 hands the lost session to IdleWatchService without a toast', () => {
     fail('/api/standards', null, 401);
 
-    expect(toast.warn).toHaveBeenCalledWith('Your session has ended. Please sign in again.', 'Signed out');
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
-  });
-
-  it('on 401 from the current-user check goes to sign-in without a toast', () => {
-    fail('/api/auth/me', null, 401);
-
+    expect(idleWatch.sessionEnded).toHaveBeenCalled();
     expect(toast.warn).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
   });
 
-  it('on 401 from sign-in itself shows the reason and does not redirect', () => {
-    fail('/api/auth/login', { detail: 'Wrong username or password.' }, 401);
+  it('on 401 from the current-user check leaves the answer to the route guard', () => {
+    fail('/api/auth/me', null, 401);
 
-    expect(toast.error).toHaveBeenCalledWith('Wrong username or password.', 'Could not sign in');
-    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    expect(idleWatch.sessionEnded).not.toHaveBeenCalled();
+    expect(toast.warn).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it('does not redirect again when already on the sign-in screen', () => {
-    router.url = '/login';
+  it('on 401 from sign-in itself shows no toast, because the sign-in page shows the reason', () => {
+    const caught = fail('/api/auth/login', { detail: 'Wrong username or password.' }, 401) as {
+      error: { detail: string };
+    };
 
-    fail('/api/standards', null, 401);
-
-    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(idleWatch.sessionEnded).not.toHaveBeenCalled();
+    expect(caught.error.detail).toBe('Wrong username or password.');
   });
 
-  it('survives a redirect to a route that does not exist yet', async () => {
-    router.navigateByUrl.mockRejectedValue(new Error('NG04002'));
+  it('on 423 from sign-in shows no toast and passes the retry time on', () => {
+    const caught = fail('/api/auth/login', { retryAfterSeconds: 300 }, 423) as {
+      error: { retryAfterSeconds: number };
+    };
 
-    fail('/api/standards', null, 401);
-    await Promise.resolve();
-
-    expect(router.navigateByUrl).toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warn).not.toHaveBeenCalled();
+    expect(caught.error.retryAfterSeconds).toBe(300);
   });
 
   it('does not touch successful calls', () => {
