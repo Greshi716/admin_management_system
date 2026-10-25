@@ -78,8 +78,9 @@ class ModuleDependencyTest {
 	}
 
 	private static boolean isPublic(String imported) {
+		// a package entry ends with a dot; a class entry also allows the types nested in it
 		return PUBLIC.stream().anyMatch(prefix -> prefix.endsWith(".") ? imported.startsWith(prefix)
-				: imported.equals(prefix));
+				: imported.equals(prefix) || imported.startsWith(prefix + "."));
 	}
 
 	private static String module(String imported) {

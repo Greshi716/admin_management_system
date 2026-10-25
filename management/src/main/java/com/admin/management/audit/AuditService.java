@@ -1,7 +1,10 @@
 package com.admin.management.audit;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +63,38 @@ public class AuditService {
 	public void recordIndependent(Long userId, String usernameAttempted, String area, String action, String entity,
 			Map<String, Object> changes, String reason) {
 		save(userId, usernameAttempted, area, action, entity, changes, reason);
+	}
+
+	/** One entry of a record's history, as the log stored it (sensitive values are already masked). */
+	public record HistoryEntry(Instant at, String userName, String action, String entity,
+			Map<String, Object> changes) {
+	}
+
+	/** The newest entries of a record's history; {@code truncated} is true when older entries exist. */
+	public record History(List<HistoryEntry> entries, boolean truncated) {
+	}
+
+	/**
+	 * The history of the records named by {@code entities} (for example {@code Student#7}) in one area, newest
+	 * first, at most {@code limit} entries. Reads {@code limit + 1} rows to tell whether older entries exist.
+	 */
+	@Transactional(readOnly = true)
+	public History history(String area, List<String> entities, int limit) {
+		if (limit < 1) {
+			throw new IllegalArgumentException("limit must be at least 1");
+		}
+		if (entities == null || entities.isEmpty()) {
+			return new History(List.of(), false);
+		}
+		List<AuditEntry> rows = repository.findByAreaAndEntityInOrderByAtDescIdDesc(area, entities,
+				PageRequest.of(0, limit + 1));
+		boolean truncated = rows.size() > limit;
+		List<HistoryEntry> entries = rows.stream()
+			.limit(limit)
+			.map((row) -> new HistoryEntry(row.getAt(), row.getUserName(), row.getAction(), row.getEntity(),
+					row.getChanges()))
+			.toList();
+		return new History(entries, truncated);
 	}
 
 	private void save(Long userId, String usernameAttempted, String area, String action, String entity,
