@@ -212,7 +212,7 @@ description: "Task list for F0 Foundation"
 - [X] T082 [P] [US5] `BT/shared/TableExportIT.java`: export contains all matching rows in sort order and every declared column including hidden ones, sensitive columns masked, empty result gives headings only, an `Export` audit entry is written (FR-033, FR-022)
 - [X] T083 [P] [US5] `BT/shared/TablePerformanceIT.java` with 10,000 synthetic rows: a page, search, filter or sort under 2 seconds and a full export under 30 seconds (FR-035, SC-006, SC-007); tagged as a separate non-default test run with generous limits, and the reference machine is recorded in the report, because timing assertions are machine-dependent
 - [X] T084 [P] [US5] `FE/shared/table/campus-table.component.spec.ts`: debounced search without Enter, sort toggles ascending then descending, empty-state message, page size choices, export button sends the current search, filters and sort (FR-027 to FR-033)
-- [ ] T085 [P] [US5] `frontend/e2e/table.spec.ts`: titles with FR ids; on the audit log or a seeded list: next page, search, column filter, sort, export download whose rows match the screen, and the reversed date range message on the audit log (FR-029 to FR-033)
+- [X] T085 [P] [US5] `frontend/e2e/table.spec.ts`: titles with FR ids; on the audit log or a seeded list: next page, search, column filter, sort, export download whose rows match the screen, and the reversed date range message on the audit log (FR-029 to FR-033)
 
 ### Implementation for User Story 5
 
