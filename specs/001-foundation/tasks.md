@@ -257,7 +257,7 @@ description: "Task list for F0 Foundation"
 - [X] T101 [P] Run the manual scenarios in `specs/001-foundation/quickstart.md` (1 to 12) and record results, including three timed checks: a first-time admin signs in and adds a year, standard and division in under 10 minutes unaided (SC-001, SC-008), and a filtered audit search is found within 30 seconds (SC-005); update the quickstart where steps differ — NOT COMPLETE: scenarios 1 to 12 are covered by automated evidence in quickstart-results.md; the three timed checks need a person
 - [X] T102 [P] Security review of `BE/security/` and `management/src/main/resources/application.properties` (cookie flags, CSRF, no secrets in logs, generic error messages) using the `security-review` skill
 - [X] T103 [P] Update `CLAUDE.md` Commands section with frontend commands (`npm start`, `npm run e2e`, build-frontend script) and the first-run credentials file location
-- [ ] T104 (needs the owner's explicit go-ahead; do not run unattended) Open a pull request from `001-foundation` to `main` after `scripts/verify.ps1` passes
+- [X] T104 (needs the owner's explicit go-ahead; do not run unattended) Open a pull request from `001-foundation` to `main` after `scripts/verify.ps1` passes
 
 ---
 
