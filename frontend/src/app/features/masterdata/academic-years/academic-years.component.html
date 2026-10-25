@@ -1,0 +1,78 @@
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="m-0 text-3xl font-bold tracking-tight">Academic years</h1>
+    <p class="mt-1 text-muted">The April to March years of the school. The year that contains today is current.</p>
+  </div>
+  <button type="button" (click)="add()" class="btn btn-primary">Add academic year</button>
+</div>
+
+<campus-table [endpoint]="endpoint" [columns]="columns">
+  <ng-template #rowActions let-row>
+    <button type="button" (click)="edit(row)" class="btn btn-secondary btn-outlined btn-sm">Edit</button>
+    <button type="button" (click)="askDelete(row)" class="btn btn-danger btn-outlined btn-sm ml-2">Delete</button>
+  </ng-template>
+</campus-table>
+
+<app-dialog
+  [header]="isEdit ? 'Edit academic year' : 'Add academic year'"
+  [visible]="formOpen()"
+  (visibleChange)="!$event && closeForm()"
+  width="26rem"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <label class="mb-1 block text-sm font-semibold" for="yearName">Name</label>
+    <input  id="yearName" class="input mb-1 w-full" formControlName="name" placeholder="2026-27" />
+    @if (serverMessage(form.controls.name); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if ((form.controls.name.touched || form.controls.name.dirty) && form.controls.name.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the academic year name.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="yearStart">Start date</label>
+    <input  id="yearStart" type="date" class="input mb-1 w-full" formControlName="startDate" />
+    @if (serverMessage(form.controls.startDate); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if ((form.controls.startDate.touched || form.controls.startDate.dirty) && form.controls.startDate.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the start date.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="yearEnd">End date</label>
+    <input  id="yearEnd" type="date" class="input mb-1 w-full" formControlName="endDate" />
+    @if (serverMessage(form.controls.endDate); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if ((form.controls.endDate.touched || form.controls.endDate.dirty) && form.controls.endDate.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the end date.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <div class="flex justify-end gap-2">
+      <button type="button" (click)="closeForm()" class="btn btn-secondary btn-outlined">Cancel</button>
+      <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()">Save</button>
+    </div>
+  </form>
+</app-dialog>
+
+<app-stale-version-dialog
+  [latest]="stale()"
+  [fields]="staleFields"
+  (useLatest)="useLatest()"
+  (keepMine)="stale.set(null)"
+/>
+
+<app-dialog
+  header="Delete academic year"
+  [visible]="deleting() !== null"
+  (visibleChange)="!$event && deleting.set(null)"
+  width="26rem"
+>
+  <p class="mb-4">Delete the academic year {{ deleting()?.['name'] }}? This cannot be undone.</p>
+  <div class="flex justify-end gap-2">
+    <button type="button" (click)="deleting.set(null)" class="btn btn-secondary btn-outlined">Cancel</button>
+    <button type="button" (click)="confirmDelete()" class="btn btn-danger" [class.btn-loading]="busy()" [disabled]="busy()">Delete</button>
+  </div>
+</app-dialog>

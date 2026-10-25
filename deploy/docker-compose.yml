@@ -1,0 +1,17 @@
+## Development database only. The release package (Phase 5) has its own compose file
+## with a generated password and backups.
+#services:
+#  postgres:
+#    image: postgres:16
+#    container_name: campusflow-db
+#    environment:
+#      POSTGRES_DB: admin_management_db
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - campusflow-pgdata:/var/lib/postgresql/data
+#
+#volumes:
+#  campusflow-pgdata:

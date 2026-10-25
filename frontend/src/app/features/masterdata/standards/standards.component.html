@@ -1,0 +1,85 @@
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="m-0 text-3xl font-bold tracking-tight">Standards</h1>
+    <p class="mt-1 text-muted">Classes in display order, with the stream where it applies.</p>
+  </div>
+  <button type="button" (click)="add()" class="btn btn-primary">Add standard</button>
+</div>
+
+<campus-table [endpoint]="endpoint" [columns]="columns">
+  <ng-template #rowActions let-row>
+    <button type="button" (click)="edit(row)" class="btn btn-secondary btn-outlined btn-sm">Edit</button>
+    @if (row['active']) {
+      <button type="button" (click)="setActive(row, false)" class="btn btn-secondary btn-outlined btn-sm ml-2">Mark inactive</button>
+    } @else {
+      <button type="button" (click)="setActive(row, true)" class="btn btn-secondary btn-outlined btn-sm ml-2">Mark active</button>
+    }
+    <button type="button" (click)="askDelete(row)" class="btn btn-danger btn-outlined btn-sm ml-2">Delete</button>
+  </ng-template>
+</campus-table>
+
+<app-dialog
+  [header]="isEdit ? 'Edit standard' : 'Add standard'"
+  [visible]="formOpen()"
+  (visibleChange)="!$event && closeForm()"
+  width="26rem"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <label class="mb-1 block text-sm font-semibold" for="standardName">Name</label>
+    <input  id="standardName" class="input mb-1 w-full" formControlName="name" />
+    @if (serverMessage(form.controls.name); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if ((form.controls.name.touched || form.controls.name.dirty) && form.controls.name.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the standard name.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="standardOrder">Display order</label>
+    <input  id="standardOrder" type="number" class="input mb-1 w-full" formControlName="displayOrder" />
+    @if (serverMessage(form.controls.displayOrder); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else if ((form.controls.displayOrder.touched || form.controls.displayOrder.dirty) && form.controls.displayOrder.invalid) {
+      <p class="mb-3 text-sm text-error-text">Enter the display order.</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <label class="mb-1 block text-sm font-semibold" for="standardStream">Stream</label>
+    <select id="standardStream" class="input w-full mb-1" formControlName="stream">
+      <option value="">None</option>
+      <option value="Science">Science</option>
+      <option value="Commerce">Commerce</option>
+    </select>
+    @if (serverMessage(form.controls.stream); as message) {
+      <p class="mb-3 text-sm text-error-text" role="alert">{{ message }}</p>
+    } @else {
+      <div class="mb-3"></div>
+    }
+
+    <div class="flex justify-end gap-2">
+      <button type="button" (click)="closeForm()" class="btn btn-secondary btn-outlined">Cancel</button>
+      <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()">Save</button>
+    </div>
+  </form>
+</app-dialog>
+
+<app-stale-version-dialog
+  [latest]="stale()"
+  [fields]="staleFields"
+  (useLatest)="useLatest()"
+  (keepMine)="stale.set(null)"
+/>
+
+<app-dialog
+  header="Delete standard"
+  [visible]="deleting() !== null"
+  (visibleChange)="!$event && deleting.set(null)"
+  width="26rem"
+>
+  <p class="mb-4">Delete the standard {{ deleting()?.['name'] }}? This cannot be undone.</p>
+  <div class="flex justify-end gap-2">
+    <button type="button" (click)="deleting.set(null)" class="btn btn-secondary btn-outlined">Cancel</button>
+    <button type="button" (click)="confirmDelete()" class="btn btn-danger" [class.btn-loading]="busy()" [disabled]="busy()">Delete</button>
+  </div>
+</app-dialog>

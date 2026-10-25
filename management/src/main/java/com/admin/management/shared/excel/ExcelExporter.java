@@ -1,0 +1,147 @@
+package com.admin.management.shared.excel;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.springframework.stereotype.Component;
+
+import com.admin.management.shared.masking.SensitiveMasker;
+import com.admin.management.shared.table.ColumnDef;
+import com.admin.management.shared.time.ClockConfig;
+
+/**
+ * Writes a list to an {@code .xlsx} stream (FR-033). The header row has every declared column, including the
+ * ones hidden on screen, and sensitive columns stay masked. Rows are written as they are read, with a window of
+ * 500 rows in memory, so a 10,000 row export does not grow the heap.
+ */
+@Component
+public class ExcelExporter {
+
+	public static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+	static final int WINDOW = 500;
+
+	/** Excel's own limit, header included. */
+	static final int MAX_ROWS = 1_048_576;
+
+	/** Supplies the rows by calling {@code sink} once per row, in order. */
+	@FunctionalInterface
+	public interface RowSource {
+
+		void stream(Consumer<Map<String, Object>> sink);
+
+	}
+
+	/**
+	 * @param columns every column the list can show; the map of each row is keyed by {@code field}
+	 * @return the number of data rows written
+	 */
+	public long write(String sheetName, List<? extends ColumnDef<?>> columns, RowSource rows, OutputStream out)
+			throws IOException {
+		try (SXSSFWorkbook workbook = new SXSSFWorkbook(WINDOW)) {
+			Styles styles = new Styles(workbook);
+			Sheet sheet = workbook.createSheet(safeSheetName(sheetName));
+			writeHeader(sheet, columns, styles);
+			long[] written = { 0 };
+			rows.stream(row -> {
+				int index = (int) written[0] + 1;
+				if (index >= MAX_ROWS) {
+					throw new IllegalStateException("Too many rows for one Excel sheet; narrow the filters.");
+				}
+				Row excelRow = sheet.createRow(index);
+				for (int c = 0; c < columns.size(); c++) {
+					ColumnDef<?> column = columns.get(c);
+					Object value = row.get(column.field());
+					if (column.sensitive() && value != null) {
+						value = SensitiveMasker.mask(value.toString());
+					}
+					writeCell(excelRow.createCell(c), value, styles);
+				}
+				written[0]++;
+			});
+			workbook.write(out);
+			return written[0];
+		}
+	}
+
+	private void writeHeader(Sheet sheet, List<? extends ColumnDef<?>> columns, Styles styles) {
+		Row header = sheet.createRow(0);
+		for (int c = 0; c < columns.size(); c++) {
+			Cell cell = header.createCell(c);
+			cell.setCellValue(columns.get(c).header());
+			cell.setCellStyle(styles.header);
+			sheet.setColumnWidth(c, Math.min(Math.max(columns.get(c).header().length() + 4, 14), 50) * 256);
+		}
+		sheet.createFreezePane(0, 1);
+	}
+
+	private void writeCell(Cell cell, Object value, Styles styles) {
+		if (value == null) {
+			cell.setBlank();
+		}
+		else if (value instanceof Boolean flag) {
+			cell.setCellValue(flag);
+		}
+		else if (value instanceof LocalDate date) {
+			cell.setCellValue(date);
+			cell.setCellStyle(styles.date);
+		}
+		else if (value instanceof Instant instant) {
+			cell.setCellValue(LocalDateTime.ofInstant(instant, ClockConfig.SCHOOL_ZONE));
+			cell.setCellStyle(styles.dateTime);
+		}
+		else if (value instanceof BigDecimal exact) {
+			// Written as text so no amount ever passes through a double (constitution Principle I).
+			cell.setCellValue(exact.toPlainString());
+		}
+		else if (value instanceof Integer || value instanceof Long || value instanceof Short) {
+			cell.setCellValue(((Number) value).longValue());
+		}
+		else {
+			cell.setCellValue(value.toString());
+		}
+	}
+
+	/** Sheet names cannot hold some characters and are limited to 31 characters. */
+	private static String safeSheetName(String name) {
+		String cleaned = name == null || name.isBlank() ? "Sheet1" : name.replaceAll("[\\\\/?*\\[\\]:]", " ").trim();
+		return cleaned.length() > 31 ? cleaned.substring(0, 31) : cleaned;
+	}
+
+	private static final class Styles {
+
+		final CellStyle header;
+
+		final CellStyle date;
+
+		final CellStyle dateTime;
+
+		Styles(SXSSFWorkbook workbook) {
+			CreationHelper helper = workbook.getCreationHelper();
+			Font bold = workbook.createFont();
+			bold.setBold(true);
+			header = workbook.createCellStyle();
+			header.setFont(bold);
+			date = workbook.createCellStyle();
+			date.setDataFormat(helper.createDataFormat().getFormat("dd-mm-yyyy"));
+			dateTime = workbook.createCellStyle();
+			dateTime.setDataFormat(helper.createDataFormat().getFormat("dd-mm-yyyy hh:mm"));
+		}
+
+	}
+
+}

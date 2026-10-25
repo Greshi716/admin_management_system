@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/noto-sans-gujarati/400.css';
+@import '@fontsource/noto-sans-gujarati/500.css';
+@import '@fontsource/noto-sans-gujarati/600.css';
+@import '@fontsource/noto-sans-gujarati/700.css';
+
+/* Design tokens (docs/design/ui-tokens.md). The one place to change the accent, surfaces and radius. */
+@theme {
+  --color-page: #f7f5fd;
+  --color-surface: #ffffff;
+  --color-sidebar: #ede7fb;
+  --color-accent: #6d4ae0;
+  --color-accent-text: #4b2fa8;
+  --color-accent-soft: #ece6fb;
+  --color-accent-soft-strong: #e0d7f8;
+  --color-accent-strong: #5a3bc4;
+  --color-accent-light: #8a6af0;
+  --color-accent-deep: #4b2fa8;
+  --color-on-accent: #ffffff;
+  --color-ink: #1e1833;
+  --color-muted: #5a5075;
+  --color-border: #e6e0f5;
+  --color-input-border: #8e84ad;
+  --color-error-bg: #fdecec;
+  --color-error-text: #8a1c1c;
+  --color-warning-bg: #fff3dc;
+  --color-warning-text: #6b4200;
+  --color-danger: #c62828;
+  --color-danger-strong: #a81f1f;
+  --color-danger-text: #b3261e;
+  --color-danger-border: #e5a3a0;
+  --color-success: #16a34a;
+
+  /* Audit log badges (docs/design/ui-tokens.md) */
+  --color-badge-blue-bg: #e8eefb;
+  --color-badge-blue-text: #2b4a9a;
+  --color-badge-amber-bg: #fdf0dc;
+  --color-badge-amber-text: #6b4200;
+  --color-badge-violet-bg: #e6defb;
+  --color-badge-violet-text: #4b2fa8;
+  --color-badge-grey-bg: #f0eef5;
+  --color-badge-grey-text: #4f4a63;
+  --color-badge-purple-bg: #f0e8fb;
+  --color-badge-purple-text: #5b2e9a;
+
+  --font-sans: 'Plus Jakarta Sans', 'Noto Sans Gujarati', system-ui, sans-serif;
+
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --spacing-control: 44px;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--color-ink);
+    background-color: var(--color-page);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  /* Buttons: .btn plus one of .btn-primary, .btn-secondary, .btn-danger; add .btn-outlined and .btn-sm as needed. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--spacing-control);
+    padding: 0 1.1rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .btn:focus-visible,
+  .input:focus-visible,
+  .link-button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    outline-offset: 2px;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .btn-sm {
+    min-height: var(--spacing-control);
+    padding: 0 0.8rem;
+    font-size: 0.85rem;
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-accent-strong);
+  }
+  .btn-secondary {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-text);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-accent-soft-strong);
+  }
+  .btn-danger {
+    background: var(--color-danger);
+    color: var(--color-on-accent);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-danger-strong);
+  }
+  .btn-outlined {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-ink);
+  }
+  .btn-outlined:hover:not(:disabled) {
+    background: var(--color-page);
+    border-color: var(--color-input-border);
+  }
+  .btn-outlined.btn-danger {
+    color: var(--color-danger-text);
+  }
+  .btn-outlined.btn-danger:hover:not(:disabled) {
+    background: var(--color-error-bg);
+    border-color: var(--color-danger-border);
+  }
+  .btn-loading::before {
+    content: '';
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  /* Text inputs and selects. */
+  .input {
+    min-height: var(--spacing-control);
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: inherit;
+  }
+  .input::placeholder {
+    color: var(--color-muted);
+    opacity: 0.8;
+  }
+  .input:focus {
+    border-color: var(--color-accent);
+  }
+  .input[aria-invalid='true'],
+  .input.ng-invalid.ng-touched {
+    border-color: var(--color-danger);
+  }
+
+  .link-button {
+    padding: 0.25rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
+}

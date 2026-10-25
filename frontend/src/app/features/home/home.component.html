@@ -1,0 +1,26 @@
+<section class="mb-8 rounded-card bg-gradient-to-br from-accent to-accent-light p-8 text-white shadow-lg shadow-accent/20">
+  <p class="mb-1 text-sm font-semibold uppercase tracking-wider text-white/80">Welcome back</p>
+  <h1 class="m-0 text-3xl font-bold" data-testid="welcome">Welcome, {{ store.user()?.name }}</h1>
+  <p class="mt-2 max-w-xl text-white/85">
+    Set up the school year first: academic years, standards, divisions and student categories. Fees, payroll and funds
+    will appear here as they are built.
+  </p>
+</section>
+
+<h2 class="mb-3 text-lg font-bold">Master data</h2>
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  @for (card of cards; track card.link) {
+    <a
+      [routerLink]="card.link"
+      class="group rounded-card border border-border bg-surface p-5 text-ink no-underline shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
+    >
+      <span class="mb-3 grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent-text">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path [attr.d]="card.icon" />
+        </svg>
+      </span>
+      <span class="block font-bold group-hover:text-accent-text">{{ card.title }}</span>
+      <span class="mt-1 block text-sm text-muted">{{ card.help }}</span>
+    </a>
+  }
+</div>
