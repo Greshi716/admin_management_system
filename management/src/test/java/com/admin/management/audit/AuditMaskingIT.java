@@ -41,7 +41,7 @@ class AuditMaskingIT extends IntegrationTest {
 		String secretNumber = "123456789012";
 
 		new TransactionTemplate(transactionManager).executeWithoutResult(status -> audit.record("Master data", "Edit",
-				entity, Map.of("new", Map.of("aadhaar", SensitiveMasker.mask(secretNumber))), null));
+				entity, Map.of("new", Map.of("aadhaar", secretNumber)), null));
 
 		String stored = jdbc.queryForObject("select changes::text from audit_log where entity = ?", String.class,
 				entity);
@@ -51,6 +51,23 @@ class AuditMaskingIT extends IntegrationTest {
 			.post("/api/audit-log/search", "{\"globalFilter\":\"" + entity + "\"}")
 			.andExpect(jsonPath("$.rows[0].changes").value(containsString("********9012")))
 			.andExpect(content().string(not(containsString(secretNumber))));
+	}
+
+	@Test
+	void aPasswordNestedInOldOrNewIsNeverStored() {
+		String entity = "nested-" + UUID.randomUUID();
+
+		new TransactionTemplate(transactionManager).executeWithoutResult(status -> audit.record("Security", "Edit",
+				entity, Map.of("old", Map.of("passwordHash", "$2a$10$oldhashvalue", "name", "a"), "new",
+						Map.of("password", "nested-plain-pw", "name", "b")),
+				null));
+
+		String stored = jdbc.queryForObject("select changes::text from audit_log where entity = ?", String.class,
+				entity);
+		assertThat(stored).contains("\"name\"")
+			.doesNotContain("nested-plain-pw")
+			.doesNotContain("$2a$")
+			.doesNotContain("password");
 	}
 
 	@Test

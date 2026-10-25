@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.admin.management.shared.masking.SensitiveMasker;
+
 /**
  * Public API of the audit module. Other modules write audit entries only through this class.
  *
@@ -57,7 +59,7 @@ public class AuditService {
 	private void save(Long userId, String usernameAttempted, String area, String action, String entity,
 			Map<String, Object> changes, String reason) {
 		repository.save(new AuditEntry(userId, usernameAttempted, area, action, entity,
-				SensitiveMasker.withoutNeverStored(changes), reason));
+				SensitiveMasker.sanitize(changes, SensitiveMasker.MASKED), reason));
 	}
 
 	/** The signed-in user's id, or null when nobody is signed in. The audit log keeps a foreign key to users. */
