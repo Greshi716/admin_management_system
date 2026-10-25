@@ -35,6 +35,16 @@ public class AuditService {
 		save(currentUserId(), null, area, action, entity, changes, reason);
 	}
 
+	/**
+	 * Records a change for an explicit user in the caller's transaction, for work that runs with nobody signed in,
+	 * such as the developer password reset at startup. Fails when there is no transaction (FR-023).
+	 */
+	@Transactional(propagation = Propagation.MANDATORY)
+	public void recordFor(Long userId, String area, String action, String entity, Map<String, Object> changes,
+			String reason) {
+		save(userId, null, area, action, entity, changes, reason);
+	}
+
 	/** Records an event in its own transaction, so it survives a rollback of the caller. */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void recordIndependent(String area, String action, String entity, Map<String, Object> changes,
