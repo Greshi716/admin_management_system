@@ -33,11 +33,30 @@ SC-003: **pass** on the dev machine. **PENDING:** repeat on the school computer 
 | SC-001: 20 students entered without the mouse | PENDING (the automated keyboard-only run of 20 students passes: `students-register.spec.ts`) |
 | SC-006: find a student and open the profile in under 30 seconds | PENDING |
 
-## Quickstart scenarios 1 to 19 and section 5 (T026, MANUAL)
+## Quickstart scenarios 1 to 19 and section 5 (T026)
 
-PENDING: to be run by hand on a fresh database. Record each as pass or fail with notes.
+Run 26-10-2026 by Claude on a fresh test database (`admin_management_test`, test profile) with synthetic students, not by hand in the browser: scenarios through the API with a driver script, UI and layout scenarios through the Playwright specs (38 of 38 passed: `students-shell`, `students-register`, `students-list-profile`, `students-edit`). The seed data was removed afterwards (test schema dropped; dev database untouched). No defect found.
 
 | Scenario | Result | Notes |
 |---|---|---|
-| 1 to 19 | PENDING | |
-| Section 5 (layout and timing checks) | PENDING | The automated side is in `students-shell.spec.ts` (all pass). |
+| 1 Register | pass | 201, Active, Manual, serial no., one class record |
+| 2 Duplicate GR No. | pass | 409 for other capitals and spaces |
+| 3 Same name | pass | warning lists the first student, save still 201 |
+| 4 Field rules | pass | 422 for empty or 9-digit mobile, future admission date, admission before birth |
+| 5 Photo | pass | PNG stored; text file and over 5 MB refused (422); replace changes version; delete gives 404; immutable cache header |
+| 6 Keyboard-only 20 students | pass | Playwright `students-register.spec.ts` (8.2 s); API saved 20 more |
+| 7 List, search, export | pass | name and GR No. search, paging, export 200 |
+| 8 Sensitive values | pass | masked in profile and list; Aadhaar search finds 0; filter 422; full value only from `/edit` with no-store |
+| 9 Profile | pass | no fee, receipt or roll number fields |
+| 10 Edit, class record | pass | old GR No. stays reserved (409); one row per year |
+| 11 Stale saves | pass | second save, stale class record and stale Mark as left all 409 |
+| 12 Mark as left | pass | hidden from Active, shown under Left and All; second attempt 422 |
+| 13 Left student again | pass | old GR No. refused, new GR No. makes a second record |
+| 14 Audit log | pass | Students entries and Export present, no full Aadhaar or religion/caste |
+| 15, 16 Shell, no current year | pass | `students-shell.spec.ts` |
+| 17 10,000 students | pass | see timing table above |
+| 18 Earlier-year record | pass (automated only) | covered by `StudentListIT`; not repeated in the driver |
+| 19 History block | pass | entries newest first, masked; Playwright history test |
+| Section 5 | pass | `students-shell.spec.ts` |
+
+Not done by an agent: the human stopwatch checks in the table above (SC-001, SC-006) and the repeat on the school computer.
