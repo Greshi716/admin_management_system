@@ -1,0 +1,235 @@
+<div class="mb-6">
+  <h1 class="m-0 text-3xl font-bold tracking-tight">{{ editId() === null ? 'Register student' : 'Edit student' }}</h1>
+  <p class="mt-1 text-muted">
+    @if (editId() === null) {
+      Enter the student as in the admission register. Fields marked * are required.
+    } @else {
+      Change the details and save. The class and category are changed on the class history of the profile.
+    }
+  </p>
+</div>
+
+<ng-template #fieldError let-control="control" let-message="message">
+  @if (serverMessage(control); as server) {
+    <p class="mt-1 text-sm text-error-text" role="alert">{{ server }}</p>
+  } @else if ((control.touched || control.dirty) && control.invalid) {
+    <p class="mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+  }
+</ng-template>
+
+@if (loading()) {
+  <app-page-skeleton [title]="false" />
+} @else {
+  @if (lastSaved(); as message) {
+    <p class="mb-4 rounded-md bg-accent-soft p-3 text-sm" role="status" data-testid="last-saved">{{ message }}</p>
+  }
+
+  @if (saved(); as done) {
+    <div class="mb-4 rounded-md bg-accent-soft p-3 text-sm" role="status" data-testid="saved-banner">
+      Student {{ done.grNo }} was saved. @if (photoError()) { The photo was not stored; see the message beside the photo. }
+      <a class="link-button ml-2" [routerLink]="['/students', done.id]">Open student</a>
+      <button type="button" class="link-button ml-2" (click)="addAnother()">Add another student</button>
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="editId() === null ? save(false) : saveEdit()" novalidate class="grid max-w-3xl gap-4 sm:grid-cols-2">
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="grNo">GR No. *</label>
+      <input id="grNo" #grNoInput class="input w-full" formControlName="grNo" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.grNo, message: 'Enter the GR No.' }" />
+    </div>
+
+    <div class="hidden sm:block"></div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="surname">Surname *</label>
+      <input id="surname" class="input w-full" formControlName="surname" autocomplete="off" (blur)="checkNames()" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.surname, message: 'Enter the surname.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="firstName">First name *</label>
+      <input id="firstName" class="input w-full" formControlName="firstName" autocomplete="off" (blur)="checkNames()" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.firstName, message: 'Enter the first name.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="middleName">Middle name</label>
+      <input id="middleName" class="input w-full" formControlName="middleName" autocomplete="off" (blur)="checkNames()" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.middleName, message: '' }" />
+    </div>
+
+    @if (matches().length > 0) {
+      <div class="rounded-md border border-warn-border bg-warn-soft p-3 text-sm sm:col-span-2" role="status" data-testid="name-matches">
+        <p class="m-0 font-semibold">A student with the same name already exists. You can still save.</p>
+        <ul class="m-0 mt-1 list-disc pl-5">
+          @for (match of matches(); track match.id) {
+            <li>{{ match.name }}, GR No. {{ match.grNo }} ({{ match.status }})</li>
+          }
+        </ul>
+      </div>
+    }
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="gender">Gender *</label>
+      <select id="gender" class="input w-full" formControlName="gender">
+        <option value="" disabled>Choose</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Other">Other</option>
+      </select>
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.gender, message: 'Choose the gender.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="dob">Date of birth *</label>
+      <input id="dob" type="date" class="input w-full" formControlName="dob" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.dob, message: 'Enter the date of birth.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="birthPlace">Birth place</label>
+      <input id="birthPlace" class="input w-full" formControlName="birthPlace" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.birthPlace, message: '' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="fatherName">Father's name</label>
+      <input id="fatherName" class="input w-full" formControlName="fatherName" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.fatherName, message: '' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="motherName">Mother's name</label>
+      <input id="motherName" class="input w-full" formControlName="motherName" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.motherName, message: '' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="mobile1">Mobile 1 *</label>
+      <input id="mobile1" type="tel" inputmode="numeric" class="input w-full" formControlName="mobile1" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.mobile1, message: 'Enter the 10 digit mobile number.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="mobile2">Mobile 2</label>
+      <input id="mobile2" type="tel" inputmode="numeric" class="input w-full" formControlName="mobile2" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.mobile2, message: '' }" />
+    </div>
+
+    <div class="sm:col-span-2">
+      <label class="mb-1 block text-sm font-semibold" for="address">Address *</label>
+      <textarea id="address" rows="2" class="input w-full" formControlName="address"></textarea>
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.address, message: 'Enter the address.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="aadhaar">Aadhaar</label>
+      <input id="aadhaar" inputmode="numeric" class="input w-full" formControlName="aadhaar" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.aadhaar, message: '' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="religionCaste">Religion / caste</label>
+      <input id="religionCaste" class="input w-full" formControlName="religionCaste" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.religionCaste, message: '' }" />
+    </div>
+
+    @if (editId() === null) {
+      <div>
+        <label class="mb-1 block text-sm font-semibold" for="categoryId">Category *</label>
+        <select id="categoryId" class="input w-full" formControlName="categoryId">
+          <option [ngValue]="null" disabled>Choose</option>
+          @for (category of pickLists()?.categories ?? []; track category.id) {
+            <option [ngValue]="category.id">{{ category.name }}</option>
+          }
+        </select>
+        <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.categoryId, message: 'Choose the category.' }" />
+      </div>
+
+    }
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="admissionDate">Admission date *</label>
+      <input id="admissionDate" type="date" class="input w-full" formControlName="admissionDate" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.admissionDate, message: 'Enter the admission date.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="admissionStandardId">Admission standard *</label>
+      <select id="admissionStandardId" class="input w-full" formControlName="admissionStandardId">
+        <option [ngValue]="null" disabled>Choose</option>
+        @for (standard of pickLists()?.standards ?? []; track standard.id) {
+          <option [ngValue]="standard.id">{{ standard.name }}</option>
+        }
+      </select>
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.admissionStandardId, message: 'Choose the admission standard.' }" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold" for="previousSchool">Previous school</label>
+      <input id="previousSchool" class="input w-full" formControlName="previousSchool" autocomplete="off" />
+      <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.previousSchool, message: '' }" />
+    </div>
+
+    @if (editId() === null) {
+      <div>
+        <label class="mb-1 block text-sm font-semibold" for="standardId">Standard (this year) *</label>
+        <select id="standardId" class="input w-full" formControlName="standardId">
+          <option [ngValue]="null" disabled>Choose</option>
+          @for (standard of pickLists()?.standards ?? []; track standard.id) {
+            <option [ngValue]="standard.id">{{ standard.name }}</option>
+          }
+        </select>
+        <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.standardId, message: 'Choose the standard.' }" />
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-semibold" for="divisionId">Division (this year) *</label>
+        <select id="divisionId" class="input w-full" formControlName="divisionId">
+          <option [ngValue]="null" disabled>Choose</option>
+          @for (division of divisions(); track division.id) {
+            <option [ngValue]="division.id">{{ division.name }}</option>
+          }
+        </select>
+        @if (noDivision()) {
+          <p class="mt-1 text-sm text-error-text" role="alert" data-testid="no-division">
+            Add a division for this standard under Setup
+          </p>
+        }
+        <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.divisionId, message: 'Choose the division.' }" />
+      </div>
+
+
+
+    }
+
+    <div class="sm:col-span-2">
+      <span class="mb-1 block text-sm font-semibold">Photo</span>
+      <app-photo-upload
+        [currentUrl]="savedPhotoUrl()"
+        [error]="photoError()"
+        [disabled]="busy()"
+        (chosen)="photoChosen($event)"
+        (removed)="photoRemoved()"
+      />
+    </div>
+
+    <div class="flex flex-wrap gap-2 sm:col-span-2">
+      <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy() || saved() !== null">Save</button>
+      @if (editId() === null) {
+        <button
+          type="button"
+          class="btn btn-secondary btn-outlined"
+          [disabled]="busy() || saved() !== null"
+          (click)="save(true)"
+        >
+          Save and add next
+        </button>
+      }
+      <a class="btn btn-secondary btn-outlined" [routerLink]="editId() === null ? ['/students'] : ['/students', editId()]">Cancel</a>
+    </div>
+  </form>
+}
+
+<app-stale-version-dialog [latest]="stale()" [fields]="staleFields" (useLatest)="useLatest()" (keepMine)="keepMine()" />

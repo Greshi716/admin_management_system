@@ -22,6 +22,7 @@ import { formatCell } from './format-cell';
 import {
   CampusColumn,
   DEFAULT_PAGE_SIZE,
+  DropdownFilter,
   PAGE_SIZES,
   SEARCH_DEBOUNCE_MS,
   TableFilter,
@@ -51,8 +52,13 @@ export class CampusTableComponent implements OnInit {
    * area and action). When they change, the table goes back to the first page and loads again.
    */
   readonly extraParams = input<Record<string, unknown>>({});
+  /** The hint in the search box, for a list whose search covers particular fields. */
+  readonly searchPlaceholder = input('Search');
   /** Optional per-row buttons: give the table an ng-template named rowActions; it receives the row. */
   protected readonly rowActions = contentChild<TemplateRef<{ $implicit: Record<string, unknown> }>>('rowActions');
+
+  /** Draws the cells of columns marked `custom`: an ng-template named cell; it receives the row and the column. */
+  protected readonly cell = contentChild<TemplateRef<{ $implicit: Record<string, unknown>; column: CampusColumn }>>('cell');
 
   protected readonly pageSizes = [...PAGE_SIZES];
   protected readonly first = signal(0);
@@ -198,8 +204,10 @@ export class CampusTableComponent implements OnInit {
     this.openFilter.update((open) => (open === field ? null : field));
   }
 
-  protected filterActive(field: string): boolean {
-    return field in this.filters();
+  protected filterActive(column: CampusColumn): boolean {
+    return column.dropdowns
+      ? column.dropdowns.some((dropdown) => dropdown.field in this.filters())
+      : column.field in this.filters();
   }
 
   /** The text, number or yes/no value of a column's filter, for showing in its panel. */
@@ -234,8 +242,29 @@ export class CampusTableComponent implements OnInit {
     this.applyFilter(column, range, true);
   }
 
+  /** The id chosen in a dropdown filter, as text for the select (empty when none). */
+  protected dropdownValue(dropdown: DropdownFilter): string {
+    return this.filterValue(dropdown.field);
+  }
+
+  protected setDropdown(dropdown: DropdownFilter, event: Event): void {
+    const raw = (event.target as HTMLSelectElement).value;
+    const chosen = dropdown.options.find((option) => String(option.value) === raw);
+    this.storeFilter(dropdown.field, chosen?.value ?? null, 'equals', true);
+  }
+
   protected clearFilter(column: CampusColumn): void {
-    this.applyFilter(column, null, true);
+    if (column.dropdowns) {
+      this.filters.update((all) => {
+        const next = { ...all };
+        column.dropdowns?.forEach((dropdown) => delete next[dropdown.field]);
+        return next;
+      });
+      this.first.set(0);
+      this.loadRequested.next();
+    } else {
+      this.applyFilter(column, null, true);
+    }
     this.openFilter.set(null);
   }
 
@@ -264,14 +293,18 @@ export class CampusTableComponent implements OnInit {
 
   /** Stores the filter of one column, or removes it when it has no value, and reloads from the first page. */
   private applyFilter(column: CampusColumn, value: unknown, immediately: boolean): void {
+    this.storeFilter(column.field, value, matchModeOf(column), immediately);
+  }
+
+  private storeFilter(field: string, value: unknown, matchMode: string, immediately: boolean): void {
     const blank = (part: unknown) => part === null || part === undefined || String(part).trim() === '';
     const empty = Array.isArray(value) ? value.every(blank) : blank(value);
     this.filters.update((all) => {
       const next = { ...all };
       if (empty) {
-        delete next[column.field];
+        delete next[field];
       } else {
-        next[column.field] = { value, matchMode: matchModeOf(column) };
+        next[field] = { value, matchMode };
       }
       return next;
     });

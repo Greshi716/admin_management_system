@@ -1,0 +1,148 @@
+<a routerLink="/students" class="link-button mb-4 inline-block text-sm">← Back to students</a>
+
+@if (loading()) {
+  <app-page-skeleton />
+} @else if (student(); as s) {
+  <header class="mb-6 flex flex-wrap items-center gap-4">
+    <app-avatar size="profile" [studentId]="s.id" [photoVersion]="s.photoVersion" [surname]="s.surname" [firstName]="s.firstName" />
+    <div class="min-w-0 flex-1">
+      <h1 class="m-0 text-3xl font-bold tracking-tight" data-testid="student-name">{{ fullName() }}</h1>
+      <p class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted">
+        <span
+          class="rounded-full px-3 py-1 text-sm font-semibold"
+          [class]="s.status === 'Left' ? 'border border-border bg-page text-muted' : 'bg-accent-soft text-accent-text'"
+          data-testid="status-badge"
+          >{{ s.status }}</span
+        >
+        <span>GR No. {{ s.grNo }}</span>
+        @if (current(); as c) {
+          <span data-testid="heading-class">{{ c.stdDiv }} · {{ c.categoryName }} · {{ c.academicYearName }}</span>
+        }
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a [routerLink]="['/students', s.id, 'edit']" class="btn btn-primary">Edit details</a>
+      @if (s.status === 'Active') {
+        <button type="button" class="btn btn-secondary btn-outlined" (click)="confirmingLeft.set(true)">Mark as left</button>
+      }
+    </div>
+  </header>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    <section class="rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="personal">
+      <h2 id="personal" class="m-0 mb-3 text-lg font-bold">Personal details</h2>
+      <dl class="m-0 grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
+        <dt class="text-muted">Gender</dt>
+        <dd class="m-0">{{ formatCell(s.gender) }}</dd>
+        <dt class="text-muted">Date of birth</dt>
+        <dd class="m-0">{{ formatCell(s.dob, 'date') }}</dd>
+        <dt class="text-muted">Place of birth</dt>
+        <dd class="m-0">{{ formatCell(s.birthPlace) }}</dd>
+        <dt class="text-muted">Father</dt>
+        <dd class="m-0">{{ formatCell(s.fatherName) }}</dd>
+        <dt class="text-muted">Mother</dt>
+        <dd class="m-0">{{ formatCell(s.motherName) }}</dd>
+        <dt class="text-muted">Aadhaar</dt>
+        <dd class="m-0" data-testid="aadhaar">{{ formatCell(s.aadhaar) }}</dd>
+        <dt class="text-muted">Religion / caste</dt>
+        <dd class="m-0" data-testid="religion-caste">{{ formatCell(s.religionCaste) }}</dd>
+      </dl>
+    </section>
+
+    <section class="rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="contact">
+      <h2 id="contact" class="m-0 mb-3 text-lg font-bold">Contact and admission</h2>
+      <dl class="m-0 grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
+        <dt class="text-muted">Mobile 1</dt>
+        <dd class="m-0">{{ formatCell(s.mobile1) }}</dd>
+        <dt class="text-muted">Mobile 2</dt>
+        <dd class="m-0">{{ formatCell(s.mobile2) }}</dd>
+        <dt class="text-muted">Address</dt>
+        <dd class="m-0">{{ formatCell(s.address) }}</dd>
+        <dt class="text-muted">Admission date</dt>
+        <dd class="m-0">{{ formatCell(s.admissionDate, 'date') }}</dd>
+        <dt class="text-muted">Admission standard</dt>
+        <dd class="m-0">{{ formatCell(s.admissionStandardName) }}</dd>
+        <dt class="text-muted">Previous school</dt>
+        <dd class="m-0">{{ formatCell(s.previousSchool) }}</dd>
+        <dt class="text-muted">Entry source</dt>
+        <dd class="m-0">{{ s.source }}</dd>
+      </dl>
+    </section>
+  </div>
+
+  <section class="mt-4 rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="classes">
+    <h2 id="classes" class="m-0 mb-3 text-lg font-bold">Class history</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[30rem] border-collapse text-left text-sm" data-testid="class-history">
+        <thead>
+          <tr class="bg-page">
+            <th class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted">Academic year</th>
+            <th class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted">Std / Div</th>
+            <th class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted">Category</th>
+            <th class="px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted">Year status</th>
+            <th class="px-3 py-2"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of s.classHistory; track record.academicYearId) {
+            <tr>
+              <td class="border-t border-border px-3 py-2">{{ record.academicYearName }}</td>
+              <td class="border-t border-border px-3 py-2">{{ record.stdDiv }}</td>
+              <td class="border-t border-border px-3 py-2">{{ record.categoryName }}</td>
+              <td class="border-t border-border px-3 py-2">{{ record.yearStatus }}</td>
+              <td class="border-t border-border px-3 py-2 text-right">
+                <button type="button" class="btn btn-secondary btn-outlined btn-sm" (click)="changing.set(record)">
+                  Change<span class="sr-only"> class record {{ record.academicYearName }}</span>
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="px-3 py-4 text-muted">This student has no class record yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="mt-4 rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="history">
+    <h2 id="history" class="m-0 mb-3 text-lg font-bold">History</h2>
+    <ul class="m-0 list-none p-0" data-testid="history">
+      @for (entry of history().entries; track $index) {
+        <li class="border-t border-border py-3 first:border-t-0">
+          <p class="m-0 text-sm">
+            <span class="font-semibold">{{ entry.action }}</span>
+            · {{ recordLabel(entry.record) }} · {{ formatCell(entry.at, 'date') }} · {{ entry.userName ?? 'System' }}
+          </p>
+          @for (line of historyLines(entry.changes); track $index) {
+            <p class="m-0 mt-1 text-sm text-muted">{{ line }}</p>
+          }
+        </li>
+      } @empty {
+        <li class="text-sm text-muted">No history yet.</li>
+      }
+    </ul>
+    @if (history().truncated) {
+      <p class="mb-0 mt-3 text-sm text-muted" data-testid="history-truncated">Older entries are in the Audit log.</p>
+    }
+  </section>
+
+  <app-class-record-dialog [studentId]="s.id" [record]="changing()" (changed)="classChanged()" (closed)="changing.set(null)" />
+
+  <app-dialog header="Mark as left" [visible]="confirmingLeft()" (visibleChange)="confirmingLeft.set($event)">
+    <p class="mb-4">
+      Mark {{ fullName() }} (GR No. {{ s.grNo }}) as left? The student stays in the records, but this cannot be undone.
+    </p>
+    <div class="flex justify-end gap-2">
+      <button type="button" class="btn btn-secondary btn-outlined" (click)="confirmingLeft.set(false)">Cancel</button>
+      <button type="button" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()" (click)="markLeft()">
+        Mark as left
+      </button>
+    </div>
+  </app-dialog>
+
+  <app-stale-version-dialog [latest]="stale()" [fields]="staleFields" (useLatest)="useLatest()" (keepMine)="useLatest()" />
+} @else if (failed()) {
+  <p class="text-muted">The student could not be loaded.</p>
+}

@@ -10,12 +10,13 @@ interface ChangeSet {
 }
 
 /** Areas and actions the audit log knows today; later modules add their own areas here (FR-027). */
-const AREAS = ['Security', 'Master data'];
+const AREAS = ['Security', 'Master data', 'Students'];
 const ACTIONS = ['Create', 'Edit', 'Delete', 'Login', 'Export', 'Cancel', 'Finalise', 'Import'];
 
 const AREA_BADGE: Record<string, string> = {
   Security: 'bg-badge-blue-bg text-badge-blue-text',
   'Master data': 'bg-badge-amber-bg text-badge-amber-text',
+  Students: 'bg-badge-violet-bg text-badge-violet-text',
 };
 const ACTION_BADGE: Record<string, string> = {
   Create: 'bg-badge-violet-bg text-badge-violet-text',

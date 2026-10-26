@@ -618,7 +618,7 @@ Automatic record of every change.
 |---|---|---|---|---|
 | Date & time | `at` | Date & time | Auto |  |
 | User | `user` | Link | Auto |  |
-| Area | `area` | Choice | Auto | Security / Master data / Fees / Payroll / Fund |
+| Area | `area` | Choice | Auto | Security / Master data / Students / Fees / Payroll / Fund |
 | Action | `action` | Choice | Auto | Create / Edit / Delete / Cancel / Finalise / Login / Import / Export |
 | Record type & ID | `entity` | Text | Auto |  |
 | Old / New value | `changes` | Text | Auto | Fields marked 🔒 are stored masked (last 4 characters visible). Password and password hash are never stored; the entry only says the field changed |
@@ -890,3 +890,4 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 25-10-2026 | Students: names in English; GR No. typed by the admin plus a system `sr_no`; roll number not stored; a returning student gets a new GR No; Aadhaar and religion/caste are kept (masked); photo uploaded by the admin; duplicate warning on the same first + middle + last name (a warning, not a block). |
 | 25-10-2026 | Admissions: the Google Form does not exist yet and will be created by us; from now on admissions go through it, but some are still entered by hand at the office. No Excel files of existing students: students are entered in the application. |
 | 25-10-2026 | Printed documents (receipts, payslips, LC, notices) are in English only. The school computer has 4 GB RAM and is the only computer that uses CampusFlow. |
+| 25-10-2026 | Audit `area` list gains `Students` (student and class-record changes). Audit exports are recorded under Security. |

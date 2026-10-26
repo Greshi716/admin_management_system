@@ -93,16 +93,18 @@ class TableEndpointsIT extends IntegrationTest {
 	}
 
 	@Test
-	void sensitiveFilterValuesAreMaskedInTheExportEntry() throws Exception {
+	void exportFilteredBySensitiveColumnIsRefusedAndLeavesNoEntry() {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		TableRequest request = new TableRequest(0, 10, null, null, null,
 				Map.of("reason", new TableRequest.Filter("987654321098", "equals")));
 
-		endpoints.export("Master data", "Secret list", def, request, null, response);
+		assertThatThrownBy(() -> endpoints.export("Master data", "Secret list", def, request, null, response))
+			.isInstanceOf(ValidationException.class);
 
-		String changes = jdbc.queryForObject("select changes::text from audit_log where entity = 'Secret list'",
-				String.class);
-		assertThat(changes).contains("********1098").doesNotContain("987654321098");
+		assertThat(jdbc.queryForObject("select count(*) from audit_log where entity = 'Secret list'", Integer.class))
+			.isZero();
+		assertThat(jdbc.queryForObject("select count(*) from audit_log where changes::text like '%987654321098%'",
+				Integer.class)).isZero();
 	}
 
 }

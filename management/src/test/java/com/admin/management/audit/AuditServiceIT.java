@@ -22,6 +22,8 @@ import com.admin.management.support.TestAdmin;
 
 @Covers("FR-023")
 @Covers("FR-025")
+@Covers("FR-012")
+@Covers("FR-019")
 class AuditServiceIT extends IntegrationTest {
 
 	@Autowired
@@ -124,6 +126,73 @@ class AuditServiceIT extends IntegrationTest {
 		audit.recordIndependent("Security", "Login", entity, Map.of(), null);
 
 		assertThat(jdbc.queryForObject("select user_id from audit_log where entity = ?", Long.class, entity)).isNull();
+	}
+
+	@Test
+	void historyIsNewestFirstFilteredByAreaAndEntityAndNamesTheUser() {
+		String area = "HistA" + UUID.randomUUID();
+		Long adminId = jdbc.queryForObject("select id from users where username = ?", Long.class, TestAdmin.USERNAME);
+		insertAt(area, "Create", "Thing#1", "2026-03-01 10:00+05:30", adminId, "{\"name\": \"one\"}");
+		insertAt(area, "Edit", "Thing#1", "2026-03-02 10:00+05:30", adminId, "{\"name\": {\"old\": \"one\", \"new\": \"two\"}}");
+		insertAt(area, "Edit", "Part#9", "2026-03-03 10:00+05:30", null, "{\"x\": 1}");
+		insertAt(area, "Edit", "Thing#2", "2026-03-04 10:00+05:30", adminId, "{}");
+		insertAt("Other" + area, "Edit", "Thing#1", "2026-03-05 10:00+05:30", adminId, "{}");
+
+		AuditService.History history = audit.history(area, java.util.List.of("Thing#1", "Part#9"), 200);
+
+		assertThat(history.truncated()).isFalse();
+		assertThat(history.entries()).extracting(AuditService.HistoryEntry::entity)
+			.containsExactly("Part#9", "Thing#1", "Thing#1");
+		assertThat(history.entries()).extracting(AuditService.HistoryEntry::action)
+			.containsExactly("Edit", "Edit", "Create");
+		assertThat(history.entries().get(1).userName()).isEqualTo(TestAdmin.USERNAME);
+		assertThat(history.entries().get(0).userName()).isNull();
+		assertThat(history.entries().get(1).changes()).containsKey("name");
+		assertThat(history.entries().get(1).at()).isAfter(history.entries().get(2).at());
+	}
+
+	@Test
+	void historyIsCappedAtTheLimitAndSaysWhenOlderEntriesExist() {
+		String area = "HistB" + UUID.randomUUID();
+		for (int i = 1; i <= 205; i++) {
+			insertAt(area, "Edit", "Cap#1", "2026-04-01 00:00+05:30", null, "{\"n\": " + i + "}");
+		}
+
+		AuditService.History capped = audit.history(area, java.util.List.of("Cap#1"), 200);
+		assertThat(capped.entries()).hasSize(200);
+		assertThat(capped.truncated()).isTrue();
+		assertThat(capped.entries().get(0).changes()).containsEntry("n", 205);
+
+		AuditService.History exact = audit.history(area, java.util.List.of("Cap#1"), 205);
+		assertThat(exact.entries()).hasSize(205);
+		assertThat(exact.truncated()).isFalse();
+	}
+
+	@Test
+	void historyOfNoEntitiesIsEmptyAndABadLimitIsRefused() {
+		assertThat(audit.history("Students", java.util.List.of(), 200).entries()).isEmpty();
+		assertThat(audit.history("Students", java.util.List.of("Student#0"), 200).truncated()).isFalse();
+		assertThatThrownBy(() -> audit.history("Students", java.util.List.of("Student#1"), 0))
+			.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void historyKeepsMaskedValuesMasked() {
+		String entity = unique();
+		audit.recordIndependent("Students", "Create", entity,
+				Map.of("aadhaar", "123456789012", "religionCaste", "Test religion 77", "name", "Alpha"), null);
+
+		AuditService.History history = audit.history("Students", java.util.List.of(entity), 10);
+
+		assertThat(history.entries()).hasSize(1);
+		assertThat(history.entries().get(0).changes()).containsEntry("aadhaar", "********9012")
+			.containsEntry("religionCaste", "************n 77")
+			.containsEntry("name", "Alpha");
+	}
+
+	private void insertAt(String area, String action, String entity, String at, Long userId, String changesJson) {
+		jdbc.update("insert into audit_log (at, user_id, area, action, entity, changes) values (?::timestamptz, ?, ?, ?, ?, ?::jsonb)",
+				at, userId, area, action, entity, changesJson);
 	}
 
 	private void signInAsTestAdmin() {
