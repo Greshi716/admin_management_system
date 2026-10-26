@@ -173,6 +173,18 @@ class StudentProfileIT extends IntegrationTest {
 	}
 
 	@Test
+	void standardAndDivisionIdsInTheHistoryAreShownAsNames() throws Exception {
+		long id = register("PR-4B");
+		transactions.executeWithoutResult((tx) -> studentAudit.edited(StudentAudit.STUDENT, id,
+				Map.of("standardId", standardId, "note", "kept"), Map.of("standardId", 987654L, "note", "kept too")));
+
+		api.get("/api/students/" + id + "/history")
+			.andExpect(jsonPath("$.entries[0].changes.old.standardId").value("Standard 1"))
+			.andExpect(jsonPath("$.entries[0].changes.new.standardId").value("987654"))
+			.andExpect(jsonPath("$.entries[0].changes.new.note").value("kept too"));
+	}
+
+	@Test
 	void moreThan200EntriesReturnTheNewest200AndTruncated() throws Exception {
 		long id = register("PR-5");
 		jdbc.update("""

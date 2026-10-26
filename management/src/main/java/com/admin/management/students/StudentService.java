@@ -205,11 +205,41 @@ public class StudentService {
 		students.findById(id).orElseThrow(() -> new NotFoundException("Student", id));
 		List<Long> recordIds = enrollments.findByStudentId(id).stream().map(StudentEnrollment::getId).toList();
 		var found = audit.history(id, recordIds, HISTORY_LIMIT);
+		Map<String, Map<Long, String>> names = Map.of(
+				"standardId", masterData.standardNames(),
+				"admissionStandardId", masterData.standardNames(),
+				"divisionId", masterData.divisionNames(),
+				"categoryId", masterData.categoryNames(),
+				"academicYearId", masterData.yearNames());
 		return new StudentHistoryDto(
 				found.entries().stream()
-					.map((e) -> new StudentHistoryDto.Entry(e.at(), e.userName(), e.action(), e.entity(), e.changes()))
+					.map((e) -> new StudentHistoryDto.Entry(e.at(), e.userName(), e.action(), e.entity(),
+							withNames(e.changes(), names)))
 					.toList(),
 				found.truncated());
+	}
+
+	/**
+	 * The audit entry keeps the ids; the History block shows names (FR-019). A standard, division, category or year
+	 * id is replaced by its name, or left as it is when the lookup no longer knows it.
+	 */
+	private static Map<String, Object> withNames(Map<String, Object> changes, Map<String, Map<Long, String>> names) {
+		if (changes == null) {
+			return null;
+		}
+		Map<String, Object> shown = new java.util.LinkedHashMap<>(changes);
+		for (String side : List.of("old", "new")) {
+			if (shown.get(side) instanceof Map<?, ?> values) {
+				Map<String, Object> named = new java.util.LinkedHashMap<>();
+				values.forEach((field, value) -> {
+					Map<Long, String> lookup = names.get(String.valueOf(field));
+					named.put(String.valueOf(field), lookup != null && value instanceof Number number
+							? lookup.getOrDefault(number.longValue(), String.valueOf(value)) : value);
+				});
+				shown.put(side, named);
+			}
+		}
+		return shown;
 	}
 
 	/** The student as shown on screen, with masked sensitive fields and the class history, newest year first. */
