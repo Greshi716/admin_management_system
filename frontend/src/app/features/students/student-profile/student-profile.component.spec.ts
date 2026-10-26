@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HistoryResult, Student, StudentsService } from '../students.service';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { StudentProfileComponent } from './student-profile.component';
 
 const STUDENT: Student = {
@@ -80,7 +81,7 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
   let element: HTMLElement;
   let service: { get: ReturnType<typeof vi.fn>; history: ReturnType<typeof vi.fn>; markLeft: ReturnType<typeof vi.fn> };
 
-  function create(history: HistoryResult = HISTORY, student: unknown = of(STUDENT)): void {
+  function create(history: HistoryResult = HISTORY, student: unknown = of(STUDENT), currentYear: string | null = null): void {
     service = {
       get: vi.fn().mockReturnValue(student),
       history: vi.fn().mockReturnValue(of(history)),
@@ -90,6 +91,7 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
       providers: [
         provideRouter([]),
         { provide: StudentsService, useValue: service },
+        { provide: AuthStore, useValue: { currentYear: () => currentYear } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } } },
       ],
     });
@@ -114,6 +116,13 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     expect(element.querySelector('[data-testid="heading-class"]')?.textContent).toContain(
       'Standard 2-A · General · 2026-27',
     );
+  });
+
+  it('FR-007: the heading shows the record of the current year, even when a later year has one', () => {
+    const next = { ...STUDENT.classHistory[0], academicYearId: 3, academicYearName: '2027-28', stdDiv: 'Standard 3-A' };
+    create(HISTORY, of({ ...STUDENT, classHistory: [next, ...STUDENT.classHistory] }), '2026-27');
+
+    expect(element.querySelector('[data-testid="heading-class"]')?.textContent).toContain('Standard 2-A · General · 2026-27');
   });
 
   it('shows the sections with full mobiles and masked Aadhaar and religion/caste', () => {
