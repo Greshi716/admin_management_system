@@ -176,6 +176,7 @@ test.describe('edit a student', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('cannot be undone');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0); // closed before the next click, or two buttons match
     await expect(page.getByTestId('status-badge')).toHaveText('Active');
 
     await page.getByRole('button', { name: 'Mark as left' }).click();
