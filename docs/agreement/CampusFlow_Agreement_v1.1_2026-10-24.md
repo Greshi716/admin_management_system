@@ -216,6 +216,7 @@ Amount per standard and category per year.
 | Category | `category` | Link | Optional | Blank = all |
 | Amount (₹) | `amount` | Amount | Required |  |
 | Due date | `due_date` | Date | Optional | Entered by the admin |
+| Registration fee (₹) | `registration_fee` | Amount | Optional | Charged to every student in a standard that has it (for example Std 10 and 12), whether the student is new or existing; included in the receipt |
 
 #### Users  `users`
 
@@ -661,6 +662,13 @@ Replaces the CLASSFORMATION sheet (year 2026-27). Sheet columns map as follows:
 - Fee structure: one amount per **(academic year, standard, category)**.
 - Pending fee = Net payable − sum of valid (non-cancelled) receipts. Cancelled receipts are excluded and reversed in the fund ledger.
 - Unpaid fee of a closed year is carried into the new year as "brought forward".
+- Fee amounts are decimal (two places). There is no late fee, concession, caution money or mid-year admission.
+- Payments can be of any amount and at any time (yearly, monthly or any part). There is no instalment schedule.
+- **Fees paid up to (display):** daily fee = yearly fee ÷ number of days of the academic year; days covered = total paid ÷ daily fee; the screen shows the date up to which the fee is paid. The registration fee is not part of this calculation. The count starts from the academic year's start date.
+- The admin enters the fee structure for a year and **finalises** it. After finalising, a change is still possible through a "Revise" action: the screen warns that every student's fee for the year will be recalculated and asks the admin to confirm; the change is audited, and receipts already issued are never changed. Each student pays the amount for his or her standard and category; there is no per-student change of the amount.
+- A student's standard and category cannot be changed within an academic year once the year's fee structure is finalised.
+- The admin also enters the receipts already collected before go-live (receipt date in the past, receipt number from the book).
+- Pending fees of earlier years are entered by the admin on the student's profile (a brought-forward amount) and are included in the student's total pending.
 
 ### 5.2 Salary
 
@@ -890,3 +898,6 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 25-10-2026 | Students: names in English; GR No. typed by the admin plus a system `sr_no`; roll number not stored; a returning student gets a new GR No; Aadhaar and religion/caste are kept (masked); photo uploaded by the admin; duplicate warning on the same first + middle + last name (a warning, not a block). |
 | 25-10-2026 | Admissions: the Google Form does not exist yet and will be created by us; from now on admissions go through it, but some are still entered by hand at the office. No Excel files of existing students: students are entered in the application. |
 | 25-10-2026 | Printed documents (receipts, payslips, LC, notices) are in English only. The school computer has 4 GB RAM and is the only computer that uses CampusFlow. |
+| 25-10-2026 | Audit `area` list gains `Students` (student and class-record changes). Audit exports are recorded under Security. |
+| 26-10-2026 | Fees: any payment amount at any time (no instalment schedule), "fees paid up to" date shown from total paid ÷ daily fee; one registration fee for some standards, included in the receipt; decimals allowed; no mid-year admission; fee structure is finalised per year and then locked; standard and category fixed within a year; past receipts are entered by the admin. |
+| 26-10-2026 | Fees: a finalised structure can be revised with a warning and confirmation (all students' fees for the year are recalculated, receipts untouched); the registration fee applies to every student in the standards that have it; pending fees of earlier years are entered on the student's profile and counted in the pending amount; division change within a year is allowed. |
