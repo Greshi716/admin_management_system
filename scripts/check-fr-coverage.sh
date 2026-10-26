@@ -41,23 +41,25 @@ check() { # $1 = label, $2 = spec file, remaining = files to search
     total=$((total + 1))
     covered_in "$fr" "$@" || uncovered+=("$fr")
   done
-  echo "FR coverage ($label): $((total - ${#uncovered[@]})) of $total covered"
+  local prefix="FR coverage" uncovered_prefix="Uncovered"
+  if [ -n "$label" ]; then prefix="FR coverage on branch $label"; uncovered_prefix="Uncovered on branch $label"; fi
+  echo "$prefix: $((total - ${#uncovered[@]})) of $total covered"
   if [ "${#uncovered[@]}" -gt 0 ]; then
-    echo "Uncovered ($label): ${uncovered[*]}"
+    echo "$uncovered_prefix: ${uncovered[*]}"
     failed=1
   fi
 }
 
-check "F0, specs/001-foundation" specs/001-foundation/spec.md
+check "" specs/001-foundation/spec.md
 
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 if [ -n "$branch" ] && [ "$branch" != "main" ] && [ "$branch" != "001-foundation" ] && [ -f "specs/$branch/spec.md" ]; then
   if git rev-parse --verify -q main >/dev/null; then
     mapfile -t changed < <(git diff --name-only main...HEAD -- management/src/test frontend/e2e frontend/src | grep -E '\.(java|spec\.ts)$' | while read -r f; do [ -f "$f" ] && echo "$f"; done)
     [ "${#changed[@]}" -gt 0 ] || changed=(/nonexistent-no-test-file-changed)
-    check "$branch, files changed on the branch" "specs/$branch/spec.md" "${changed[@]}"
+    check "$branch" "specs/$branch/spec.md" "${changed[@]}"
   else
-    echo "FR coverage ($branch): not checked, there is no local main branch to compare against"
+    echo "FR coverage on branch $branch: not checked, there is no local main branch to compare against"
     failed=1
   fi
 fi
