@@ -5,8 +5,8 @@ info:
   description: |
     Endpoints added or changed by F2. Authentication, CSRF, the error shape (Problem), TableRequest, TablePage
     and the stale-save rule (409 STALE_VERSION with the latest record) are those of F0
-    (../../001-foundation/contracts/openapi.yaml). F1 endpoints are in ../../002-students/contracts/openapi.yaml
-    on branch 002-students. Amounts are JSON numbers with at most two decimals and at least zero; anything else is
+    (../../001-foundation/contracts/openapi.yaml). F1 endpoints are in ../../002-students/contracts/openapi.yaml (merged into main).
+    Amounts are JSON numbers with at most two decimals and at least zero; anything else is
     refused with a field error (422), never rounded.
 servers:
   - url: /api
@@ -20,6 +20,14 @@ paths:
         - { name: yearId, in: path, required: true, schema: { type: integer, format: int64 } }
       responses:
         '200': { description: Status, rows and the number of class records of the year, content: { application/json: { schema: { $ref: '#/components/schemas/FeeStructure' } } } }
+        '404': { description: No such academic year }
+  /fee-structures/{yearId}/choices:
+    get:
+      summary: The standards and categories the row form offers (FR-001). Active ones only, plus any a row of this year already holds (so an existing row can still be edited). The year picker uses the F0 academic years list (GET /academic-years).
+      parameters:
+        - { name: yearId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: Choices, content: { application/json: { schema: { $ref: '#/components/schemas/FeeChoices' } } } }
         '404': { description: No such academic year }
   /fee-structures/{yearId}/rows:
     post:
@@ -50,7 +58,8 @@ paths:
         - { name: yearId, in: path, required: true, schema: { type: integer, format: int64 } }
         - { name: rowId, in: path, required: true, schema: { type: integer, format: int64 } }
         - { $ref: '#/components/parameters/Confirm' }
-        - { name: version, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { name: version, in: query, required: true, schema: { type: integer, format: int64 }, description: 'The row version' }
+        - { name: structureVersion, in: query, required: true, schema: { type: integer, format: int64 }, description: 'The year structure version the screen loaded; a mismatch is STALE_VERSION' }
       responses:
         '204': { description: Deleted }
         '409': { $ref: '#/components/responses/ReviseOrDuplicate' }
@@ -112,9 +121,32 @@ components:
       description: |
         REVISE_CONFIRMATION_REQUIRED: the year is Finalised and confirm was not true; nothing is changed and
         `current` is { studentCount } - the number of class records that would be recalculated.
-        STALE_VERSION: the row or the structure changed after the screen loaded (latest record in `current`).
+        STALE_VERSION: the row, or the whole year structure (for example it was finalised in another window), changed after the screen loaded; `current` holds the latest structure. Checked before the revise confirmation.
+        A duplicate row (same year, standard and category) is 409 with a field error on standardId or categoryId.
       content: { application/problem+json: { schema: { $ref: '../../001-foundation/contracts/openapi.yaml#/components/schemas/Problem' } } }
   schemas:
+    FeeChoices:
+      type: object
+      properties:
+        standards:
+          type: array
+          items: { type: object, properties: { id: { type: integer, format: int64 }, name: { type: string }, displayOrder: { type: integer } } }
+        categories:
+          type: array
+          items: { type: object, properties: { id: { type: integer, format: int64 }, code: { type: string }, name: { type: string } } }
+    Enrollment:
+      description: CHANGED from F1 (FR-008). One row of the class history; F1's fields plus feeLocked.
+      allOf:
+        - $ref: '../../002-students/contracts/openapi.yaml#/components/schemas/Enrollment'
+        - type: object
+          properties:
+            feeLocked: { type: boolean, description: 'True when the year structure is Finalised: standard and category are fixed, division can still change' }
+    StudentSearchRow:
+      description: CHANGED from F1 (FR-010). F1's columns plus these two.
+      type: object
+      properties:
+        totalFee: { type: number, nullable: true, description: 'Yearly fee + registration fee of the shown record; null when none. Sortable and filterable; in the Excel export as a numeric cell with two decimals' }
+        feeState: { type: string, nullable: true, enum: [NOT_SET], description: 'Internal column: NOT_SET when the account exists without an amount; null otherwise (no account = year not finalised)' }
     FeeStructure:
       type: object
       properties:
@@ -140,7 +172,8 @@ components:
       type: object
       required: [standardId, amount]
       properties:
-        version: { type: integer, format: int64, description: 'Required when editing' }
+        version: { type: integer, format: int64, description: 'The row version; required when editing' }
+        structureVersion: { type: integer, format: int64, nullable: true, description: 'The year structure version the screen loaded (null while the year has no structure yet); a mismatch is STALE_VERSION with the latest structure in current' }
         standardId: { type: integer, format: int64 }
         categoryId: { type: integer, format: int64, nullable: true }
         amount: { type: number, multipleOf: 0.01, minimum: 0 }
@@ -151,7 +184,7 @@ components:
       properties:
         yearId: { type: integer, format: int64, nullable: true }
         yearName: { type: string, nullable: true }
-        state: { type: string, enum: [FEE_SET, FEE_NOT_SET, NOT_FINALISED, NO_RECORD] }
+        state: { type: string, enum: [FEE_SET, FEE_NOT_SET, NOT_FINALISED] }
         yearFee: { type: number, nullable: true }
         registrationFee: { type: number, nullable: true }
         totalFee: { type: number, nullable: true }

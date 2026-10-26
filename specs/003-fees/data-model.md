@@ -13,7 +13,7 @@ One row per academic year that has a fee structure.
 | finalised_at | timestamptz | null while Draft |
 | version | bigint | optimistic lock; also the row that is locked during finalise and revise |
 
-A year with no row is Draft with no rows. The row is created when the first fee row is added or when the year is finalised. Status goes `Draft` -> `Finalised` once; there is no way back (Revise keeps it Finalised).
+A year with no row is Draft with no rows. The row is created together with the first fee row (so it exists whenever there is anything to finalise). Every fee row create, edit or delete, and the finalise, bumps `version`; every row request carries the `structureVersion` it saw and a mismatch is a stale save (research R4). Status goes `Draft` -> `Finalised` once; there is no way back (Revise keeps it Finalised).
 
 ## fee_rows (agreement: Fee Structure `fee_structures`)
 
@@ -28,7 +28,7 @@ A year with no row is Draft with no rows. The row is created when the first fee 
 | due_date | date | optional |
 | version | bigint | optimistic lock |
 
-Unique: `(academic_year_id, standard_id, category_id)` for rows with a category, and `(academic_year_id, standard_id)` for rows without one (two partial unique indexes, because a null does not compare equal). Index `(academic_year_id)`. An inactive standard or category is not offered for new rows (checked in the service through `MasterDataLookup`); an existing row keeps it.
+Unique: `(academic_year_id, standard_id, category_id)` for rows with a category, and `(academic_year_id, standard_id)` for rows without one (two partial unique indexes named `uq_fee_rows_category` and `uq_fee_rows_no_category`, both registered in the `KNOWN` map of `ApiExceptionHandler` so the message appears beside the field, because a null does not compare equal). Index `(academic_year_id)`. An inactive standard or category is not offered for new rows (checked in the service through `MasterDataLookup`); an existing row keeps it.
 
 ## fee_accounts (agreement: Student Fee Account `fee_assessments`)
 
@@ -44,6 +44,8 @@ One row per class record of a finalised year. Rows are created or updated, never
 | updated_at | timestamptz | required |
 
 State of a class record's fee, derived: year Finalised and `amount` set -> **fee set**; year Finalised and `amount` null -> **Fee not set**; year not Finalised (no account row) -> **Fee structure not finalised**. The agreement's `carried_forward` flag is not a column here: earlier years' dues are the student's brought-forward amount (below), as decided on 2026-10-26.
+
+Index `(academic_year_id)` serves the year-wide recalculation and the count of accounts. The primary key serves the list's lookup per class record.
 
 ## fee_brought_forward (added)
 
@@ -61,14 +63,14 @@ Dues of earlier years, one amount per student.
 
 ## Audit
 
-No new table and no change to the audit table. Area `Fees`; entities `FeeRow#id`, `FeeStructure#yearId`, `BroughtForward#studentId`. Entries hold old and new values (only changed fields); fee amounts and the note are stored in full (they are not in the masked field list).
+No new table and no change to the audit table. Area `Fees`; entities `FeeRow#id`, `FeeStructure#yearId`, `BroughtForward#studentId`. Entries hold old and new values (only changed fields); fee amounts are stored in full (they are not in the masked field list); for the brought-forward note the entry holds only `noteChanged: true`, never the note text.
 
 | What happened | Action | Entity | Changes (besides old and new) | Reason |
 |---|---|---|---|---|
 | Row added, edited, deleted in a Draft year | Create / Edit / Delete | `FeeRow#id` | | |
-| Row added, edited, deleted in a Finalised year (revise) | Create / Edit / Delete | `FeeRow#id` | `studentsRecalculated` | `Revise` |
-| Year finalised | Finalise | `FeeStructure#yearId` | `feeAccountsCreated`, `rows` | |
-| Brought-forward amount or note changed | Create (first) / Edit | `BroughtForward#studentId` | | |
+| Row added, edited, deleted in a Finalised year (revise) | Create / Edit / Delete | `FeeRow#id` | `studentsRecalculated`, `accountsChanged` | `Revise` |
+| Year finalised | Finalise | `FeeStructure#yearId` | `studentsRecalculated`, `accountsChanged`, `rows` | |
+| Brought-forward amount or note changed | Create (first) / Edit | `BroughtForward#studentId` | old and new `amount`; `noteChanged` (no note text) | |
 
 ## Relationships
 
@@ -88,3 +90,7 @@ students 1 -- 0..1 fee_brought_forward
 - **Which row applies** to a class record `(standard, category)`: the row with that standard and category; else the row with that standard and no category; else none. Registration fee: that row's if it has one, else the blank-category row's, else none. Due date: from the row the amount came from.
 - **Totals** (computed, not stored): total fee = amount + registration fee (each 0 when absent); total due (profile) = total fee + brought-forward. When the state is not "fee set", the total fee is empty and the total due is the brought-forward amount alone.
 - **Lock**: while the year's status is Finalised, a class record of that year cannot change standard or category (F1's `student_enrollments` rules otherwise unchanged).
+
+## Differences from the agreement's data section
+
+Agreement 4.4 describes a fee account with a `carried_forward` flag and a brought-forward row per account, and has no status or brought-forward table. This feature differs on purpose, as decided on 2026-10-26 (decision log): earlier years' dues are one amount per student in `fee_brought_forward` (so the flag is not needed), the account carries the registration fee, and `fee_year_status` holds the Draft or Finalised state of a year. The agreement's sections 4.1 and 4.4 point to the decision log for this.

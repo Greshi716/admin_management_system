@@ -24,7 +24,7 @@ Std 10 CEW. Open Setup, Fees and salary, Fee structure.
 
 | # | Do | Expect | FR |
 |---|---|---|---|
-| 1 | Add rows: Std 10 (all categories) 36,000.00 with registration fee 500.00 and due date; Std 10 O/S 40,000.00 (no registration fee); Std 9 (all) 30,000.00 | Rows listed with two decimals; status Draft; audit entries in area Fees | 001, 012 |
+| 1 | Add rows: Std 10 (all categories) 36,000.00 with registration fee 500.00 and due date; Std 10 O/S 40,000.00 (no registration fee); Std 9 (all) 30,000.00 | Rows listed with two decimals (for example 36,000.00), status Draft tag; stored values have scale 2; audit entries in area Fees | 001, 011, 012 |
 | 2 | Add a second Std 10 all-categories row; add a row with amount -1, with 100.123 and with no amount | Each refused beside the field; nothing saved | 001, 011 |
 | 3 | Edit and delete a Draft row | Saved at once, delete asks to confirm; audit entries | 002, 012 |
 | 4 | Press Finalise with an empty year (another year) | Refused with a message | 002 |
@@ -39,13 +39,18 @@ Std 10 CEW. Open Setup, Fees and salary, Fee structure.
 | 13 | Open the class record dialog of a Finalised year | Standard and category are fixed with the message; division can be changed and saved | 008 |
 | 14 | Send a standard or category change for that year through the API (test helper) | 409 FEE_STRUCTURE_FINALISED; nothing changed | 008 |
 | 15 | Open a year with no structure or a Draft one, then a student's profile for it | "Fee structure not finalised"; standard and category can be changed as in F1 | 006, 008, 009 |
-| 16 | Open the structure in two windows; edit the same row in both | The second save is refused with the latest values | 013 |
+| 16 | Open the structure in two windows: edit the same row in both; then finalise in window A and, in window B (still showing Draft), edit a row | The second save is refused with the latest values shown; in the second case B reloads as Finalised and no revise warning appears for the stale edit | 013 |
 | 17 | Delete all academic years covering today | Fee structure screen blocked as in F0 | 013 |
 | 18 | Open the audit log, area Fees | Entries for steps 1 to 12 with old and new amounts in full; Aadhaar and religion/caste of students still masked elsewhere | 012 |
 | 19 | Performance (test helper): 2,000 synthetic class records; finalise, then revise one row; and the list on 10,000 students | Each under 10 s; list under 2 s | SC-004 |
+| 20 | Timing check: enter the rows for 12 standards with a due date each and finalise | Done in under 10 minutes by an admin who has used the screen once (manual stopwatch check, recorded in the results file) | SC-001 |
+| 21 | Export the Students list to Excel after scenario 6; open the file | Total fee is a numeric cell with two decimals (it sums), "Fee not set" students are blank or show the text column; other amounts in other exports (audit, lists) still read correctly | 010, 011 |
+| 22 | (Automated) Register a student while a finalise runs in another transaction | The student ends with a fee account and the finalise count includes or excludes it consistently, never a class record without an account in a finalised year | 006 |
+| 23 | Display and scale: save a row with amount 28000 and another with 28,000.5; open the list, the profile Fees block and the Excel export; read the stored values (integration test) | Shown as 28,000.00 and 28,000.50 everywhere; the database holds scale 2 (`28000.00`); the Excel cell is numeric with format 0.00; the browser shows server totals and adds nothing | 011, 010 |
 
 ## 4. Where the checks live
 
-- Backend: `fees/FeeSelectionTest` (unit, every spec example), `fees/*IT.java` (rows and validation, finalise, revise confirmation and count, accounts for new class records, lock, brought-forward, audit in the same transaction), `students` tests for the changed class record rule and the list column, `ModuleDependencyTest` (extended).
+- Test helpers: the existing `StudentTestSupportController` (`@Profile("test")`, `/api/test-support`) is extended to seed class records in bulk, and `frontend/e2e/support/fees.ts` sets up years, rows and students; the row API is called without `confirm` straight from the tests. Used by scenarios 10, 14, 19 and 22.
+- Backend: `fees/FeeSelectionTest` (unit, every spec example), `fees/*IT.java` (rows and validation, finalise, revise confirmation and count, accounts for new class records, lock, brought-forward, audit in the same transaction), `students` tests for the changed class record rule and the list column, `ModuleDependencyTest` (extended, plus the test that lists the allowed cross-module table reads), `CodedConflictException` handler tests and the Excel exporter tests (numeric amounts).
 - Frontend: unit tests for the fee structure screen and the revise dialog; Playwright `fees-*.spec.ts` (scenarios 1 to 9, 12, 13 and the layout assertions: card with year title, status tag, 44 px controls, table scrolls sideways on a phone width) and the updated students specs.
 - Every test carries `@Covers("FR-xxx")` or the FR id in its title.

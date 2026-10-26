@@ -326,6 +326,8 @@ What each student must pay in a year: one row for the year's fee and one brought
 | Due date | `due_date` | Date | Optional |  |
 | Brought forward | `carried_forward` | Yes / No | Auto | From previous year |
 
+*F2 (fees) stores this differently, as decided on 26-10-2026: the brought-forward dues are one amount per student (table `fee_brought_forward`), so there is no `carried_forward` flag; the account also holds the registration fee; a table `fee_year_status` holds the Draft or Finalised state of each year's fee structure. See the decision log.*
+
 #### Receipts  `receipts`
 
 Every fee receipt, matching the receipt book.
@@ -901,3 +903,4 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 25-10-2026 | Audit `area` list gains `Students` (student and class-record changes). Audit exports are recorded under Security. |
 | 26-10-2026 | Fees: any payment amount at any time (no instalment schedule), "fees paid up to" date shown from total paid ÷ daily fee; one registration fee for some standards, included in the receipt; decimals allowed; no mid-year admission; fee structure is finalised per year and then locked; standard and category fixed within a year; past receipts are entered by the admin. |
 | 26-10-2026 | Fees: a finalised structure can be revised with a warning and confirmation (all students' fees for the year are recalculated, receipts untouched); the registration fee applies to every student in the standards that have it; pending fees of earlier years are entered on the student's profile and counted in the pending amount; division change within a year is allowed. |
+| 26-10-2026 | Fees (F2): table shapes differ from section 4.4 on purpose (brought-forward amount per student, registration fee on the account, a status table per year); see the decision log. |
