@@ -239,11 +239,9 @@ test.describe('students list and profile', () => {
     await expect(page.getByTestId('history').locator('li').first()).toContainText('Create');
     await expect(page.getByTestId('history')).not.toContainText('Edit');
 
-    const edited = await page.context().request.fetch(
-      `/api/test-support/students/${id}/edit-address?address=${encodeURIComponent('New test address, Test Town')}`,
-      { method: 'POST', headers: { 'X-XSRF-TOKEN': await xsrf(page) } },
-    );
-    expect(edited.status()).toBe(204);
+    const values = (await callApi(page, 'GET', `/api/students/${id}/edit`)).body;
+    const edited = await callApi(page, 'PUT', `/api/students/${id}`, { ...values, address: 'New test address, Test Town' });
+    expect(edited.status).toBe(200);
     await page.reload();
 
     const first = page.getByTestId('history').locator('li').first();
