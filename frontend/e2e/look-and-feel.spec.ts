@@ -147,7 +147,7 @@ test.describe('look and feel', () => {
         expect(overflow, `${path} scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
         await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
         await expect(page.getByRole('button', { name: 'Change password' })).toBeVisible();
-        const reachable = await page.locator('aside nav a:visible, nav[aria-label="Main"] a:visible').count();
+        const reachable = await page.locator('nav[aria-label="Main"] a:visible').count();
         expect(reachable, `${path} has no visible menu`).toBeGreaterThan(0);
       }
     });
