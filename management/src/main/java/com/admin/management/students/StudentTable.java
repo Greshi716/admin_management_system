@@ -57,6 +57,9 @@ final class StudentTable {
 		StringFactory standardName = nameOf(standardId, standardNames);
 		StringFactory divisionName = nameOf(divisionId, divisionNames);
 		ExpressionFactory<Student> standardOrder = (root, cb) -> {
+			if (standardOrders.isEmpty()) {
+				return cb.coalesce(cb.nullLiteral(Integer.class), Integer.MAX_VALUE); // a CASE with no WHEN is not valid SQL, a bare constant in ORDER BY is a column position
+			}
 			var chosen = cb.<Long, Integer>selectCase(asLong(standardId.build(root, cb)));
 			standardOrders.forEach((id, order) -> chosen.when(id, order));
 			return chosen.otherwise(Integer.MAX_VALUE);
@@ -135,6 +138,9 @@ final class StudentTable {
 
 	private static StringFactory nameOf(ExpressionFactory<Student> id, Map<Long, String> names) {
 		return (root, cb) -> {
+			if (names.isEmpty()) {
+				return cb.coalesce(cb.nullLiteral(String.class), ""); // a CASE with no WHEN is not valid SQL
+			}
 			var chosen = cb.<Long, String>selectCase(asLong(id.build(root, cb)));
 			names.forEach((key, name) -> chosen.when(key, name));
 			return chosen.otherwise("");

@@ -122,6 +122,21 @@ class StudentListIT extends IntegrationTest {
 	}
 
 	@Test
+	void theListOpensEvenWhenNoStandardDivisionOrYearExistsYet() throws Exception {
+		jdbc.update("delete from student_photos");
+		jdbc.update("delete from student_enrollments");
+		jdbc.update("delete from student_gr_numbers");
+		jdbc.update("delete from students");
+		jdbc.update("delete from divisions");
+		jdbc.update("delete from standards");
+		jdbc.update("delete from academic_years");
+
+		api.post("/api/students/search", request("\"sortField\":\"stdDiv\",\"sortOrder\":1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.total").value(0));
+	}
+
+	@Test
 	void theDefaultListHidesStudentsWhoLeft() throws Exception {
 		api.post("/api/students/search", request("\"sortField\":\"grNo\",\"sortOrder\":1"))
 			.andExpect(status().isOk())
