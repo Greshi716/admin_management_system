@@ -21,9 +21,10 @@ import org.junit.jupiter.api.Test;
 import com.admin.management.support.Covers;
 
 /**
- * Guards the modular monolith (constitution VII, research R7): reads the {@code import com.admin.management.*}
- * lines of the main sources, then fails on a dependency cycle between modules or on an import of another module's
- * internals. A module is the first package below {@code com.admin.management}.
+ * Guards the modular monolith (constitution VII, research R7): reads every {@code com.admin.management.*} reference
+ * of the main sources (imports and fully qualified names in the code alike, not the {@code package} line), then
+ * fails on a dependency cycle between modules or on a use of another module's internals. A module is the first
+ * package below {@code com.admin.management}.
  */
 @Covers("FR-016")
 class ModuleDependencyTest {
@@ -32,8 +33,10 @@ class ModuleDependencyTest {
 
 	private static final Path SOURCES = Path.of("src/main/java/com/admin/management");
 
-	private static final Pattern IMPORT = Pattern
-		.compile("^import\\s+(?:static\\s+)?com\\.admin\\.management\\.([\\w.]+?)(?:\\.\\*)?;", Pattern.MULTILINE);
+	private static final Pattern PACKAGE_LINE = Pattern.compile("^package\\s[^;]*;", Pattern.MULTILINE);
+
+	private static final Pattern REFERENCE = Pattern
+		.compile("(?<![\\w.])com\\.admin\\.management\\.(\\w+(?:\\.\\w+)*)");
 
 	/** What any module may import from another module. Everything else of another module is internal. */
 	private static final List<String> PUBLIC = List.of("shared.", "audit.AuditService", "audit.AuditExportRecorder",
@@ -68,6 +71,14 @@ class ModuleDependencyTest {
 			.forEach(to -> unexpected.add(from + " -> " + to)));
 		assertThat(unexpected).as("module dependencies that are not in the allowed graph").isEmpty();
 		assertThat(findCycle(graph)).as("cycle between modules").isEmpty();
+	}
+
+	@Test
+	void aFullyQualifiedNameInTheCodeCountsAsAReference() {
+		String code = "package com.admin.management.students;\nimport com.admin.management.shared.web.ApiProblem;\n"
+				+ "class A { Object o = new com.admin.management.audit.AuditRepository(); }\n";
+
+		assertThat(references(code)).containsExactly("shared.web.ApiProblem", "audit.AuditRepository");
 	}
 
 	@Test
@@ -135,6 +146,16 @@ class ModuleDependencyTest {
 		return Collections.emptyList();
 	}
 
+	/** The part after {@code com.admin.management.} of every reference in the text, whether imported or spelled out. */
+	static List<String> references(String text) {
+		List<String> found = new ArrayList<>();
+		Matcher matcher = REFERENCE.matcher(PACKAGE_LINE.matcher(text).replaceAll(""));
+		while (matcher.find()) {
+			found.add(matcher.group(1));
+		}
+		return found;
+	}
+
 	private record Source(String file, String module, List<String> imports) {
 	}
 
@@ -147,12 +168,7 @@ class ModuleDependencyTest {
 				if (relative.getNameCount() < 2) {
 					continue; // the application class in the base package belongs to no module
 				}
-				String text = Files.readString(file);
-				List<String> imports = new ArrayList<>();
-				Matcher matcher = IMPORT.matcher(text);
-				while (matcher.find()) {
-					imports.add(matcher.group(1));
-				}
+				List<String> imports = references(Files.readString(file));
 				result.add(new Source(relative.toString().replace('\\', '/'), relative.getName(0).toString(), imports));
 			}
 		}
