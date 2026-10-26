@@ -90,6 +90,12 @@ public class PhotoService {
 		return photos.findById(studentId).orElseThrow(() -> new NotFoundException("Photo", studentId));
 	}
 
+	/** The current photo version of the student, or null when there is no photo. */
+	@Transactional(readOnly = true)
+	public Long currentVersion(Long studentId) {
+		return find(studentId).getPhotoVersion();
+	}
+
 	/** Removes the photo; the initials are shown again. Nothing happens when there is no photo. */
 	@Transactional
 	public void remove(Long studentId) {

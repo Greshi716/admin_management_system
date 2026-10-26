@@ -28,13 +28,18 @@ class StudentPhotoController {
 		this.photos = photos;
 	}
 
-	/** The stored JPEG. The query parameter {@code v} is the photo version, so the answer can be cached for a year. */
+	/**
+	 * The stored JPEG. The query parameter {@code v} is the photo version: only when it is the current version can the
+	 * answer be cached for a year; without it, or with an old one, the browser must ask again.
+	 */
 	@GetMapping
 	ResponseEntity<byte[]> get(@PathVariable Long id, @RequestParam(required = false) Long v) {
 		StudentPhoto photo = photos.get(id);
+		boolean current = v != null && v.equals(photos.currentVersion(id));
 		return ResponseEntity.ok()
 			.contentType(MediaType.parseMediaType(photo.getContentType()))
-			.cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
+			.cacheControl(current ? CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable()
+					: CacheControl.noCache().cachePrivate())
 			.body(photo.getContent());
 	}
 

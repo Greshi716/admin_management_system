@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,6 +102,11 @@ class StudentRegistrationIT extends IntegrationTest {
 	private void breakAuditWrites() {
 		jdbc.execute("create or replace function fail_audit_insert() returns trigger as $$ begin raise exception 'audit write failed'; end; $$ language plpgsql");
 		jdbc.execute("create trigger trg_fail_audit_insert before insert on audit_log for each row execute function fail_audit_insert()");
+	}
+
+	@AfterEach
+	void tearDown() {
+		restoreAuditWrites();
 	}
 
 	private void restoreAuditWrites() {

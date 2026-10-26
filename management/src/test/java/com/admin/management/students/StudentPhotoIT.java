@@ -202,6 +202,14 @@ class StudentPhotoIT extends IntegrationTest {
 			.andExpect(header().string("Cache-Control", containsString("immutable")))
 			.andExpect(header().string("Cache-Control", containsString("private")));
 
+		// without the current version the browser must ask again
+		mvc.perform(get("/api/students/" + studentId + "/photo").session(session))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", containsString("no-cache")))
+			.andExpect(header().string("Cache-Control", org.hamcrest.Matchers.not(containsString("immutable"))));
+		mvc.perform(get("/api/students/" + studentId + "/photo?v=" + first).session(session))
+			.andExpect(header().string("Cache-Control", org.hamcrest.Matchers.not(containsString("immutable"))));
+
 		mvc.perform(delete("/api/students/" + studentId + "/photo").with(csrf()).session(session))
 			.andExpect(status().isNoContent());
 		assertThat(jdbc.queryForObject("select photo_version from students where id = ?", Long.class, studentId)).isNull();
