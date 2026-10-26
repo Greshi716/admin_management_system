@@ -200,12 +200,20 @@
         <ng-container *ngTemplateOutlet="fieldError; context: { control: form.controls.divisionId, message: 'Choose the division.' }" />
       </div>
 
-      <div class="sm:col-span-2">
-        <span class="mb-1 block text-sm font-semibold">Photo</span>
-        <app-photo-upload [error]="photoError()" [disabled]="busy()" (chosen)="photoChosen($event)" (removed)="photoRemoved()" />
-      </div>
+
 
     }
+
+    <div class="sm:col-span-2">
+      <span class="mb-1 block text-sm font-semibold">Photo</span>
+      <app-photo-upload
+        [currentUrl]="savedPhotoUrl()"
+        [error]="photoError()"
+        [disabled]="busy()"
+        (chosen)="photoChosen($event)"
+        (removed)="photoRemoved()"
+      />
+    </div>
 
     <div class="flex flex-wrap gap-2 sm:col-span-2">
       <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy() || saved() !== null">Save</button>

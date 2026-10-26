@@ -49,6 +49,8 @@ export class StudentFormComponent implements OnInit {
   protected readonly pickLists = signal<PickLists | null>(null);
   protected readonly matches = signal<NameMatch[]>([]);
   protected readonly photoError = signal<string | null>(null);
+  /** Edit mode: the address of the photo already stored, or null when the student has none (FR-005). */
+  protected readonly savedPhotoUrl = signal<string | null>(null);
   /** Set once the student is stored; the form is then locked so the same student cannot be saved twice. */
   protected readonly saved = signal<{ id: number; grNo: string } | null>(null);
   /** The student being edited (route /students/:id/edit); null when registering. */
@@ -139,9 +141,10 @@ export class StudentFormComponent implements OnInit {
       control.clearValidators();
       control.updateValueAndValidity();
     }
-    forkJoin({ values: this.students.editForm(id), lists: this.students.pickLists() }).subscribe({
-      next: ({ values, lists }) => {
+    forkJoin({ values: this.students.editForm(id), lists: this.students.pickLists(), profile: this.students.get(id) }).subscribe({
+      next: ({ values, lists, profile }) => {
         this.pickLists.set(lists);
+        this.savedPhotoUrl.set(profile.photoVersion === null ? null : this.students.photoUrl(id, profile.photoVersion));
         this.fill(values);
         this.loading.set(false);
       },
@@ -238,8 +241,11 @@ export class StudentFormComponent implements OnInit {
   protected photoChosen(file: File): void {
     this.photoError.set(null);
     this.photoFile = file;
+    const editing = this.editId();
     const saved = this.saved();
-    if (saved) {
+    if (editing !== null) {
+      this.sendPhoto(editing, file);
+    } else if (saved) {
       this.sendPhoto(saved.id, file);
     }
   }
@@ -247,6 +253,19 @@ export class StudentFormComponent implements OnInit {
   protected photoRemoved(): void {
     this.photoFile = null;
     this.photoError.set(null);
+    const editing = this.editId();
+    if (editing === null) {
+      return;
+    }
+    this.busy.set(true);
+    this.students.deletePhoto(editing).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.savedPhotoUrl.set(null);
+        this.toast.success('The photo was removed.');
+      },
+      error: () => this.busy.set(false), // the error interceptor has shown the reason
+    });
   }
 
   protected save(addNext: boolean): void {
@@ -298,9 +317,12 @@ export class StudentFormComponent implements OnInit {
   private sendPhoto(id: number, file: File): void {
     this.busy.set(true);
     this.students.putPhoto(id, file).subscribe({
-      next: () => {
+      next: ({ photoVersion }) => {
         this.busy.set(false);
         this.photoError.set(null);
+        if (this.editId() !== null) {
+          this.savedPhotoUrl.set(this.students.photoUrl(id, photoVersion));
+        }
         this.toast.success('The photo was stored.');
       },
       error: (error: unknown) => {

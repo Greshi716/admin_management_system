@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { callApi, clearMasterData } from './support/master-data';
-import { createStudent, createStudentMasterData, studentInput, StudentMasterData } from './support/students';
+import { createStudent, createStudentMasterData, studentInput, StudentInput, StudentMasterData } from './support/students';
 import { signInAsTestAdmin } from './support/test-data';
 
 // Synthetic values only (constitution VI).
@@ -23,8 +23,8 @@ async function seed(page: Page): Promise<Seed> {
   ).body;
   const categories = (await callApi(page, 'POST', '/api/student-categories/search', { first: 0, rows: 100, filters: {} }))
     .body.rows;
-  const otherCategory = categories.find((category: any) => category.id !== master.categoryId);
-  const input: any = { ...studentInput(1, master), aadhaar: AADHAAR, religionCaste: 'Test Religion' };
+  const otherCategory = categories.find((category: { id: number; name: string }) => category.id !== master.categoryId);
+  const input: StudentInput = { ...studentInput(1, master), aadhaar: AADHAAR, religionCaste: 'Test Religion' };
   const student = await createStudent(page, input);
   return {
     master,
@@ -42,6 +42,11 @@ async function openEdit(page: Page, id: number): Promise<void> {
   await expect(page.getByLabel('GR No. *')).toHaveValue(/E2E-/);
 }
 
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 const save = (page: Page) => page.getByRole('button', { name: 'Save', exact: true });
 
 test.describe('edit a student', () => {
@@ -51,6 +56,23 @@ test.describe('edit a student', () => {
     await signInAsTestAdmin(page);
     await clearMasterData(page);
     data = await seed(page);
+  });
+
+  test('FR-005: the admin adds, replaces and removes the photo of a saved student on the edit screen', async ({ page }) => {
+    const photoStatus = async () => (await page.context().request.get(`/api/students/${data.studentId}/photo`)).status();
+    await openEdit(page, data.studentId);
+    expect(await photoStatus()).toBe(404);
+
+    await page.getByLabel('Photo file').setInputFiles({ name: 'first.png', mimeType: 'image/png', buffer: PNG });
+    await expect.poll(photoStatus).toBe(200);
+    await expect(page.getByRole('button', { name: 'Remove photo' })).toBeVisible();
+
+    await page.getByLabel('Photo file').setInputFiles({ name: 'second.png', mimeType: 'image/png', buffer: PNG });
+    await expect.poll(photoStatus).toBe(200);
+
+    await page.getByRole('button', { name: 'Remove photo' }).click();
+    await expect.poll(photoStatus).toBe(404);
+    await expect(page.getByText('Choose photo')).toBeVisible();
   });
 
   test('FR-004: the admin edits the details and the profile shows them', async ({ page }) => {

@@ -62,7 +62,7 @@ export function studentInput(n: number, master: StudentMasterData): StudentInput
 }
 
 /** Registers a student through the API (POST /api/students) and returns the created record. Call after signInAsTestAdmin. */
-export async function createStudent(page: Page, input: StudentInput): Promise<{ id: number; version: number; [key: string]: any }> {
+export async function createStudent(page: Page, input: StudentInput): Promise<{ id: number; version: number; [key: string]: unknown }> {
   const result = await callApi(page, 'POST', '/api/students', input);
   if (result.status !== 201 && result.status !== 200) {
     throw new Error(`creating student ${input.grNo} failed with HTTP ${result.status}: ${JSON.stringify(result.body)}`);
