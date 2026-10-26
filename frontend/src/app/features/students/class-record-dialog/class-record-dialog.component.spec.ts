@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FormControl, FormGroup } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ToastService } from '../../../core/toast/toast.service';
 import { Enrollment, PickLists, StudentsService } from '../students.service';
@@ -38,8 +39,16 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
   let service: { pickLists: ReturnType<typeof vi.fn>; updateEnrollment: ReturnType<typeof vi.fn> };
   let changed: ReturnType<typeof vi.fn<() => void>>;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const component = () => fixture.componentInstance as any;
+  /** The protected members the tests use, reached through a typed view instead of `any`. */
+  interface DialogView {
+    form: FormGroup<{ standardId: FormControl<number | null>; divisionId: FormControl<number | null>; categoryId: FormControl<number | null> }>;
+    divisions(): { id: number }[];
+    stale(): unknown;
+    save(): void;
+    keepMine(): void;
+    useLatest(): void;
+  }
+  const component = () => fixture.componentInstance as unknown as DialogView;
 
   beforeEach(() => {
     service = { pickLists: vi.fn().mockReturnValue(of(LISTS)), updateEnrollment: vi.fn() };
@@ -60,12 +69,12 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
   it("loads the pick-lists of the record's own year and starts with its current values", () => {
     expect(service.pickLists).toHaveBeenCalledWith(2, 5);
     expect(component().form.getRawValue()).toEqual({ standardId: 10, divisionId: 100, categoryId: 7 });
-    expect(component().divisions().map((d: { id: number }) => d.id)).toEqual([100]);
+    expect(component().divisions().map((d) => d.id)).toEqual([100]);
   });
 
   it('offers only the divisions of the chosen standard and clears the division when the standard changes', () => {
     component().form.controls.standardId.setValue(11);
-    expect(component().divisions().map((d: { id: number }) => d.id)).toEqual([101]);
+    expect(component().divisions().map((d) => d.id)).toEqual([101]);
     expect(component().form.controls.divisionId.value).toBeNull();
   });
 

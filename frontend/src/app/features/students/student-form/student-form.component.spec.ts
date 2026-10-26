@@ -1,3 +1,4 @@
+import { FormGroup } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
@@ -30,8 +31,8 @@ describe('StudentFormComponent (FR-001, FR-003, FR-005, FR-011, FR-017)', () => 
   };
   let toast: { success: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const form = () => (component as any).form;
+  /** The protected form, reached through a typed view instead of `any`. */
+  const form = () => (component as unknown as { form: FormGroup }).form;
 
   function fillValid(): void {
     form().patchValue({
