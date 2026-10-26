@@ -169,6 +169,14 @@ class StudentListIT extends IntegrationTest {
 	}
 
 	@Test
+	void aMobileNumberTypedWithCountryCodeOrSpacesFindsTheStudent() throws Exception {
+		api.post("/api/students/search", request("\"globalFilter\":\"+91 91111 11111\""))
+			.andExpect(jsonPath("$.rows[*].grNo", contains("GR-2")));
+		api.post("/api/students/search", request("\"globalFilter\":\"09000000001\""))
+			.andExpect(jsonPath("$.rows[*].grNo", contains("GR-1")));
+	}
+
+	@Test
 	void searchNeverMatchesAadhaarOrReligionCaste() throws Exception {
 		api.post("/api/students/search", request("\"globalFilter\":\"100000000001\""))
 			.andExpect(jsonPath("$.total").value(0));
