@@ -31,14 +31,14 @@ import com.admin.management.support.StudentTestData;
 import com.admin.management.support.StudentTestData.YearSetup;
 
 /**
- * The list query spike (plan review S4): page, count, search, filter, sort and export of the final Students list
+ * Speed of the Students list (SC-003, plan review S4): page, count, search, filter, sort and export of the final Students list
  * columns on 10,000 synthetic students with 2 to 3 class records each. Timing depends on the machine, so it runs
- * only on request: {@code ./mvnw verify -Dtest.groups=performance -Dtest.excludedGroups=none -Dtest=StudentListSpikeIT}.
- * The measured times are written to {@code target/student-list-spike.txt}. Replaced by StudentListPerformanceIT (T025).
+ * only on request: {@code ./mvnw verify -Dtest.groups=performance -Dtest.excludedGroups=none -Dtest=StudentListPerformanceIT}.
+ * The measured times are written to {@code target/student-list-performance.txt}.
  */
 @Tag("performance")
 @Covers("FR-008")
-class StudentListSpikeIT extends IntegrationTest {
+class StudentListPerformanceIT extends IntegrationTest {
 
 	static final int STUDENTS = 10_000;
 
@@ -157,7 +157,7 @@ class StudentListSpikeIT extends IntegrationTest {
 				+ " " + System.getProperty("os.version") + ", Java " + System.getProperty("java.version"));
 		lines.add(STUDENTS + " students, 2 to 3 class records each");
 		lines.addAll(REPORT);
-		Path file = Path.of("target", "student-list-spike.txt");
+		Path file = Path.of("target", "student-list-performance.txt");
 		Files.createDirectories(file.getParent());
 		Files.write(file, lines);
 	}
