@@ -27,6 +27,8 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 | 2026-10-25 | UI follows the prototype in `docs/design/ui-prototype.md` (top bar with tabs, screen layouts) and keeps the current purple colour tokens. F1 includes one task to restyle the shell to the prototype. Supersedes "no mockup images". | F1 and later |
 | 2026-10-25 | Excel import menu item kept: it imports the list of students from the Google Form responses Excel file (admin uploads the file; no automatic fetch in version 1). Appears with F1b. Sections of the prototype whose feature is not built are hidden. Roll number removed from the profile. | F1b |
 | 2026-10-25 | Audit area "Students" added for student and class-record changes (areas: Security, Master data, Students; later Fees, Payroll, Fund. Audit exports are recorded under Security.). Aadhaar and religion/caste are stored as plain text in the database and masked everywhere they are shown; no field-level encryption in version 1. | F1 |
+| 2026-10-25 | Students list: the record shown for each student is the current academic year's, else the most recent one; filters and sort on Std / Div and Category use that record. Standard, division and category names are looked up from F0 master data once per request (a `CASE` over a few dozen ids, no join); on 10,000 students with 2 to 3 class records each every list operation took under 0.4 s and the export 9.7 s, so no summary table or fallback is needed (spike T009, repeated in T025). | F1 |
+| 2026-10-26 | Shell: master data and the audit log are reached from Setup at `/setup/...`; the old `/master-data/...` and `/audit-log` addresses redirect there. | F1 |
 
 ## Open items
 
