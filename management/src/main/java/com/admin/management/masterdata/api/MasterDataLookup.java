@@ -48,6 +48,12 @@ public interface MasterDataLookup {
 	 */
 	PickLists pickLists(Long yearId, Long keepStandardId, Long keepDivisionId, Long keepCategoryId);
 
+	/**
+	 * Every standard, category and division of every academic year, active or not, for list filters: a record keeps
+	 * the values it was saved with, so a filter must be able to reach them.
+	 */
+	FilterOptions filterOptions();
+
 	default PickLists pickLists(Long yearId) {
 		return pickLists(yearId, null, null, null);
 	}
@@ -61,7 +67,15 @@ public interface MasterDataLookup {
 	record DivisionOption(Long id, String name, Long standardId, boolean active) {
 	}
 
+	record YearDivisionOption(Long id, String name, Long standardId, Long yearId, String yearName, boolean active) {
+	}
+
 	record CategoryOption(Long id, String code, String name, boolean active) {
+	}
+
+	/** Standards in display order, divisions by year (newest first), standard order then name, categories in creation order. */
+	record FilterOptions(List<StandardOption> standards, List<YearDivisionOption> divisions,
+			List<CategoryOption> categories) {
 	}
 
 	/** Standards in display order, divisions by standard order then name, categories in creation order. */

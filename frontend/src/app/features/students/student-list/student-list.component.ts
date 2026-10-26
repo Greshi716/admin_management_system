@@ -4,7 +4,8 @@ import { CampusTableComponent } from '../../../shared/table/campus-table.compone
 import { CampusColumn } from '../../../shared/table/table-types';
 import { AvatarComponent } from '../../../shared/ui/avatar.component';
 import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
-import { PickLists, StudentsService } from '../students.service';
+import { forkJoin } from 'rxjs';
+import { StudentsService } from '../students.service';
 import { recordYearNote, studentColumns } from './student-columns';
 
 type StatusScope = 'Active' | 'Left' | 'All';
@@ -29,10 +30,10 @@ export class StudentListComponent implements OnInit {
   private currentYearId: number | null = null;
 
   ngOnInit(): void {
-    this.students.pickLists().subscribe({
-      next: (lists: PickLists) => {
+    forkJoin({ lists: this.students.pickLists(), options: this.students.filterOptions() }).subscribe({
+      next: ({ lists, options }) => {
         this.currentYearId = lists.currentYear?.id ?? null;
-        this.columns.set(studentColumns(lists));
+        this.columns.set(studentColumns(options));
       },
       error: () => this.columns.set(studentColumns(null)), // the error interceptor has shown the reason
     });

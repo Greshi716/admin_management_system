@@ -1,5 +1,5 @@
 import { CampusColumn } from '../../../shared/table/table-types';
-import { PickLists } from '../students.service';
+import { FilterOptions } from '../students.service';
 
 const ACTIVE_BADGE = 'bg-accent-soft text-accent-text';
 const LEFT_BADGE = 'bg-page text-muted border border-border';
@@ -7,11 +7,12 @@ const LEFT_BADGE = 'bg-page text-muted border border-border';
 /**
  * The columns of the Students list (FR-008). The server returns the record shown for each student (the current
  * year's, else the most recent) with the ids of its standard, division and category, which the dropdown filters
- * use. Aadhaar and religion/caste are not columns of the screen at all: they are masked in the Excel export only,
+ * use. The filter options hold every value, active or not and of any year, because a student keeps the values of
+ * its record. Aadhaar and religion/caste are not columns of the screen at all: they are masked in the Excel export only,
  * and the server refuses to search, filter or sort by them (FR-010).
  */
-export function studentColumns(lists: PickLists | null): CampusColumn[] {
-  const standards = lists?.standards ?? [];
+export function studentColumns(options: FilterOptions | null): CampusColumn[] {
+  const standards = options?.standards ?? [];
   const standardName = new Map(standards.map((standard) => [standard.id, standard.name]));
   return [
     { field: 'id', header: 'Id', type: 'number', hidden: true },
@@ -36,9 +37,9 @@ export function studentColumns(lists: PickLists | null): CampusColumn[] {
         {
           field: 'divisionId',
           label: 'Division',
-          options: (lists?.divisions ?? []).map((division) => ({
+          options: (options?.divisions ?? []).map((division) => ({
             value: division.id,
-            label: `${standardName.get(division.standardId) ?? ''} ${division.name}`.trim(),
+            label: `${standardName.get(division.standardId) ?? ''} ${division.name} (${division.yearName})`.trim(),
           })),
         },
       ],
@@ -50,7 +51,7 @@ export function studentColumns(lists: PickLists | null): CampusColumn[] {
         {
           field: 'categoryId',
           label: 'Category',
-          options: (lists?.categories ?? []).map((category) => ({ value: category.id, label: category.name })),
+          options: (options?.categories ?? []).map((category) => ({ value: category.id, label: category.name })),
         },
       ],
     },

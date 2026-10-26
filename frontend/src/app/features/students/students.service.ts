@@ -91,6 +91,13 @@ export interface PickLists {
   categories: { id: number; code: string; name: string; active: boolean }[];
 }
 
+/** Every standard, division (of any year) and category, active or not, for the filters of the list. */
+export interface FilterOptions {
+  standards: PickLists['standards'];
+  divisions: { id: number; standardId: number; name: string; yearId: number; yearName: string; active: boolean }[];
+  categories: PickLists['categories'];
+}
+
 export interface HistoryEntry {
   at: string;
   userName: string | null;
@@ -158,6 +165,10 @@ export class StudentsService {
       params = params.set('studentId', studentId);
     }
     return this.http.get<PickLists>('/api/student-pick-lists', { params });
+  }
+
+  filterOptions(): Observable<FilterOptions> {
+    return this.http.get<FilterOptions>('/api/student-filter-options');
   }
 
   putPhoto(id: number, file: File): Observable<{ photoVersion: number }> {

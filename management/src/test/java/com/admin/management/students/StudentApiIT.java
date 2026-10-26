@@ -201,6 +201,26 @@ class StudentApiIT extends IntegrationTest {
 	}
 
 	@Test
+	void filterOptionsHaveEveryValueIncludingInactiveOnesAndDivisionsOfOtherYears() throws Exception {
+		long earlierYear = jdbc.queryForObject(
+				"insert into academic_years (name, start_date, end_date) values ('2025-26', '2025-04-01', '2026-03-31') returning id",
+				Long.class);
+		jdbc.update("insert into divisions (academic_year_id, standard_id, name) values (?, ?, 'Z')", earlierYear,
+				standardId);
+		jdbc.update("update divisions set active = false where name <> 'Z'");
+		jdbc.update("insert into standards (name, display_order, active) values ('Retired', 9, false)");
+
+		api.get("/api/student-filter-options")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.standards", hasSize(2)))
+			.andExpect(jsonPath("$.divisions", hasSize(2)))
+			.andExpect(jsonPath("$.divisions[0].yearName").value("2026-27"))
+			.andExpect(jsonPath("$.divisions[0].active").value(false))
+			.andExpect(jsonPath("$.divisions[1].yearName").value("2025-26"))
+			.andExpect(jsonPath("$.categories", hasSize(7)));
+	}
+
+	@Test
 	void pickListsWithoutACurrentYearAre409() throws Exception {
 		clock.setDate(LocalDate.of(2031, 1, 1));
 

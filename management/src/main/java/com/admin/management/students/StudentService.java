@@ -193,6 +193,11 @@ public class StudentService {
 				lists.standards(), lists.divisions(), lists.categories());
 	}
 
+	@Transactional(readOnly = true)
+	public MasterDataLookup.FilterOptions filterOptions() {
+		return masterData.filterOptions();
+	}
+
 	/** The profile: the student with masked sensitive fields and the class history (FR-007, FR-009). */
 	@Transactional(readOnly = true)
 	public StudentDto get(Long id) {

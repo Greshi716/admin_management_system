@@ -152,6 +152,35 @@ class MasterDataLookupService implements MasterDataLookup {
 		return new PickLists(standardOptions, divisionOptions, categoryOptions);
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public FilterOptions filterOptions() {
+		List<StandardOption> standardOptions = standards.findAll()
+			.stream()
+			.sorted(Comparator.comparingInt(Standard::getDisplayOrder).thenComparing(Standard::getName))
+			.map((standard) -> new StandardOption(standard.getId(), standard.getName(), standard.getDisplayOrder(),
+					standard.getStream(), standard.isActive()))
+			.toList();
+		List<YearDivisionOption> divisionOptions = years.findAll()
+			.stream()
+			.sorted(Comparator.comparing(AcademicYear::getStartDate).reversed())
+			.flatMap((year) -> divisions.findAllByYear(year.getId())
+				.stream()
+				.sorted(Comparator.comparingInt((Division division) -> division.getStandard().getDisplayOrder())
+					.thenComparing((Division division) -> division.getStandard().getName())
+					.thenComparing(Division::getName))
+				.map((division) -> new YearDivisionOption(division.getId(), division.getName(),
+						division.getStandard().getId(), year.getId(), year.getName(), division.isActive())))
+			.toList();
+		List<CategoryOption> categoryOptions = categories.findAll()
+			.stream()
+			.sorted(Comparator.comparing(StudentCategory::getId))
+			.map((category) -> new CategoryOption(category.getId(), category.getCode(), category.getName(),
+					category.isActive()))
+			.toList();
+		return new FilterOptions(standardOptions, divisionOptions, categoryOptions);
+	}
+
 	private static <T, V> Map<Long, V> toMap(List<T> rows, Function<T, Long> id, Function<T, V> value) {
 		Map<Long, V> map = new LinkedHashMap<>();
 		rows.forEach((row) -> map.put(id.apply(row), value.apply(row)));

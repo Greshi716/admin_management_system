@@ -1,14 +1,16 @@
-import { PickLists } from '../students.service';
+import { FilterOptions } from '../students.service';
 import { recordYearNote, studentColumns } from './student-columns';
 
-const LISTS: PickLists = {
-  currentYear: { id: 1, name: '2026-27' },
+const LISTS: FilterOptions = {
   standards: [
     { id: 10, name: 'Standard 5', displayOrder: 5, stream: null, active: true },
-    { id: 11, name: 'Standard 6', displayOrder: 6, stream: null, active: true },
+    { id: 11, name: 'Standard 6', displayOrder: 6, stream: null, active: false },
   ],
-  divisions: [{ id: 100, standardId: 10, name: 'A', active: true }],
-  categories: [{ id: 7, code: 'GEN', name: 'General', active: true }],
+  divisions: [
+    { id: 100, standardId: 10, name: 'A', yearId: 1, yearName: '2026-27', active: true },
+    { id: 90, standardId: 11, name: 'B', yearId: 0, yearName: '2025-26', active: false },
+  ],
+  categories: [{ id: 7, code: 'GEN', name: 'General', active: false }],
 };
 
 describe('studentColumns (FR-008, FR-010)', () => {
@@ -48,7 +50,11 @@ describe('studentColumns (FR-008, FR-010)', () => {
       { value: 10, label: 'Standard 5' },
       { value: 11, label: 'Standard 6' },
     ]);
-    expect(stdDiv?.dropdowns?.[1].options).toEqual([{ value: 100, label: 'Standard 5 A' }]);
+    // inactive values and divisions of other years are offered too: a student keeps the values it was saved with
+    expect(stdDiv?.dropdowns?.[1].options).toEqual([
+      { value: 100, label: 'Standard 5 A (2026-27)' },
+      { value: 90, label: 'Standard 6 B (2025-26)' },
+    ]);
     expect(category?.dropdowns?.[0]).toMatchObject({ field: 'categoryId', options: [{ value: 7, label: 'General' }] });
   });
 

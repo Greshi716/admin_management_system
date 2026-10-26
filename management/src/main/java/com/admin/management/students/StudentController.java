@@ -64,6 +64,12 @@ class StudentController {
 		return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.editForm(id));
 	}
 
+	/** Every standard, division (of any year) and category, for the filters of the Students list (FR-008). */
+	@GetMapping("/student-filter-options")
+	com.admin.management.masterdata.api.MasterDataLookup.FilterOptions filterOptions() {
+		return service.filterOptions();
+	}
+
 	@GetMapping("/student-pick-lists")
 	PickListsDto pickLists(@RequestParam(required = false) Long yearId, @RequestParam(required = false) Long studentId) {
 		return service.pickLists(yearId, studentId);

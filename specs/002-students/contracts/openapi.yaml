@@ -131,6 +131,12 @@ paths:
     delete:
       summary: Remove the photo; initials are shown again (FR-005)
       responses: { '204': { description: Removed } }
+  /student-filter-options:
+    get:
+      summary: Every standard, category and division of every academic year, active or not, for the filters of the Students list (FR-008)
+      description: A student keeps the values of its record, so the list filters must reach inactive values and divisions of earlier years. Divisions carry their academic year name.
+      responses:
+        '200': { description: OK }
   /student-pick-lists:
     get:
       parameters:
