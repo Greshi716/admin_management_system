@@ -36,6 +36,29 @@ class SensitiveMaskerTest {
 	}
 
 	@Test
+	void auditKeepsOnlyTheLastFourCharactersOfAadhaarAndReligionCasteAtAnyDepth() {
+		Map<String, Object> changes = Map.of("aadhaar", "123456789012", "religionCaste", "Test religion 77",
+				"old", Map.of("aadhaar", "999988887777", "nested", java.util.List.of(Map.of("religionCaste", "Test caste"))),
+				"name", "Alpha");
+
+		Map<String, Object> stored = SensitiveMasker.sanitize(changes, SensitiveMasker.MASKED);
+
+		assertThat(stored).containsEntry("aadhaar", "********9012").containsEntry("religionCaste", "************n 77")
+			.containsEntry("name", "Alpha");
+		assertThat(stored.toString()).doesNotContain("12345678").doesNotContain("Test religion")
+			.doesNotContain("99998888").doesNotContain("Test caste");
+		assertThat(stored.get("old").toString()).contains("********7777").contains("******aste");
+	}
+
+	@Test
+	void auditFullyMasksSensitiveValuesOfFourOrFewerCharacters() {
+		Map<String, Object> stored = SensitiveMasker.sanitize(Map.of("aadhaar", "1234", "religionCaste", "ab"),
+				SensitiveMasker.MASKED);
+
+		assertThat(stored).containsEntry("aadhaar", "****").containsEntry("religionCaste", "**");
+	}
+
+	@Test
 	void nullChangeMapGivesEmptyMap() {
 		assertThat(SensitiveMasker.withoutNeverStored(null)).isEmpty();
 	}

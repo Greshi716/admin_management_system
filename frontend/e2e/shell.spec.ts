@@ -4,11 +4,11 @@ import { academicYearAround, resetTestAdmin, signInAsTestAdmin } from './support
 
 const SCREENS = [
   { path: '/', heading: /Welcome/ },
-  { path: '/master-data/academic-years', heading: 'Academic years' },
-  { path: '/master-data/standards', heading: 'Standards' },
-  { path: '/master-data/divisions', heading: 'Divisions' },
-  { path: '/master-data/student-categories', heading: 'Student categories' },
-  { path: '/audit-log', heading: 'Audit log' },
+  { path: '/setup/academic-years', heading: 'Academic years' },
+  { path: '/setup/standards', heading: 'Standards' },
+  { path: '/setup/divisions', heading: 'Divisions' },
+  { path: '/setup/student-categories', heading: 'Student categories' },
+  { path: '/setup/audit-log', heading: 'Audit log' },
 ];
 
 async function createCurrentYear(page: Page): Promise<string> {
@@ -33,9 +33,16 @@ test.describe('app shell', () => {
       await page.goto(screen.path);
       await expect(page.getByRole('heading', { name: screen.heading }).first()).toBeVisible();
 
-      const menu = page.locator('aside nav');
-      for (const entry of ['Home', 'Academic years', 'Standards', 'Divisions', 'Student categories', 'Audit log']) {
-        await expect(menu.getByRole('link', { name: entry })).toBeVisible();
+      // The sidebar became the top bar with two tabs and, under Setup, a left list (F1 T024).
+      const bar = page.getByRole('navigation', { name: 'Main' });
+      for (const tab of ['Students', 'Setup']) {
+        await expect(bar.getByRole('link', { name: tab })).toBeVisible();
+      }
+      if (screen.path.startsWith('/setup')) {
+        const list = page.getByRole('navigation', { name: 'Setup' });
+        for (const entry of ['Academic years', 'Standards', 'Divisions', 'Student categories', 'Audit log']) {
+          await expect(list.getByRole('link', { name: entry })).toBeVisible();
+        }
       }
       await expect(page.getByTestId('user-name')).toHaveText(/\S/);
       await expect(page.getByTestId('current-year')).toContainText(yearName);
@@ -46,12 +53,12 @@ test.describe('app shell', () => {
 
   test('FR-028: Log out works from a screen and the next page needs a sign-in again', async ({ page }) => {
     await createCurrentYear(page);
-    await page.goto('/master-data/standards');
+    await page.goto('/setup/standards');
 
     await page.getByRole('button', { name: 'Log out' }).click();
 
     await expect(page).toHaveURL(/\/sign-in$/);
-    await page.goto('/master-data/standards');
+    await page.goto('/setup/standards');
     await expect(page).toHaveURL(/\/sign-in$/);
   });
 
@@ -60,7 +67,7 @@ test.describe('app shell', () => {
   }) => {
     await page.goto('/');
 
-    await expect(page).toHaveURL(/\/master-data\/academic-years$/);
+    await expect(page).toHaveURL(/\/setup\/academic-years$/);
     await expect(page.getByTestId('no-current-year')).toContainText('No academic year covers today');
     await expect(page.getByRole('dialog', { name: 'Add academic year' })).toBeVisible();
     await expect(page.getByTestId('current-year')).toHaveCount(0);
@@ -72,18 +79,22 @@ test.describe('app shell', () => {
     await page.goto('/');
     await expect(page.getByTestId('no-current-year')).toBeVisible();
     await page.getByRole('button', { name: 'Cancel' }).click();
-    const menu = page.locator('aside nav');
+    const menu = page.getByRole('navigation', { name: 'Setup' });
+    // The Students tab replaces the old Home entry as the item that closes (F1 T024).
+    const students = page.getByRole('navigation', { name: 'Main' });
+    await expect(students.getByRole('link', { name: 'Students' })).toHaveCount(0);
+    await expect(students.getByText('Students', { exact: true })).toHaveAttribute('aria-disabled', 'true');
 
-    for (const entry of ['Home', 'Standards', 'Divisions', 'Student categories', 'Audit log']) {
+    for (const entry of ['Standards', 'Divisions', 'Student categories', 'Audit log']) {
       await expect(menu.getByRole('link', { name: entry })).toHaveCount(0);
       await expect(menu.getByText(entry, { exact: true })).toHaveAttribute('aria-disabled', 'true');
     }
     await expect(menu.getByRole('link', { name: 'Academic years' })).toBeVisible();
 
-    await page.goto('/master-data/standards');
-    await expect(page).toHaveURL(/\/master-data\/academic-years$/);
-    await page.goto('/audit-log');
-    await expect(page).toHaveURL(/\/master-data\/academic-years$/);
+    await page.goto('/setup/standards');
+    await expect(page).toHaveURL(/\/setup\/academic-years$/);
+    await page.goto('/setup/audit-log');
+    await expect(page).toHaveURL(/\/setup\/academic-years$/);
     // the create form opens again on every visit to Academic years while there is no current year
     await expect(page.getByRole('dialog', { name: 'Add academic year' })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel' }).click();
@@ -107,20 +118,20 @@ test.describe('app shell', () => {
 
     await expect(page.getByTestId('no-current-year')).toHaveCount(0);
     await expect(page.getByTestId('current-year')).toContainText(year.name);
-    await page.locator('aside nav').getByRole('link', { name: 'Standards' }).click();
-    await expect(page).toHaveURL(/\/master-data\/standards$/);
+    await page.getByRole('navigation', { name: 'Setup' }).getByRole('link', { name: 'Standards' }).click();
+    await expect(page).toHaveURL(/\/setup\/standards$/);
   });
 
   test('FR-013: deleting the only current year brings the block back', async ({ page }) => {
     await createCurrentYear(page);
-    await page.goto('/master-data/academic-years');
+    await page.goto('/setup/academic-years');
     await expect(page.getByTestId('current-year')).toBeVisible();
 
     await page.getByRole('row', { name: /Current/ }).getByRole('button', { name: 'Delete' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 
     await expect(page.getByTestId('no-current-year')).toBeVisible();
-    await expect(page.locator('aside nav').getByText('Standards', { exact: true })).toHaveAttribute(
+    await expect(page.getByRole('navigation', { name: 'Setup' }).getByText('Standards', { exact: true })).toHaveAttribute(
       'aria-disabled',
       'true',
     );
@@ -163,7 +174,8 @@ test.describe('app shell', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
     await page.evaluate(() => ((window as unknown as { __kept: string }).__kept = 'same page'));
-    const menu = page.locator('aside nav');
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Setup' }).click();
+    const menu = page.getByRole('navigation', { name: 'Setup' });
 
     await menu.getByRole('link', { name: 'Standards' }).click();
     await expect(page.getByRole('heading', { name: 'Standards' })).toBeVisible();

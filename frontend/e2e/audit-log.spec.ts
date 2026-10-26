@@ -76,6 +76,17 @@ test.describe('audit log', () => {
     await expect(page.getByText('No rows found')).toBeVisible();
   });
 
+  test('FR-019: the area filter offers Students and filtering by it works', async ({ page }) => {
+    await openAuditLog(page);
+    const area = page.getByLabel('Area', { exact: true });
+    await expect(area.getByRole('option', { name: 'Students' })).toHaveCount(1);
+
+    await area.selectOption('Students');
+    await expect(area).toHaveValue('Students');
+    await expect(page.getByRole('row').filter({ hasText: 'testadmin' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
+  });
+
   test('FR-026: a start date after the end date shows the message and no rows', async ({ page }) => {
     await openAuditLog(page);
     await page.getByLabel('From', { exact: true }).fill('2026-02-10');

@@ -15,6 +15,7 @@ import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -42,7 +43,9 @@ public class ApiExceptionHandler {
 			"uq_divisions_year_standard_name",
 			new Known("name", "This division already exists for the year and standard."),
 			"uq_student_categories_code", new Known("code", "A category with this code already exists."),
-			"uq_users_username", new Known("username", "This username is already taken."));
+			"uq_users_username", new Known("username", "This username is already taken."),
+			"uq_students_gr_no_lower", new Known("grNo", "This GR No. is already used by a student."),
+			"pk_student_gr_numbers", new Known("grNo", "This GR No. is already used by a student."));
 
 	private record Known(String field, String message) {
 	}
@@ -60,6 +63,11 @@ public class ApiExceptionHandler {
 	@ExceptionHandler(ValidationException.class)
 	ResponseEntity<ApiProblem> invalidRequest(ValidationException ex) {
 		return validation(ex.getFieldErrors());
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ResponseEntity<ApiProblem> tooLarge(MaxUploadSizeExceededException ex) {
+		return validation(List.of(new ApiProblem.FieldError("file", "The file is larger than 5 MB.")));
 	}
 
 	@ExceptionHandler(NotFoundException.class)

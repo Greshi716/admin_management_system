@@ -38,7 +38,10 @@ class StudentCategoryCodeIT extends IntegrationTest {
 			.andExpect(jsonPath("$.code").value("X/Y Z"));
 		long id = jdbc.queryForObject("select id from student_categories where code = 'X/Y Z'", Long.class);
 
-		api.get("/api/student-categories/" + id).andExpect(status().isOk()).andExpect(jsonPath("$.code").value("X/Y Z"));
+		// there is no GET by id in the contract (specs/001-foundation); the list of active categories carries every field
+		api.get("/api/student-categories")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[?(@.id == " + id + ")].code").value("X/Y Z"));
 	}
 
 	@Test
@@ -53,7 +56,7 @@ class StudentCategoryCodeIT extends IntegrationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.version").value(1));
 
-		api.get("/api/student-categories/" + id).andExpect(jsonPath("$.affectsFees").value(true));
+		api.get("/api/student-categories").andExpect(jsonPath("$[?(@.id == " + id + ")].affectsFees").value(true));
 		assertThat(jdbc.queryForObject("select affects_fees from student_categories where id = ?", Boolean.class, id))
 			.isTrue();
 	}

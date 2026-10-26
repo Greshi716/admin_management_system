@@ -146,8 +146,15 @@ public class TableQueryService {
 			if (column == null) {
 				throw new ValidationException("sortField", "unknown column '" + field + "'");
 			}
-			Expression<?> expression = column.expression().build(root, cb);
-			orders.add(direction == -1 ? cb.desc(expression) : cb.asc(expression));
+			if (column.sensitive()) {
+				throw new ValidationException("sortField", "cannot sort by '" + field + "'");
+			}
+			List<ColumnDef.ExpressionFactory<T>> keys = column.sortKeys().isEmpty() ? List.of(column.expression())
+					: column.sortKeys();
+			for (ColumnDef.ExpressionFactory<T> key : keys) {
+				Expression<?> expression = key.build(root, cb);
+				orders.add(direction == -1 ? cb.desc(expression) : cb.asc(expression));
+			}
 		}
 		try {
 			orders.add(cb.asc(root.get("id")));
@@ -168,7 +175,7 @@ public class TableQueryService {
 		if (search != null && !search.isBlank()) {
 			List<Predicate> any = new ArrayList<>();
 			for (ColumnDef<T> column : def.columns()) {
-				if (column.searchable()) {
+				if (column.searchable() && !column.sensitive()) {
 					any.add(contains(column.expression().build(root, cb), search.trim(), cb));
 				}
 			}
@@ -180,6 +187,9 @@ public class TableQueryService {
 			ColumnDef<T> column = def.column(entry.getKey());
 			if (column == null) {
 				throw new ValidationException("filters." + entry.getKey(), "unknown column");
+			}
+			if (column.sensitive()) {
+				throw new ValidationException("filters." + entry.getKey(), "cannot filter by '" + entry.getKey() + "'");
 			}
 			Predicate predicate = filter(column, entry.getValue(), root, cb);
 			if (predicate != null) {

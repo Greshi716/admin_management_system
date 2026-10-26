@@ -12,6 +12,22 @@ export interface CampusColumn {
   badgeClass?: (value: unknown) => string;
   /** Shows the value as a short list, one line per item (for example what a change touched). */
   lines?: (value: unknown) => string[];
+  /** The cell is drawn by the table's `cell` template (it receives the row and the column), for example a photo. */
+  custom?: boolean;
+  /** False takes the sort arrow off the heading. */
+  sortable?: boolean;
+  /** False takes the filter button off the heading. */
+  filterable?: boolean;
+  /** Replaces the text box of the column's filter by dropdowns that filter on ids (Standard, Division, Category). */
+  dropdowns?: DropdownFilter[];
+}
+
+/** A filter chosen from a list of ids, sent as an exact match on `field` (for example the standard of a student). */
+export interface DropdownFilter {
+  /** Request field the chosen value is sent in. */
+  field: string;
+  label: string;
+  options: { value: number | string; label: string }[];
 }
 
 export interface TableFilter {

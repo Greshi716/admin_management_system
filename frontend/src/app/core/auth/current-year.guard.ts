@@ -3,7 +3,7 @@ import { CanActivateChildFn, Router } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { AuthStore } from './auth.store';
 
-export const ACADEMIC_YEARS_ROUTE = '/master-data/academic-years';
+export const ACADEMIC_YEARS_ROUTE = '/setup/academic-years';
 
 /**
  * While today falls in no academic year, only the Academic years screen opens; every other screen goes back to it

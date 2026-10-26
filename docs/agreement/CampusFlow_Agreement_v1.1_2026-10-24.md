@@ -619,7 +619,7 @@ Automatic record of every change.
 |---|---|---|---|---|
 | Date & time | `at` | Date & time | Auto |  |
 | User | `user` | Link | Auto |  |
-| Area | `area` | Choice | Auto | Security / Master data / Fees / Payroll / Fund |
+| Area | `area` | Choice | Auto | Security / Master data / Students / Fees / Payroll / Fund |
 | Action | `action` | Choice | Auto | Create / Edit / Delete / Cancel / Finalise / Login / Import / Export |
 | Record type & ID | `entity` | Text | Auto |  |
 | Old / New value | `changes` | Text | Auto | Fields marked 🔒 are stored masked (last 4 characters visible). Password and password hash are never stored; the entry only says the field changed |

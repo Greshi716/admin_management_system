@@ -1,0 +1,48 @@
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="m-0 text-3xl font-bold tracking-tight">Students</h1>
+    <p class="mt-1 text-muted">Everyone registered at the school. Open a student to see the profile.</p>
+  </div>
+  <a routerLink="/students/new" class="btn btn-primary">Register student</a>
+</div>
+
+<div class="mb-3 flex items-center gap-2">
+  <label class="flex items-center gap-2 text-sm font-semibold">
+    Status
+    <select class="input" aria-label="Status" (change)="chooseStatus($event)">
+      @for (option of statuses; track option) {
+        <option [value]="option" [selected]="option === status()">{{ option }}</option>
+      }
+    </select>
+  </label>
+</div>
+
+@if (columns(); as shownColumns) {
+  <campus-table
+    [endpoint]="endpoint"
+    [columns]="shownColumns"
+    [extraParams]="{ status: status() }"
+    searchPlaceholder="Name, GR No. or mobile"
+  >
+    <ng-template #cell let-row let-column="column">
+      @if (column.field === 'photo') {
+        <app-avatar
+          [studentId]="id(row)"
+          [photoVersion]="photoVersion(row)"
+          [surname]="text(row, 'surname')"
+          [firstName]="text(row, 'firstName')"
+        />
+      } @else {
+        {{ text(row, 'stdDiv') }}
+        @if (yearNote(row); as year) {
+          <small class="block text-xs text-muted" data-testid="record-year">{{ year }}</small>
+        }
+      }
+    </ng-template>
+    <ng-template #rowActions let-row>
+      <a [routerLink]="['/students', id(row)]" class="btn btn-secondary btn-outlined btn-sm">View profile</a>
+    </ng-template>
+  </campus-table>
+} @else {
+  <app-page-skeleton [title]="false" />
+}

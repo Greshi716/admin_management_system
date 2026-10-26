@@ -6,7 +6,7 @@ One file, no version number. When the prototype changes, edit this file in place
 - **Images:** `docs/design/CampusFlow UI Prototypes-png/` (one PNG per screen, exported 25-10-2026).
 - **Related files:** `docs/design/ui-tokens.md` (F0 tokens and screens), `docs/decision-log.md`, `docs/guides/feature-workflow.md` (feature list F0 to F11), `docs/agreement/CampusFlow_Agreement_v1.1_2026-10-24.md`.
 
-How to use it: when a feature starts (for example F1), open its screens here, read the notes, and write the spec and tasks from them. Where this file and `ui-tokens.md` or the decision log disagree, see **Differences to resolve** first; until a difference is resolved, the decision log wins.
+How to use it: when a feature starts (for example F1), open its screens here, read the notes, and write the spec and tasks from them. Where this file and `ui-tokens.md` or the decision log disagree, see **Decisions on the differences** (section 4).
 
 ## 1. Screen map
 
@@ -49,20 +49,22 @@ How to use it: when a feature starts (for example F1), open its screens here, re
 | Status badges | paid `#E6F4EC` / `#067647`; partial or warning `#FFF1D6` / `#8A5300`; overdue or shortfall `#FDECEA` / `#B42318` |
 | Font | Plus Jakarta Sans; title 28 px bold, body 14 px, table heading 12 px |
 
-## 4. Differences to resolve
+## 4. Decisions on the differences (resolved 25-10-2026)
 
-These are places where the prototype and the written decisions do not match. The owner decides each one; then update this file, `ui-tokens.md` and the decision log.
+| # | Difference | Decision |
+|---|---|---|
+| 1 | Shell: top bar with tabs vs sidebar | **Follow the prototype**: top bar with tabs (Dashboard, Approvals, Students, Staff, Finance, Reports, Setup), second row of pills under Finance, left list under Setup. The F0 sidebar is replaced by a task in F1. |
+| 2 | Colours | **Keep the current F0 purple tokens** (`ui-tokens.md`: accent `#6D4AE0`, accent text `#4B2FA8`, page `#F7F5FD`, border `#E6E0F5`). Use the prototype only for layout, spacing and structure. The prototype's own hex values (section 3) are not used. For the top bar use the darkest F0 purple shade, or a dark shade of the same hue, so it still looks like the current UI. |
+| 3 | Images | The prototype images in `docs/design/CampusFlow UI Prototypes-png/` are the reference and screens follow them. The "no mockup images" decision of 24-10-2026 is superseded. |
+| 4 | Roll number | **Removed** from the profile and class history. |
+| 5 | Google Form import button | Reads "Upload responses file" (admin uploads the Excel/CSV downloaded from Google Forms). No internet needed. Automatic fetching is a later enhancement. |
+| 6 | Excel import menu item | **Kept.** It is the menu entry (Setup, System) for importing the list of students from the Google Form responses Excel file. It stays in version 1 until automatic fetching exists. It appears when F1b is built; hidden until then. |
+| 7 | Password popup wording | Keep the F0 wording ("Change now" / "Later") unless the owner asks to change it. |
+| 8 | Fee columns and receipts on student pages | Hidden until F3 exists. |
+| 9 | Staff, payroll and expense figures | Direction only; those features wait for client answers. |
+| 10 | Expense categories | Placeholders; the list is still to confirm. |
 
-1. **Shell:** the prototype uses a top bar with tabs; `ui-tokens.md` (and the F0 build) uses a sidebar with a top bar and breadcrumb. Pick one for F1 onward, or keep the sidebar and use the same grouping (Dashboard, Approvals, Students, Staff, Finance, Reports, Setup) as sidebar sections.
-2. **Colours:** the F0 accent is `#6D4AE0` on a light lavender sidebar. The prototype uses `#5B3FD1` with a dark purple top bar. The decision log says "light purple and white theme". Suggested: keep the F0 tokens and treat the prototype colours as a sketch.
-3. **Images:** `ui-tokens.md` and the decision log of 24-10-2026 say no mockup images are exported. Images now exist in `docs/design/CampusFlow UI Prototypes-png/`. Update both lines when this file is accepted.
-4. **Roll number:** the profile shows a roll number and class history has a Roll no. column. The decision of 25-10-2026 says roll number is not stored. Remove it from both.
-5. **Google Form import:** the Approvals screen shows an "Import from Google Form" button and "needs internet". The decision is that the admin downloads the responses as an Excel or CSV file and uploads it on the approval page (F1b). The button should read "Upload responses file".
-6. **Excel import:** the Setup menu lists "Excel import". ADM-06 is dropped, so remove that item.
-7. **Password popup:** the prototype's popup buttons are "Save password and continue" and "Remind me next time". The F0 popup uses "Change now" and "Later".
-8. **Fees on student pages:** the Students list and profile show fee columns and the receipts block. They are empty or hidden until F3.
-9. **Staff and payroll figures:** sample values follow section 5.2, but F6 and F8 are blocked on open client questions, so treat the Staff, Payroll and Expenses screens as direction only.
-10. **Expense categories:** the five categories on the Expenses screen are placeholders; the agreement says "list to confirm".
+Rule for all later features: build the screen to match its prototype image in layout and content, using the current purple tokens. Anything in the prototype whose feature is not built yet stays hidden.
 
 ## 5. Not yet designed
 
@@ -71,3 +73,5 @@ Promotion wizard (F4), Leaving certificate and Left Students Register (F5), Leav
 ## Change log
 
 - 2026-10-25: First version of this file. Screens exported to PNG; screen map, layout rules, colours, differences to resolve and missing screens recorded.
+- 2026-10-25: Differences resolved: top bar tabs from the prototype with the current purple tokens, roll number removed, "Upload responses file" and the Excel import menu item kept, fee parts hidden until F3.
+- 2026-10-26: F1 built the shell and the Students screens. Shell: top bar in `accent-deep` with the tabs Students and Setup only (Dashboard, Approvals, Staff, Finance and Reports are not rendered until their features exist), Setup with a left list (Master data, System), content at most 1280 px. Students list: avatar, GR No., name, Std / Div, category, status, View profile, Export to Excel. Profile: personal, contact and admission, class history, History. Hidden on purpose: roll number, fee columns and Fees filter, receipts, Collect fee, prepare-LC, Promote a class, Left students (LC). Aadhaar and religion/caste are masked everywhere except the edit form. Old addresses `/master-data/*` and `/audit-log` redirect to `/setup/*`.

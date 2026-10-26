@@ -154,6 +154,40 @@ class TableQueryServiceIT extends IntegrationTest {
 	}
 
 	@Test
+	void filterOnASensitiveColumnIsRefusedWithTheFieldName() {
+		assertThatThrownBy(() -> filtered("reason", "9012", "contains")).isInstanceOf(ValidationException.class)
+			.satisfies(e -> assertThat(((ValidationException) e).getFieldErrors().get(0).field()).isEqualTo("filters.reason"));
+		assertThatThrownBy(() -> filtered("reason", "123456789012", "equals")).isInstanceOf(ValidationException.class);
+	}
+
+	@Test
+	void sortOnASensitiveColumnIsRefusedWithTheFieldName() {
+		assertThatThrownBy(() -> tables.page(def, new TableRequest(0, 25, "reason", 1, null, null)))
+			.isInstanceOf(ValidationException.class)
+			.satisfies(e -> assertThat(((ValidationException) e).getFieldErrors().get(0).field()).isEqualTo("sortField"));
+	}
+
+	@Test
+	void searchNeverReadsASensitiveColumnEvenIfItWasMarkedSearchable() {
+		TableDef<AuditEntry> searchableSensitive = TableDef.of(AuditEntry.class,
+				List.of(ColumnDef.<AuditEntry>text("entity", "Entity"),
+						ColumnDef.<AuditEntry>text("reason", "Reason").searchable(true).asSensitive().searchable(true)));
+
+		assertThat(tables.page(searchableSensitive, search("123456789012")).total()).isZero();
+		assertThat(tables.page(searchableSensitive, search("row#001")).total()).isEqualTo(1);
+	}
+
+	@Test
+	void pageAndStreamStayMaskedAndOtherColumnsStillFilterAndSort() {
+		assertThat(filtered("area", "Security", "equals").total()).isEqualTo(20);
+		assertThat(tables.page(def, new TableRequest(0, 10, "entity", -1, null, null)).rows().get(0))
+			.containsEntry("entity", "row#060").containsEntry("reason", "********9012");
+		List<Object> streamed = new java.util.ArrayList<>();
+		tables.stream(def, new TableRequest(0, 25, null, null, "row#00", null), null, row -> streamed.add(row.get("reason")));
+		assertThat(streamed).isNotEmpty().allMatch("********9012"::equals);
+	}
+
+	@Test
 	void scopeIsAddedToEveryQuery() {
 		TableQueryService.Scope<AuditEntry> securityOnly = (root, cb) -> cb.equal(root.get("area"), "Security");
 

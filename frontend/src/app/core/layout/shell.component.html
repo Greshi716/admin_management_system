@@ -1,105 +1,54 @@
-<div class="min-h-screen md:grid md:grid-cols-[17rem_1fr]">
-  <aside class="hidden border-r border-border bg-surface md:block">
-    <div class="sticky top-0 flex h-screen flex-col px-4 py-6">
-      <a routerLink="/" class="mb-8 flex items-center gap-3 px-2 no-underline">
-        <span class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-light text-lg font-bold text-white shadow-md shadow-accent/30" aria-hidden="true">C</span>
-        <span class="leading-tight">
-          <span class="block text-lg font-bold text-ink">CampusFlow</span>
-          <span class="block text-xs text-muted">School management</span>
-        </span>
-      </a>
+<header class="sticky top-0 z-10 bg-accent-deep text-on-accent shadow-md">
+  <div class="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-8">
+    <a routerLink="/" class="flex items-center gap-3 text-on-accent no-underline">
+      <span class="grid h-9 w-9 place-items-center rounded-xl bg-accent text-lg font-bold text-on-accent" aria-hidden="true">C</span>
+      <span class="text-lg font-bold">CampusFlow</span>
+    </a>
 
-      <nav class="flex flex-1 flex-col gap-6 overflow-y-auto" aria-label="Main">
-        @for (group of groups; track group.title) {
-          <div>
-            <p class="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-muted">{{ group.title }}</p>
-            <ul class="m-0 flex list-none flex-col gap-1 p-0">
-              @for (item of group.items; track item.link) {
-                <li>
-                  @if (closed(item)) {
-                    <span
-                      aria-disabled="true"
-                      title="Create an academic year covering today first"
-                      class="flex cursor-not-allowed items-center gap-3 rounded-control px-3 py-2.5 text-[0.95rem] text-muted opacity-60"
-                    >
-                      <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path [attr.d]="item.icon" />
-                      </svg>
-                      {{ item.label }}
-                    </span>
-                  } @else {
-                    <a
-                      [routerLink]="item.link"
-                      routerLinkActive="bg-accent-soft text-accent-text font-semibold"
-                      [routerLinkActiveOptions]="{ exact: item.link === '/' }"
-                      class="flex items-center gap-3 rounded-control px-3 py-2.5 text-[0.95rem] text-ink no-underline transition-colors hover:bg-page"
-                    >
-                      <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path [attr.d]="item.icon" />
-                      </svg>
-                      {{ item.label }}
-                    </a>
-                  }
-                </li>
-              }
-            </ul>
-          </div>
-        }
-      </nav>
-
-      <p class="px-3 pt-4 text-xs text-muted">Birlasagar Higher Secondary School, Porbandar</p>
-    </div>
-  </aside>
-
-  <div class="flex min-w-0 flex-col">
-    <header class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border bg-surface/90 px-4 py-3 backdrop-blur md:px-8">
-      <div class="flex items-center gap-3">
-        <span class="font-bold text-accent-text md:hidden">CampusFlow</span>
-        <span class="hidden text-sm text-muted lg:block">Birlasagar Higher Secondary School</span>
-        @if (store.currentYear(); as year) {
-          <span class="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-text" data-testid="current-year">
-            Academic year {{ year }}
-          </span>
-        }
-      </div>
-      <div class="ml-auto flex items-center gap-2 sm:gap-3">
-        <span class="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-sm font-bold text-accent-text" aria-hidden="true">{{ initials() }}</span>
-        <span class="hidden text-sm font-semibold sm:block" data-testid="user-name">{{ store.user()?.name }}</span>
-        <button type="button" (click)="changeOpen.set(true)" class="btn btn-secondary btn-outlined btn-sm">Change password</button>
-        <button type="button" (click)="logout()" class="btn btn-secondary btn-outlined btn-sm">Log out</button>
-      </div>
-    </header>
-
-    <nav class="flex gap-2 overflow-x-auto border-b border-border bg-surface px-4 py-2 md:hidden" aria-label="Main">
-      @for (group of groups; track group.title) {
-        @for (item of group.items; track item.link) {
-          @if (closed(item)) {
-            <span aria-disabled="true" class="cursor-not-allowed whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-muted opacity-60">{{ item.label }}</span>
-          } @else {
-            <a
-              [routerLink]="item.link"
-              routerLinkActive="bg-accent-soft text-accent-text font-semibold"
-              [routerLinkActiveOptions]="{ exact: item.link === '/' }"
-              class="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink no-underline"
-            >{{ item.label }}</a>
-          }
+    <nav class="flex gap-1" aria-label="Main">
+      @for (tab of tabs; track tab.link) {
+        @if (closed(tab)) {
+          <span
+            aria-disabled="true"
+            title="Create an academic year covering today first"
+            class="cursor-not-allowed rounded-control px-4 py-2 text-[0.95rem] text-on-accent opacity-60"
+            >{{ tab.label }}</span
+          >
+        } @else {
+          <a
+            [routerLink]="tab.link"
+            routerLinkActive="bg-accent font-semibold"
+            class="rounded-control px-4 py-2 text-[0.95rem] text-on-accent no-underline transition-colors hover:bg-accent-strong"
+            >{{ tab.label }}</a
+          >
         }
       }
     </nav>
 
-    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 md:py-8">
-      @if (store.noCurrentYear()) {
-        <app-no-current-year-notice />
+    <div class="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
+      @if (store.currentYear(); as year) {
+        <span class="rounded-full bg-accent px-3 py-1 text-sm font-semibold text-on-accent" data-testid="current-year">
+          Academic year {{ year }}
+        </span>
       }
-      @if (navigating()) {
-        <app-page-skeleton />
-      }
-      <div [class.hidden]="navigating()">
-        <router-outlet />
-      </div>
-    </main>
+      <span class="hidden text-sm font-semibold sm:block" data-testid="user-name">{{ store.user()?.name }}</span>
+      <button type="button" (click)="changeOpen.set(true)" class="btn btn-sm border border-on-accent/60 bg-transparent text-on-accent hover:bg-accent-strong">Change password</button>
+      <button type="button" (click)="logout()" class="btn btn-sm border border-on-accent/60 bg-transparent text-on-accent hover:bg-accent-strong">Log out</button>
+    </div>
   </div>
-</div>
+</header>
+
+<main class="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-8 md:py-8">
+  @if (store.noCurrentYear()) {
+    <app-no-current-year-notice />
+  }
+  @if (navigating()) {
+    <app-page-skeleton />
+  }
+  <div [class.hidden]="navigating()">
+    <router-outlet />
+  </div>
+</main>
 
 <app-password-popup (changeRequested)="changeOpen.set(true)" />
 

@@ -1,6 +1,6 @@
 # CampusFlow UI direction (F0)
 
-Text version of the UI direction agreed from the "CampusFlow F0 Mockups" canvas (sign-in, Academic years with the app shell, audit log). No mockup images are exported, so this file is the design reference.
+Text version of the UI direction agreed from the "CampusFlow F0 Mockups" canvas (sign-in, Academic years with the app shell, audit log). Prototype images now exist in `docs/design/CampusFlow UI Prototypes-png/` (see `ui-prototype.md`); this file keeps the colour, type and size tokens, which stay as they are.
 
 ## Colours
 | Token | Value | Use |
