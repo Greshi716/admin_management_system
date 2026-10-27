@@ -45,6 +45,15 @@ class FeeStructureController {
 		return service.editRow(yearId, rowId, body, confirm);
 	}
 
+	@PostMapping("/fee-structures/{yearId}/finalise")
+	FeeStructureDto finalise(@PathVariable Long yearId, @RequestBody VersionInput body) {
+		return service.finalise(yearId, body.version());
+	}
+
+	/** The structure version the screen loaded; null while the year had no status row. */
+	record VersionInput(Long version) {
+	}
+
 	@DeleteMapping("/fee-structures/{yearId}/rows/{rowId}")
 	ResponseEntity<Void> deleteRow(@PathVariable Long yearId, @PathVariable Long rowId,
 			@RequestParam(required = false) Long version, @RequestParam(required = false) Long structureVersion,

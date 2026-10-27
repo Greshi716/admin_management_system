@@ -1,6 +1,7 @@
 package com.admin.management.fees;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -47,8 +48,14 @@ class FeeStructureService {
 
 	private final FeesAudit audit;
 
+	private final FeeAccountSync accountSync;
+
+	private final Clock clock;
+
 	FeeStructureService(FeeRowRepository rows, FeeYearStatusRepository statuses, MasterDataLookup masterData,
-			EnrollmentLookup enrollments, FeesAudit audit) {
+			EnrollmentLookup enrollments, FeesAudit audit, FeeAccountSync accountSync, Clock clock) {
+		this.accountSync = accountSync;
+		this.clock = clock;
 		this.rows = rows;
 		this.statuses = statuses;
 		this.masterData = masterData;
@@ -119,6 +126,34 @@ class FeeStructureService {
 		Map<String, Object> values = row.snapshot();
 		rows.delete(row);
 		audit.rowDeleted(rowId, values, null, null);
+	}
+
+	/**
+	 * Finalises the year's structure (FR-002, FR-006): the status row is taken for writing first, then the rows are
+	 * read, every class record gets its account and one audit entry records the counts. All in one transaction, so a
+	 * failure at any step (the audit entry included) leaves the year a Draft with no accounts. The confirmation the
+	 * admin gives is on the screen only.
+	 */
+	@Transactional
+	FeeStructureDto finalise(Long yearId, Long version) {
+		requireYear(yearId);
+		Optional<FeeYearStatus> locked = statuses.lockForUpdate(yearId);
+		if (!Objects.equals(version, locked.map(FeeYearStatus::getVersion).orElse(null))) {
+			throw new StaleVersionException(toStructure(yearId));
+		}
+		if (locked.isPresent() && locked.get().isFinalised()) {
+			throw new ValidationException("rows", "This fee structure is already finalised.");
+		}
+		long rowCount = rows.countByAcademicYearId(yearId);
+		if (locked.isEmpty() || rowCount == 0) {
+			throw new ValidationException("rows", "Add at least one fee row before finalising.");
+		}
+		FeeYearStatus status = locked.get();
+		status.finalise(clock.instant());
+		statuses.saveAndFlush(status);
+		FeesAudit.Recalculated done = accountSync.recalculate(yearId);
+		audit.finalised(yearId, done.studentsRecalculated(), done.accountsChanged(), (int) rowCount);
+		return toStructure(yearId);
 	}
 
 	/**
