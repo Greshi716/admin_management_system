@@ -95,3 +95,19 @@ No item in the Technical Context was left as NEEDS CLARIFICATION. These are the 
   - Two connections (second one with `set local lock_timeout = '1000ms'`, lock-not-available SQLState 55P03 means it waited): write blocks read: yes; write blocks write: yes; read blocks write: yes; read blocks read: no. This is the behaviour R7 needs: a registration (share) waits for a finalise or revise (write) and the reverse, while two registrations do not wait for each other.
   - With `@Version`: a row loaded with `PESSIMISTIC_WRITE` and changed raises its version by 1 on flush, and a stale detached copy still fails on save with `jakarta.persistence.OptimisticLockException` (Spring repositories translate it to `ObjectOptimisticLockingFailureException`, which the handler already maps to `STALE_VERSION`).
   - Wording to use from now on: "`FOR NO KEY UPDATE`" for the write lock. It does not block `FOR KEY SHARE` (taken by foreign-key checks), which is fine here because no table has a foreign key to `fee_year_status`.
+
+## Performance spike (T003, 2026-10-27; throwaway test `FeeSpikeIT`, deleted)
+
+Machine: development PC (20 processors, 8 GB heap, Windows 11, Java 21, PostgreSQL 15), **not** the 4 GB Windows 10 school computer; the school computer will be slower (carry to F11). Scratch tables `fee_accounts_spike_a` and `fee_accounts_spike` were ordinary tables created in the test and dropped at its end; no migration. Synthetic data only.
+
+**R7, recalculation of 2,000 class records** (12 standards, 7 categories, a blank-category row per standard and 3 category rows per standard; plain in-memory selection rule; the year's class records and existing accounts loaded, then JDBC batch `insert ... on conflict do update` of the accounts that differ):
+- Finalise (2,000 accounts written): **80 ms** (limit 10 s, SC-004).
+- Revise (two standards' blank-category rows changed; all 2,000 recalculated, 263 accounts changed, 13%): **18 ms**.
+- Decision: the in-memory rule with a JDBC batch upsert is far inside the limit. No summary column and no set-based SQL needed, so the selection rule stays in one place (R6).
+
+**R9, Students list with a fee column** (10,000 students, 2 to 3 class records each, about 25,000 `fee_accounts_spike` rows; `totalFee` = `amount + coalesce(registration_fee, 0)` as a correlated subquery on the shown record, typed `BigDecimal`):
+- page 3 of 50, default order: 31 ms
+- sort by Total fee ascending: 144 ms; descending at page 200: 464 ms
+- filter Total fee equals 28000.50: 128 ms; the same filter plus sort: 154 ms
+- Excel export of all 10,000 rows with the Total fee column: **12.6 s** (limit 30 s, F1 SC-003). The F1 export of the same 10,000 students without the fee column took 9.7 s in the same environment, so the column adds about 3 s.
+- Decision: the correlated subquery works for page, sort, filter and export; no summary column needed. The export is the figure to watch on the school computer (T018 repeats it with `FeeTestData`; T029 notes the machine).
