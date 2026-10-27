@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,6 +28,7 @@ import com.admin.management.support.Covers;
  * package below {@code com.admin.management}.
  */
 @Covers("FR-016")
+@Covers("FR-014")
 class ModuleDependencyTest {
 
 	private static final String BASE = "com.admin.management.";
@@ -40,12 +42,40 @@ class ModuleDependencyTest {
 
 	/** What any module may import from another module. Everything else of another module is internal. */
 	private static final List<String> PUBLIC = List.of("shared.", "audit.AuditService", "audit.AuditExportRecorder",
-			"masterdata.api.");
+			"masterdata.api.", "students.api.");
 
-	/** Edges the architecture allows today (research R7). */
+	/**
+	 * Edges the architecture allows today (research R7, F2 research R2): students reaches fees only through the small
+	 * interface in shared, so the order is shared, audit, masterdata, students, fees and there is no cycle.
+	 */
 	private static final Map<String, Set<String>> ALLOWED = Map.of("audit", Set.of("shared"), "masterdata",
 			Set.of("audit", "shared"), "security", Set.of("audit", "shared"), "students",
-			Set.of("shared", "audit", "masterdata"), "shared", Set.of());
+			Set.of("shared", "audit", "masterdata"), "fees", Set.of("shared", "audit", "masterdata", "students"),
+			"shared", Set.of());
+
+	/** The module that owns each table. A module reads only its own tables, apart from the list below. */
+	private static final Map<String, String> TABLE_OWNER = Map.ofEntries(Map.entry("fee_year_status", "fees"),
+			Map.entry("fee_rows", "fees"), Map.entry("fee_accounts", "fees"), Map.entry("fee_brought_forward", "fees"),
+			Map.entry("students", "students"), Map.entry("student_enrollments", "students"),
+			Map.entry("student_gr_numbers", "students"), Map.entry("student_photos", "students"),
+			Map.entry("users", "security"), Map.entry("audit_log", "audit"), Map.entry("academic_years", "masterdata"),
+			Map.entry("standards", "masterdata"), Map.entry("divisions", "masterdata"),
+			Map.entry("student_categories", "masterdata"));
+
+	/**
+	 * Reads of another module's table that were approved, as "module:table": the audit log shows the user's name, and
+	 * the Students list shows the Total fee of the shown class record (constitution VII 1.1.0, F2 plan Complexity
+	 * Tracking). Adding to this list is a decision for the project owner.
+	 */
+	private static final Set<String> ALLOWED_TABLE_READS = Set.of("audit:users", "students:fee_accounts");
+
+	private static final Pattern SQL_USE = Pattern.compile("(?i:\\b(?:from|join|into|update|truncate|table))\\s+\"?("
+			+ String.join("|", TABLE_OWNER.keySet().stream().sorted(Comparator.reverseOrder()).toList())
+			+ ")(?![\\w])");
+
+	private static final Pattern TABLE_ANNOTATION = Pattern.compile("@Table\\s*\\(\\s*name\\s*=\\s*\"(\\w+)\"");
+
+	private static final Pattern COMMENTS = Pattern.compile("/\\*.*?\\*/|//[^\\n]*", Pattern.DOTALL);
 
 	@Test
 	void modulesOnlyImportAnotherModulesPublicApi() throws IOException {
@@ -71,6 +101,39 @@ class ModuleDependencyTest {
 			.forEach(to -> unexpected.add(from + " -> " + to)));
 		assertThat(unexpected).as("module dependencies that are not in the allowed graph").isEmpty();
 		assertThat(findCycle(graph)).as("cycle between modules").isEmpty();
+	}
+
+	@Test
+	void aModuleReadsOnlyItsOwnTablesApartFromTheApprovedReads() throws IOException {
+		List<String> violations = new ArrayList<>();
+		for (Path file : javaFiles()) {
+			Path relative = SOURCES.relativize(file);
+			if (relative.getNameCount() < 2) {
+				continue;
+			}
+			String module = relative.getName(0).toString();
+			for (String table : foreignTables(module, Files.readString(file))) {
+				if (!ALLOWED_TABLE_READS.contains(module + ":" + table)) {
+					violations.add(relative.toString().replace('\\', '/') + " uses table " + table + " of module "
+							+ TABLE_OWNER.get(table));
+				}
+			}
+		}
+		assertThat(violations).as("SQL on another module's table").isEmpty();
+	}
+
+	@Test
+	void theTableScannerFindsSqlOnAnotherModulesTableAndIgnoresComments() {
+		String students = "String a = \"select * from fee_accounts f join student_enrollments e on e.id = f.enrollment_id\";\n"
+				+ "// delete from fee_rows\n/* update users set x = 1 */\nString b = \"DELETE FROM student_photos\";\n";
+
+		assertThat(foreignTables("students", students)).containsExactly("fee_accounts");
+		assertThat(foreignTables("fees", students)).containsExactlyInAnyOrder("student_enrollments", "student_photos");
+		assertThat(foreignTables("fees", "@Table(name = \"fee_rows\") class A {}")).isEmpty();
+		assertThat(foreignTables("students", "@Table(name = \"fee_rows\") class A {}")).containsExactly("fee_rows");
+		assertThat(foreignTables("students", "String m = \"These students need an update from the office\";")).isEmpty();
+		assertThat(foreignTables("masterdata", "\"from student_categories sc join standards s\"")).isEmpty();
+		assertThat(foreignTables("security", "\"insert into users\" + \"select 1 from students_view\"")).isEmpty();
 	}
 
 	@Test
@@ -154,6 +217,34 @@ class ModuleDependencyTest {
 			found.add(matcher.group(1));
 		}
 		return found;
+	}
+
+	/**
+	 * The tables of other modules that the source text uses in SQL ({@code from}, {@code join}, {@code into},
+	 * {@code update}, {@code truncate}, {@code table} followed by the name) or names in {@code @Table}. Comments are
+	 * left out, and a bare word such as "students" in a message does not count.
+	 */
+	static List<String> foreignTables(String module, String text) {
+		String code = COMMENTS.matcher(text).replaceAll("");
+		Set<String> found = new TreeSet<>();
+		Matcher use = SQL_USE.matcher(code);
+		while (use.find()) {
+			found.add(use.group(1));
+		}
+		Matcher annotation = TABLE_ANNOTATION.matcher(code);
+		while (annotation.find()) {
+			if (TABLE_OWNER.containsKey(annotation.group(1))) {
+				found.add(annotation.group(1));
+			}
+		}
+		return found.stream().filter(table -> !TABLE_OWNER.get(table).equals(module)).toList();
+	}
+
+	private static List<Path> javaFiles() throws IOException {
+		assertThat(SOURCES).as("run the test from the management folder").isDirectory();
+		try (Stream<Path> files = Files.walk(SOURCES)) {
+			return files.filter(path -> path.toString().endsWith(".java")).toList();
+		}
 	}
 
 	private record Source(String file, String module, List<String> imports) {

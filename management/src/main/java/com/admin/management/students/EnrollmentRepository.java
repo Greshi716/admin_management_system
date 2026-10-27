@@ -18,4 +18,9 @@ public interface EnrollmentRepository extends Repository<StudentEnrollment, Long
 
 	List<StudentEnrollment> findByStudentId(Long studentId);
 
+	/** Every class record of the year in id order, whatever the student's status. */
+	List<StudentEnrollment> findByAcademicYearIdOrderById(Long academicYearId);
+
+	long countByAcademicYearId(Long academicYearId);
+
 }
