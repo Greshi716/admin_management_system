@@ -1,0 +1,68 @@
+package com.admin.management.fees;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.admin.management.masterdata.api.MasterDataLookup;
+import com.admin.management.shared.web.NotFoundException;
+import com.admin.management.students.api.EnrollmentLookup;
+import com.admin.management.students.api.EnrollmentLookup.ClassRecordRef;
+import com.admin.management.students.api.StudentLookup;
+
+/** Reads the Fees block of the profile from the fee account of the class record the profile shows (FR-005, FR-009). */
+@Service
+class StudentFeesService {
+
+	private static final BigDecimal ZERO = new BigDecimal("0.00");
+
+	private final StudentLookup students;
+
+	private final EnrollmentLookup enrollments;
+
+	private final FeeAccountRepository accounts;
+
+	private final BroughtForwardRepository broughtForwards;
+
+	private final MasterDataLookup masterData;
+
+	StudentFeesService(StudentLookup students, EnrollmentLookup enrollments, FeeAccountRepository accounts,
+			BroughtForwardRepository broughtForwards, MasterDataLookup masterData) {
+		this.students = students;
+		this.enrollments = enrollments;
+		this.accounts = accounts;
+		this.broughtForwards = broughtForwards;
+		this.masterData = masterData;
+	}
+
+	/** The fees for the year of the record the profile shows, or for {@code yearId} when given. */
+	@Transactional(readOnly = true)
+	StudentFeesDto fees(Long studentId, Long yearId) {
+		if (!students.exists(studentId)) {
+			throw new NotFoundException("Student", studentId);
+		}
+		StudentFeesDto.BroughtForwardDto broughtForward = broughtForwards.findById(studentId)
+			.map(b -> new StudentFeesDto.BroughtForwardDto(b.getVersion(), Money.scale2(b.getAmount()), b.getNote()))
+			.orElse(new StudentFeesDto.BroughtForwardDto(null, ZERO, null));
+		Optional<ClassRecordRef> record = yearId == null ? enrollments.shownRecord(studentId)
+				: enrollments.byStudentAndYear(studentId, yearId);
+		Long shownYear = record.map(ClassRecordRef::yearId).orElse(yearId);
+		String yearName = shownYear == null ? null : masterData.yearNames().get(shownYear);
+		Optional<FeeAccount> account = record.flatMap(r -> accounts.findById(r.enrollmentId()));
+		if (account.isEmpty()) {
+			return new StudentFeesDto(shownYear, yearName, StudentFeesDto.NOT_FINALISED, null, null, null, null,
+					broughtForward, broughtForward.amount());
+		}
+		FeeAccount a = account.get();
+		if (a.getAmount() == null) {
+			return new StudentFeesDto(shownYear, yearName, StudentFeesDto.FEE_NOT_SET, null, null, null, null,
+					broughtForward, broughtForward.amount());
+		}
+		BigDecimal totalFee = FeeSelection.totalFee(a.getAmount(), a.getRegistrationFee());
+		return new StudentFeesDto(shownYear, yearName, StudentFeesDto.FEE_SET, a.getAmount(), a.getRegistrationFee(),
+				totalFee, a.getDueDate(), broughtForward, totalFee.add(broughtForward.amount()));
+	}
+
+}
