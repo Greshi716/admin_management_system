@@ -95,11 +95,12 @@ class FeeStructureService {
 	@Transactional
 	FeeRowDto addRow(Long yearId, FeeRowInput in, boolean confirm) {
 		requireYear(yearId);
-		lockAndCheck(yearId, in.structureVersion(), confirm);
+		boolean revise = lockAndCheck(yearId, in.structureVersion(), confirm);
 		validate(yearId, in, null);
 		FeeRow row = rows.saveAndFlush(new FeeRow(yearId, in.standardId(), in.categoryId(), in.amount(),
 				in.registrationFee(), in.dueDate()));
-		audit.rowCreated(row.getId(), row.snapshot(), null, null);
+		audit.rowCreated(row.getId(), row.snapshot(), revise ? FeesAudit.REVISE : null,
+				recalculateIfRevise(yearId, revise));
 		return toDto(row);
 	}
 
@@ -107,13 +108,14 @@ class FeeStructureService {
 	FeeRowDto editRow(Long yearId, Long rowId, FeeRowInput in, boolean confirm) {
 		requireYear(yearId);
 		FeeRow row = rowOfYear(yearId, rowId);
-		lockAndCheck(yearId, in.structureVersion(), confirm);
+		boolean revise = lockAndCheck(yearId, in.structureVersion(), confirm);
 		checkRowVersion(in.version(), row, yearId);
 		validate(yearId, in, row);
 		Map<String, Object> before = row.snapshot();
 		row.change(in.standardId(), in.categoryId(), in.amount(), in.registrationFee(), in.dueDate());
 		FeeRow saved = rows.saveAndFlush(row);
-		audit.rowEdited(saved.getId(), before, saved.snapshot(), null, null);
+		audit.rowEdited(saved.getId(), before, saved.snapshot(), revise ? FeesAudit.REVISE : null,
+				recalculateIfRevise(yearId, revise));
 		return toDto(saved);
 	}
 
@@ -121,11 +123,12 @@ class FeeStructureService {
 	void deleteRow(Long yearId, Long rowId, Long version, Long structureVersion, boolean confirm) {
 		requireYear(yearId);
 		FeeRow row = rowOfYear(yearId, rowId);
-		lockAndCheck(yearId, structureVersion, confirm);
+		boolean revise = lockAndCheck(yearId, structureVersion, confirm);
 		checkRowVersion(version, row, yearId);
 		Map<String, Object> values = row.snapshot();
 		rows.delete(row);
-		audit.rowDeleted(rowId, values, null, null);
+		// The delete is flushed by the query that reads the year's rows in the recalculation.
+		audit.rowDeleted(rowId, values, revise ? FeesAudit.REVISE : null, recalculateIfRevise(yearId, revise));
 	}
 
 	/**
@@ -161,26 +164,32 @@ class FeeStructureService {
 	 * load (before any revise warning), refuses a change to a Finalised year that the admin did not confirm, and
 	 * bumps the structure version.
 	 */
-	private void lockAndCheck(Long yearId, Long sentVersion, boolean confirm) {
+	private boolean lockAndCheck(Long yearId, Long sentVersion, boolean confirm) {
 		Optional<FeeYearStatus> locked = statuses.lockForUpdate(yearId);
 		Long actual = locked.map(FeeYearStatus::getVersion).orElse(null);
 		if (!Objects.equals(sentVersion, actual)) {
 			throw new StaleVersionException(toStructure(yearId));
 		}
 		FeeYearStatus status = locked.orElse(null);
-		if (status != null && status.isFinalised()) {
-			if (!confirm) {
-				throw new CodedConflictException(REVISE_CONFIRMATION_REQUIRED, null,
-						"Changing a finalised fee structure recalculates the fee of every student of the year.",
-						Map.of("studentCount", enrollments.countOfYear(yearId)));
-			}
-			// The confirmed revise recalculates every class record of the year; it is built in task T020.
-			throw new UnsupportedOperationException("Revising a finalised fee structure is not built yet.");
+		boolean revise = status != null && status.isFinalised();
+		if (revise && !confirm) {
+			throw new CodedConflictException(REVISE_CONFIRMATION_REQUIRED, null,
+					"Changing a finalised fee structure recalculates the fee of every student of the year.",
+					Map.of("studentCount", enrollments.countOfYear(yearId)));
 		}
 		if (status == null) {
 			statuses.saveAndFlush(new FeeYearStatus(yearId));
 		}
 		statuses.bumpVersion(yearId);
+		return revise;
+	}
+
+	/**
+	 * After a confirmed row change in a Finalised year: recalculates every class record of the year and writes the
+	 * accounts that differ (FR-004). Null for a Draft year, which has no accounts to recalculate.
+	 */
+	private FeesAudit.Recalculated recalculateIfRevise(Long yearId, boolean revise) {
+		return revise ? accountSync.recalculate(yearId) : null;
 	}
 
 	private void checkRowVersion(Long sent, FeeRow row, Long yearId) {
