@@ -3,6 +3,7 @@ package com.admin.management.fees;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
@@ -35,6 +36,16 @@ public interface FeeYearStatusRepository extends Repository<FeeYearStatus, Long>
 	@Transactional(propagation = Propagation.MANDATORY)
 	@Query("select s from FeeYearStatus s where s.academicYearId = :yearId")
 	Optional<FeeYearStatus> lockForShare(@Param("yearId") Long yearId);
+
+	/**
+	 * Raises the version by one in the database. For a status row the caller has already loaded and locked: the
+	 * lock-and-bump query below cannot raise the version of an entity that is already loaded. The loaded entity keeps
+	 * its old version, so the caller must not change and save it afterwards.
+	 */
+	@Modifying(flushAutomatically = true)
+	@Transactional(propagation = Propagation.MANDATORY)
+	@Query("update FeeYearStatus s set s.version = s.version + 1 where s.academicYearId = :yearId")
+	int bumpVersion(@Param("yearId") Long yearId);
 
 	/** The write lock, and the version goes up by one at once (every row change bumps the structure version). */
 	@Lock(LockModeType.PESSIMISTIC_FORCE_INCREMENT)
