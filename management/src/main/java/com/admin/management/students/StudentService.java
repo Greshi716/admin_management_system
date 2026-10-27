@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.admin.management.masterdata.api.MasterDataLookup;
+import com.admin.management.shared.ClassRecordFees;
 import com.admin.management.masterdata.api.MasterDataLookup.PickLists;
 import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
 import com.admin.management.shared.web.ApiProblem.FieldError;
@@ -42,8 +43,12 @@ public class StudentService {
 
 	private final Clock clock;
 
+	private final ClassRecordFees classRecordFees;
+
 	StudentService(StudentRepository students, EnrollmentRepository enrollments, GrNumberRepository grNumbers,
-			StudentAudit audit, StudentValidator validator, MasterDataLookup masterData, Clock clock) {
+			StudentAudit audit, StudentValidator validator, MasterDataLookup masterData, Clock clock,
+			ClassRecordFees classRecordFees) {
+		this.classRecordFees = classRecordFees;
 		this.students = students;
 		this.enrollments = enrollments;
 		this.grNumbers = grNumbers;
@@ -74,6 +79,9 @@ public class StudentService {
 				in.standardId(), in.divisionId(), in.categoryId(), year.startDate()));
 		audit.created(StudentAudit.STUDENT, student.getId(), student.snapshot());
 		audit.created(StudentAudit.ENROLLMENT, enrollment.getId(), enrollment.snapshot());
+		// A finalised year gives the new class record its fee account in this transaction (FR-006).
+		classRecordFees.classRecordAdded(enrollment.getId(), year.id(), enrollment.getStandardId(),
+				enrollment.getCategoryId());
 		return toDto(student);
 	}
 
