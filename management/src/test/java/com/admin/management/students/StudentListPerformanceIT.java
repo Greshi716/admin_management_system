@@ -96,6 +96,11 @@ class StudentListPerformanceIT extends IntegrationTest {
 			}
 		}
 		StudentTestData.generate(jdbc, STUDENTS, categoryId, standardId, setups);
+		// every class record gets a fee account (F2 FR-010): 20,000.00 to 20,049.00 plus a registration fee of 250.00
+		jdbc.update("""
+				insert into fee_accounts (enrollment_id, academic_year_id, amount, registration_fee, due_date, updated_at)
+				select e.id, e.academic_year_id, 20000 + (e.id % 50), 250.00, null, now() from student_enrollments e
+				""");
 		jdbc.execute("analyze");
 		TableDef<Student> def = StudentTable.build(lookup);
 		tables.page(def, TableRequest.firstPage(), StudentTable.statusScope(null)); // warm-up
@@ -115,6 +120,9 @@ class StudentListPerformanceIT extends IntegrationTest {
 			fast("sort by Std / Div", () -> tables.page(def, new TableRequest(0, 25, "stdDiv", 1, null, null), active));
 			fast("sort by Category desc", () -> tables.page(def, new TableRequest(5000, 25, "category", -1, null, null), active));
 			fast("sort by name desc", () -> tables.page(def, new TableRequest(0, 25, "name", -1, null, null), active));
+			fast("sort by Total fee desc, page 200", () -> tables.page(def, new TableRequest(4975, 25, "totalFee", -1, null, null), active));
+			fast("filter by Total fee", () -> tables.page(def, withFilter("totalFee", new java.math.BigDecimal("20275.00")), active));
+			fast("filter by Total fee and sort by it", () -> tables.page(def, new TableRequest(0, 25, "totalFee", 1, null, Map.of("totalFee", new TableRequest.Filter(new java.math.BigDecimal("20275.00"), "equals"))), active));
 			fast("status All", () -> tables.page(def, TableRequest.firstPage(), StudentTable.statusScope("All")));
 
 			TablePage page = tables.page(def, withFilter("standardId", standardId), active);

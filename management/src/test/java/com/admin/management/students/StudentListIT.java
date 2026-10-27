@@ -62,6 +62,7 @@ class StudentListIT extends IntegrationTest {
 	@BeforeEach
 	void setUp() throws Exception {
 		clock.setDate(LocalDate.of(2026, 10, 25));
+		jdbc.update("delete from fee_accounts");
 		jdbc.update("delete from student_photos");
 		jdbc.update("delete from student_enrollments");
 		jdbc.update("delete from student_gr_numbers");
@@ -287,6 +288,78 @@ class StudentListIT extends IntegrationTest {
 			.andExpect(status().isUnprocessableEntity());
 
 		assertThat(exportEntries()).isEqualTo(before);
+	}
+
+
+	/** GR-1 has a fee of 28,000.00 plus 500.00; GR-2 has an account without an amount; GR-3 and GR-4 have no account. */
+	private void giveAccounts() {
+		long first = enrollmentOf("GR-1");
+		long second = enrollmentOf("GR-2");
+		jdbc.update("""
+				insert into fee_accounts (enrollment_id, academic_year_id, amount, registration_fee, due_date, updated_at)
+				values (?, ?, 28000.00, 500.00, null, now()), (?, ?, null, null, null, now())
+				""", first, current.yearId(), second, current.yearId());
+	}
+
+	private long enrollmentOf(String grNo) {
+		return jdbc.queryForObject(
+				"select e.id from student_enrollments e join students s on s.id = e.student_id where s.gr_no = ? "
+						+ "order by e.year_start_date desc limit 1",
+				Long.class, grNo);
+	}
+
+	@Test
+	void theListShowsTheTotalFeeAndTheFeeStateOfTheRecordShown() throws Exception {
+		giveAccounts();
+
+		api.post("/api/students/search", request("\"sortField\":\"grNo\",\"sortOrder\":1"))
+			.andExpect(jsonPath("$.rows[0].totalFee").value(28500.00))
+			.andExpect(jsonPath("$.rows[0].feeState").doesNotExist())
+			.andExpect(jsonPath("$.rows[1].totalFee").doesNotExist())
+			.andExpect(jsonPath("$.rows[1].feeState").value("NOT_SET"))
+			.andExpect(jsonPath("$.rows[2].totalFee").doesNotExist())
+			.andExpect(jsonPath("$.rows[2].feeState").doesNotExist());
+	}
+
+	@Test
+	void theListSortsAndFiltersByTotalFee() throws Exception {
+		giveAccounts();
+
+		api.post("/api/students/search", request("\"sortField\":\"totalFee\",\"sortOrder\":-1"))
+			.andExpect(status().isOk());
+		api.post("/api/students/search",
+				request("\"filters\":{\"totalFee\":{\"value\":28500.00,\"matchMode\":\"equals\"}}"))
+			.andExpect(jsonPath("$.rows[*].grNo", contains("GR-1")));
+		api.post("/api/students/search",
+				request("\"filters\":{\"totalFee\":{\"value\":1,\"matchMode\":\"equals\"}}"))
+			.andExpect(jsonPath("$.rows", hasSize(0)));
+	}
+
+	@Test
+	void theExportHasTheTotalFeeAsANumericCellWithTwoDecimalsAndABlankWhereNoFeeIsSet() throws Exception {
+		giveAccounts();
+
+		byte[] file = api.post("/api/students/export", request("\"sortField\":\"grNo\",\"sortOrder\":1"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsByteArray();
+
+		try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
+			Sheet sheet = workbook.getSheetAt(0);
+			List<String> headers = new ArrayList<>();
+			for (var cell : sheet.getRow(0)) {
+				headers.add(cell.getStringCellValue());
+			}
+			assertThat(headers).contains("Total fee", "Fee state");
+			var fee = sheet.getRow(1).getCell(headers.indexOf("Total fee"));
+			assertThat(fee.getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.NUMERIC);
+			assertThat(fee.getNumericCellValue()).isEqualTo(28500.0);
+			assertThat(fee.getCellStyle().getDataFormatString()).isEqualTo("0.00");
+			var notSet = sheet.getRow(2).getCell(headers.indexOf("Total fee"));
+			assertThat(notSet == null || notSet.getCellType() == org.apache.poi.ss.usermodel.CellType.BLANK).isTrue();
+			assertThat(sheet.getRow(2).getCell(headers.indexOf("Fee state")).getStringCellValue()).isEqualTo("NOT_SET");
+		}
 	}
 
 	private int exportEntries() {
