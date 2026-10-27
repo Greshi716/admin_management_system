@@ -32,6 +32,9 @@ import jakarta.validation.constraints.NotBlank;
 @Covers("FR-011")
 @Covers("FR-017")
 @Covers("FR-020")
+@Covers("FR-001")
+@Covers("FR-004")
+@Covers("FR-008")
 class ApiExceptionHandlerTest {
 
 	MockMvc mvc;
@@ -112,6 +115,50 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void reviseConfirmationBecomes409WithCodeAndStudentCount() throws Exception {
+		mvc.perform(get("/t/coded/revise"))
+			.andExpect(status().isConflict())
+			.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+			.andExpect(jsonPath("$.code").value("REVISE_CONFIRMATION_REQUIRED"))
+			.andExpect(jsonPath("$.current.studentCount").value(5))
+			.andExpect(jsonPath("$.fieldErrors").doesNotExist());
+	}
+
+	@Test
+	void finalisedStructureBecomes409WithCodeAndNoLatestRecord() throws Exception {
+		mvc.perform(get("/t/coded/finalised"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("FEE_STRUCTURE_FINALISED"))
+			.andExpect(jsonPath("$.detail").value("The fee structure for this year is finalised."))
+			.andExpect(jsonPath("$.current").doesNotExist());
+	}
+
+	@Test
+	void aCodedConflictWithAFieldAlsoShowsTheMessageBesideThatField() throws Exception {
+		mvc.perform(get("/t/coded/field"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("SOME_CODE"))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("standardId"))
+			.andExpect(jsonPath("$.fieldErrors[0].message").value("Pick another standard."));
+	}
+
+	@Test
+	void duplicateFeeRowWithACategoryBecomes409OnTheCategoryField() throws Exception {
+		mvc.perform(get("/t/sql/23505/uq_fee_rows_category"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.detail").value("A fee row for this standard and category already exists for this year."))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("categoryId"));
+	}
+
+	@Test
+	void duplicateFeeRowWithoutACategoryBecomes409OnTheStandardField() throws Exception {
+		mvc.perform(get("/t/sql/23505/uq_fee_rows_no_category"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.detail").value("A fee row for this standard and category already exists for this year."))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("standardId"));
+	}
+
+	@Test
 	void constraintNameIsReadFromPostgresMessage() {
 		org.assertj.core.api.Assertions
 			.assertThat(ApiExceptionHandler
@@ -138,6 +185,23 @@ class ApiExceptionHandlerTest {
 		@GetMapping("/t/stale")
 		void stale() {
 			throw new StaleVersionException(Map.of("name", "2026-27", "version", 7));
+		}
+
+		@GetMapping("/t/coded/revise")
+		void coded() {
+			throw new CodedConflictException("REVISE_CONFIRMATION_REQUIRED", null,
+					"Changing a finalised fee structure needs a confirmation.", Map.of("studentCount", 5));
+		}
+
+		@GetMapping("/t/coded/finalised")
+		void codedFinalised() {
+			throw new CodedConflictException("FEE_STRUCTURE_FINALISED", null,
+					"The fee structure for this year is finalised.", null);
+		}
+
+		@GetMapping("/t/coded/field")
+		void codedField() {
+			throw new CodedConflictException("SOME_CODE", "standardId", "Pick another standard.", null);
 		}
 
 		@GetMapping("/t/optimistic")
