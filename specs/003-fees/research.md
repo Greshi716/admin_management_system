@@ -77,3 +77,21 @@ No item in the Technical Context was left as NEEDS CLARIFICATION. These are the 
 
 - **Decision**: unit tests for `FeeSelection` (category row, fallback, none, registration fee from the category row, from the blank row, none); integration tests for finalise, revise count and confirmation, accounts after registration in a finalised year, the lock, brought-forward, audit in the same transaction (a failed audit write leaves nothing), and the list column; Playwright for the screen, the warning, the class record dialog and the profile block.
 - **Rationale**: constitution VIII needs every FR covered, and the calculation rules need reference cases.
+
+## Starting point (T001, 2026-10-27)
+
+- Local `main` brought up to date with `git fetch origin main:main` (fast-forward; `main` and `origin/main` are both `ece1410`, the F1 merge). `ece1410` is an ancestor of `003-fees`. `V6__students.sql` and `BE/students/` exist.
+- `scripts/verify.sh` on the branch before any F2 code: backend 310 tests passed (0 failures, 0 errors); frontend unit 150 passed (20 files); Playwright 107 passed, 1 failed.
+- The one Playwright failure is `fr-coverage-check.spec.ts` "FR-036: every requirement of the foundation spec is covered, in strict mode", and it fails only because of the coverage line below (it runs the strict script).
+- Coverage line: `FR coverage: 46 of 46 covered` (F0), `FR coverage on branch 003-fees: 0 of 14 covered`, uncovered FR-001 to FR-014. This is RED as expected: no F2 test exists yet. It turns green when T027 passes.
+
+## Plan checks (T002, 2026-10-27; PostgreSQL 15, Hibernate as in the project; throwaway test `FeePlanChecksIT`, deleted)
+
+- **(a) Masking (R5)**: `SensitiveMasker.MASKED` holds none of `amount`, `registrationFee`, `note`, `noteChanged`, `studentsRecalculated`, `accountsChanged`. `sanitize(changes, MASKED)` returns a map with exactly those keys and values unchanged. Nothing to add for fee fields; the note text is kept out of the log by `FeesAudit` writing only `noteChanged: true` (T008, T022).
+- **(b) `ApiProblem.current` (R4)**: a `StaleVersionException` carrying `Map.of("studentCount", 5)` goes through `ApiExceptionHandler` as `{"title":"Conflict","status":409,"detail":"...","code":"STALE_VERSION","current":{"studentCount":5}}`. A map is serialised as given, so `CodedConflictException` (T005) can use the same `withCurrent(...)` for `REVISE_CONFIRMATION_REQUIRED`.
+- **(c) Locks (R7)**, real SQL from `org.hibernate.SQL`:
+  - `PESSIMISTIC_WRITE` -> `... where ay1_0.id=? for no key update of ay1_0` (**not** `for update` as R7 says).
+  - `PESSIMISTIC_READ` -> `... where ay1_0.id=? for share of ay1_0`.
+  - Two connections (second one with `set local lock_timeout = '1000ms'`, lock-not-available SQLState 55P03 means it waited): write blocks read: yes; write blocks write: yes; read blocks write: yes; read blocks read: no. This is the behaviour R7 needs: a registration (share) waits for a finalise or revise (write) and the reverse, while two registrations do not wait for each other.
+  - With `@Version`: a row loaded with `PESSIMISTIC_WRITE` and changed raises its version by 1 on flush, and a stale detached copy still fails on save with `jakarta.persistence.OptimisticLockException` (Spring repositories translate it to `ObjectOptimisticLockingFailureException`, which the handler already maps to `STALE_VERSION`).
+  - Wording to use from now on: "`FOR NO KEY UPDATE`" for the write lock. It does not block `FOR KEY SHARE` (taken by foreign-key checks), which is fine here because no table has a foreign key to `fee_year_status`.
