@@ -1,38 +1,54 @@
 import { readFileSync } from 'node:fs';
 import { inflateRawSync } from 'node:zlib';
 
+/** One cell of the sheet: its text and what kind of cell it is in the file (an amount is a `number`, not text). */
+export interface XlsxCell {
+  value: string;
+  kind: 'text' | 'number' | 'boolean' | 'empty';
+}
+
 /**
  * Reads the first sheet of an .xlsx file as rows of text, without a library (an .xlsx file is a zip of XML files).
  * Enough for the files CampusFlow exports: text, numbers and booleans, empty cells left out. Booleans come back as
- * TRUE or FALSE.
+ * TRUE or FALSE. A number comes back as the digits in the file (28000.5, not 28,000.50); use `readFirstSheetTyped`
+ * to tell a number from text.
  */
 export function readFirstSheet(path: string): string[][] {
+  return readFirstSheetTyped(path).map((row) => row.map((cell) => cell.value));
+}
+
+/** The same rows as `readFirstSheet`, each cell with its kind, so a test can check that an amount is a number. */
+export function readFirstSheetTyped(path: string): XlsxCell[][] {
   const zip = readFileSync(path);
   const sheet = entryText(zip, 'xl/worksheets/sheet1.xml');
   const shared = entryTextOrNull(zip, 'xl/sharedStrings.xml');
   const sharedStrings = shared ? [...shared.matchAll(/<si>(.*?)<\/si>/gs)].map((si) => textOf(si[1])) : [];
 
   return [...sheet.matchAll(/<row\b[^>]*>(.*?)<\/row>/gs)].map((row) => {
-    const cells: string[] = [];
+    const cells: XlsxCell[] = [];
     for (const cell of row[1].matchAll(/<c\b([^>]*?)(?:\/>|>(.*?)<\/c>)/gs)) {
       const attributes = cell[1];
       const body = cell[2] ?? '';
       const reference = /\br="([A-Z]+)\d+"/.exec(attributes)?.[1] ?? 'A';
       const type = /\bt="(\w+)"/.exec(attributes)?.[1];
       const value = /<v>(.*?)<\/v>/s.exec(body)?.[1] ?? '';
-      let text: string;
+      let parsed: XlsxCell;
       if (type === 'inlineStr') {
-        text = textOf(body);
+        parsed = { value: textOf(body), kind: 'text' };
       } else if (type === 's') {
-        text = sharedStrings[Number(value)] ?? '';
+        parsed = { value: sharedStrings[Number(value)] ?? '', kind: 'text' };
+      } else if (type === 'str') {
+        parsed = { value: decode(value), kind: 'text' };
       } else if (type === 'b') {
-        text = value === '1' ? 'TRUE' : 'FALSE';
+        parsed = { value: value === '1' ? 'TRUE' : 'FALSE', kind: 'boolean' };
+      } else if (value === '') {
+        parsed = { value: '', kind: 'empty' };
       } else {
-        text = decode(value);
+        parsed = { value: decode(value), kind: 'number' };
       }
-      cells[columnIndex(reference)] = text;
+      cells[columnIndex(reference)] = parsed;
     }
-    return Array.from(cells, (cell) => cell ?? '');
+    return Array.from(cells, (cell) => cell ?? { value: '', kind: 'empty' as const });
   });
 }
 
