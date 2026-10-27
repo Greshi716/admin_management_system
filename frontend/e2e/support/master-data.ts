@@ -58,7 +58,9 @@ export async function ensureCurrentYearThenSignOut(page: Page): Promise<void> {
  * but Academic years (FR-013); pass `{ currentYear: false }` for a spec that wants none.
  */
 export async function clearMasterData(page: Page, options: { currentYear?: boolean } = {}): Promise<void> {
-  // Students keep the master data in use, and cannot be deleted in the product; the test profile can clear them.
+  // Fee accounts and rows point at class records and master data (RESTRICT), so they go first; then students keep
+  // the master data in use and cannot be deleted in the product; the test profile can clear them.
+  await callApi(page, 'POST', '/api/test-support/clear-fees');
   await callApi(page, 'POST', '/api/test-support/clear-students');
   for (const row of await allRows(page, '/api/divisions')) {
     await callApi(page, 'DELETE', `/api/divisions/${row.id}`);
