@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,14 +58,11 @@ class BroughtForwardService {
 			if (amount.signum() == 0 && note == null) {
 				return new StudentFeesDto.BroughtForwardDto(null, ZERO, null); // nothing to keep: no amount, no note
 			}
-			try {
-				BroughtForward created = repository.saveAndFlush(new BroughtForward(studentId, amount, note, clock.instant()));
-				audit.broughtForwardSaved(studentId, null, amount, note != null);
-				return dto(created);
-			}
-			catch (DataIntegrityViolationException raced) {
+			if (repository.insertIfAbsent(studentId, amount, note, clock.instant()) == 0) {
 				throw new StaleVersionException(current(studentId)); // another window saved the first amount
 			}
+			audit.broughtForwardSaved(studentId, null, amount, note != null);
+			return dto(repository.findById(studentId).orElseThrow());
 		}
 
 		BroughtForward row = existing.get();

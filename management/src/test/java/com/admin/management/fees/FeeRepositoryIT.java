@@ -171,7 +171,10 @@ class FeeRepositoryIT extends IntegrationTest {
 		statuses.saveAndFlush(new FeeYearStatus(year));
 		Long before = statuses.findById(year).orElseThrow().getVersion();
 
-		tx.executeWithoutResult(status -> statuses.lockForUpdateAndBump(year).orElseThrow());
+		tx.executeWithoutResult(status -> {
+			statuses.lockForUpdate(year).orElseThrow();
+			statuses.bumpVersion(year);
+		});
 		assertThat(statuses.findById(year).orElseThrow().getVersion()).isEqualTo(before + 1);
 
 		Instant now = Instant.parse("3000-07-01T10:00:00Z");

@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -177,8 +176,8 @@ class FeeStructureService {
 					"Changing a finalised fee structure recalculates the fee of every student of the year.",
 					Map.of("studentCount", enrollments.countOfYear(yearId)));
 		}
-		if (status == null) {
-			statuses.saveAndFlush(new FeeYearStatus(yearId));
+		if (status == null && statuses.insertIfAbsent(yearId) == 0) {
+			throw new StaleVersionException(toStructure(yearId)); // another window saved the first row
 		}
 		statuses.bumpVersion(yearId);
 		return revise;

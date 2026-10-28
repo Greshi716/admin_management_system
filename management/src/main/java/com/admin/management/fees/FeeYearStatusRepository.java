@@ -47,10 +47,14 @@ public interface FeeYearStatusRepository extends Repository<FeeYearStatus, Long>
 	@Query("update FeeYearStatus s set s.version = s.version + 1 where s.academicYearId = :yearId")
 	int bumpVersion(@Param("yearId") Long yearId);
 
-	/** The write lock, and the version goes up by one at once (every row change bumps the structure version). */
-	@Lock(LockModeType.PESSIMISTIC_FORCE_INCREMENT)
+	/**
+	 * Creates the Draft status row of a year unless another window already did; returns 1 when this call created it
+	 * (the row is then locked by this transaction) and 0 when it existed. It cannot abort the transaction on a race.
+	 */
+	@Modifying(flushAutomatically = true)
 	@Transactional(propagation = Propagation.MANDATORY)
-	@Query("select s from FeeYearStatus s where s.academicYearId = :yearId")
-	Optional<FeeYearStatus> lockForUpdateAndBump(@Param("yearId") Long yearId);
+	@Query(value = "insert into fee_year_status (academic_year_id) values (:yearId) on conflict do nothing",
+			nativeQuery = true)
+	int insertIfAbsent(@Param("yearId") Long yearId);
 
 }
