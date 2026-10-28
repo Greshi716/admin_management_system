@@ -42,6 +42,7 @@ const STUDENT: Student = {
       categoryId: 1,
       categoryName: 'General',
       yearStatus: 'Studying',
+      feeLocked: false,
     },
     {
       version: 0,
@@ -53,6 +54,7 @@ const STUDENT: Student = {
       categoryId: 1,
       categoryName: 'General',
       yearStatus: 'Promoted',
+      feeLocked: false,
     },
   ],
 };
