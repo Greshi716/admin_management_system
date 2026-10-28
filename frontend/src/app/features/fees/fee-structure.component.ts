@@ -14,8 +14,10 @@ import {
   FeesService,
   FeeStructure,
   feeConflictOf,
+  ReviseConfirmationRequired,
   StaleStructure,
 } from './fees.service';
+import { ReviseDialogComponent } from './revise-dialog.component';
 
 interface YearOption {
   id: number;
@@ -50,7 +52,7 @@ function moneyOf(text: string): number | null | typeof Number.NaN {
  */
 @Component({
   selector: 'app-fee-structure',
-  imports: [ReactiveFormsModule, DialogComponent],
+  imports: [ReactiveFormsModule, DialogComponent, ReviseDialogComponent],
   templateUrl: './fee-structure.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -71,12 +73,18 @@ export class FeeStructureComponent implements OnInit {
   protected readonly finaliseError = signal<string | null>(null);
   protected readonly deleting = signal<RowEditor | null>(null);
   protected readonly deleteBusy = signal(false);
+  /** True while the admin revises a finalised year: rows can then be changed, each change after a warning (FR-004). */
+  protected readonly revising = signal(false);
+  /** The revise warning waiting for an answer: how many students it touches and the request to send again with confirm. */
+  protected readonly reviseAsk = signal<{ studentCount: number; action: () => void } | null>(null);
 
   protected readonly serverMessage = serverMessage;
   protected readonly money = formatMoney;
   protected readonly formatDate = (value: string | null | undefined) => formatCell(value, 'date');
 
   protected readonly isFinalised = computed(() => this.structure()?.status === 'Finalised');
+  /** Rows can be changed in a Draft year, and in a finalised year only while it is being revised. */
+  protected readonly editable = computed(() => !this.isFinalised() || this.revising());
 
   ngOnInit(): void {
     this.http
@@ -100,6 +108,7 @@ export class FeeStructureComponent implements OnInit {
 
   protected chooseYear(id: number): void {
     this.yearId.set(id);
+    this.revising.set(false);
     this.load(id);
   }
 
@@ -123,7 +132,7 @@ export class FeeStructureComponent implements OnInit {
     this.editors.update((rows) => [...rows, this.editorOf(null)]);
   }
 
-  protected save(editor: RowEditor): void {
+  protected save(editor: RowEditor, confirm = false): void {
     const structure = this.structure();
     const yearId = this.yearId();
     if (editor.busy || !structure || yearId === null) {
@@ -136,15 +145,21 @@ export class FeeStructureComponent implements OnInit {
     this.setBusy(editor, true);
     const request =
       editor.id === null
-        ? this.fees.addRow(yearId, input)
-        : this.fees.editRow(yearId, editor.id, { ...input, version: editor.version ?? undefined });
+        ? this.fees.addRow(yearId, input, confirm)
+        : this.fees.editRow(yearId, editor.id, { ...input, version: editor.version ?? undefined }, confirm);
     request.subscribe({
       next: () => {
-        this.toast.success(editor.id === null ? 'The fee row was added.' : 'The fee row was saved.');
+        const done = editor.id === null ? 'The fee row was added.' : 'The fee row was saved.';
+        this.toast.success(confirm ? `${done} Every student's fee was recalculated.` : done);
         this.load(yearId);
       },
       error: (error: unknown) => {
         this.setBusy(editor, false);
+        const conflict = feeConflictOf(error);
+        if (conflict instanceof ReviseConfirmationRequired) {
+          this.askRevise(conflict.studentCount, () => this.save(editor, true));
+          return;
+        }
         this.onSaveFailed(editor, error);
       },
     });
@@ -155,28 +170,70 @@ export class FeeStructureComponent implements OnInit {
       this.editors.update((rows) => rows.filter((row) => row !== editor));
       return;
     }
+    if (this.isFinalised()) {
+      this.runDelete(editor, false); // the revise warning is the confirmation
+      return;
+    }
     this.deleting.set(editor);
   }
 
   protected confirmDelete(): void {
     const editor = this.deleting();
+    if (editor) {
+      this.runDelete(editor, false);
+    }
+  }
+
+  protected startRevising(): void {
+    this.revising.set(true);
+  }
+
+  protected stopRevising(): void {
+    this.revising.set(false);
+    const yearId = this.yearId();
+    if (yearId !== null) {
+      this.load(yearId); // drop edits that were typed but not saved
+    }
+  }
+
+  protected confirmRevise(): void {
+    const ask = this.reviseAsk();
+    this.reviseAsk.set(null);
+    ask?.action();
+  }
+
+  protected cancelRevise(): void {
+    this.reviseAsk.set(null); // nothing was changed; the typed values stay in the row
+  }
+
+  private askRevise(studentCount: number, action: () => void): void {
+    this.reviseAsk.set({ studentCount, action });
+  }
+
+  private runDelete(editor: RowEditor, confirm: boolean): void {
     const structure = this.structure();
     const yearId = this.yearId();
-    if (!editor || editor.id === null || !structure || yearId === null) {
+    if (editor.id === null || !structure || yearId === null) {
       return;
     }
     this.deleteBusy.set(true);
-    this.fees.deleteRow(yearId, editor.id, editor.version ?? 0, structure.version).subscribe({
+    this.fees.deleteRow(yearId, editor.id, editor.version ?? 0, structure.version, confirm).subscribe({
       next: () => {
         this.deleteBusy.set(false);
         this.deleting.set(null);
-        this.toast.success('The fee row was deleted.', 'Deleted');
+        this.toast.success(
+          confirm ? "The fee row was deleted. Every student's fee was recalculated." : 'The fee row was deleted.',
+          'Deleted',
+        );
         this.load(yearId);
       },
       error: (error: unknown) => {
         this.deleteBusy.set(false);
         this.deleting.set(null);
-        if (feeConflictOf(error) instanceof StaleStructure) {
+        const conflict = feeConflictOf(error);
+        if (conflict instanceof ReviseConfirmationRequired) {
+          this.askRevise(conflict.studentCount, () => this.runDelete(editor, true));
+        } else if (conflict instanceof StaleStructure) {
           this.load(yearId);
         }
       },
@@ -199,6 +256,7 @@ export class FeeStructureComponent implements OnInit {
       next: (finalised) => {
         this.finaliseBusy.set(false);
         this.finalising.set(false);
+        this.revising.set(false);
         this.toast.success('The fee structure is finalised. Every student of the year now has a fee.', 'Finalised');
         this.show(finalised);
       },

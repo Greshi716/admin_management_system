@@ -34,7 +34,14 @@
       </label>
     </div>
 
-    @if (isFinalised()) {
+    @if (revising()) {
+      <div class="mb-4 rounded-card bg-warning-bg p-4 text-warning-text" role="status" data-testid="revise-notice">
+        <p class="m-0 font-bold">This year is being revised.</p>
+        <p class="mb-0 mt-1">
+          Each change asks you to confirm and then recalculates every student's fee for the year.
+        </p>
+      </div>
+    } @else if (isFinalised()) {
       <p class="mb-4 mt-0 text-muted" data-testid="finalised-note">
         This structure is finalised. {{ current.studentCount }} class records of the year have a fee from it.
       </p>
@@ -54,7 +61,7 @@
         </thead>
         <tbody>
           @for (editor of editors(); track $index; let index = $index) {
-            @if (isFinalised()) {
+            @if (!editable()) {
               <tr class="border-b border-border" data-testid="fee-row">
                 <td class="px-2 py-3">{{ current.rows[index]?.standardName }}</td>
                 <td class="px-2 py-3">{{ current.rows[index]?.categoryName }}</td>
@@ -128,6 +135,11 @@
       @if (!isFinalised()) {
         <button type="button" class="btn btn-secondary" (click)="addRow()">Add row</button>
         <button type="button" class="btn btn-primary" (click)="askFinalise()">Finalise</button>
+      } @else if (revising()) {
+        <button type="button" class="btn btn-secondary" (click)="addRow()">Add row</button>
+        <button type="button" class="btn btn-secondary btn-outlined" (click)="stopRevising()">Done revising</button>
+      } @else {
+        <button type="button" class="btn btn-primary" (click)="startRevising()">Revise</button>
       }
     </div>
   </section>
@@ -163,3 +175,10 @@
     <button type="button" (click)="confirmDelete()" class="btn btn-danger" [class.btn-loading]="deleteBusy()" [disabled]="deleteBusy()">Delete</button>
   </div>
 </app-dialog>
+
+<app-revise-dialog
+  [studentCount]="reviseAsk()?.studentCount ?? null"
+  [busy]="false"
+  (confirmed)="confirmRevise()"
+  (cancelled)="cancelRevise()"
+/>

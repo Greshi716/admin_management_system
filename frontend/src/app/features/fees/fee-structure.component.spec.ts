@@ -36,6 +36,11 @@ describe('FeeStructureComponent (FR-001, FR-002, FR-011)', () => {
     save(editor: RowEditor): void;
     askFinalise(): void;
     confirmFinalise(): void;
+    startRevising(): void;
+    askDelete(editor: RowEditor): void;
+    confirmRevise(): void;
+    cancelRevise(): void;
+    reviseAsk(): { studentCount: number } | null;
   }
   const view = () => fixture.componentInstance as unknown as View;
   const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -148,5 +153,106 @@ describe('FeeStructureComponent (FR-001, FR-002, FR-011)', () => {
     expect(fees.finalise).toHaveBeenCalledWith(2, 4);
     expect(text()).toContain('Finalised');
     expect(text()).not.toContain('Add row');
+  });
+
+  describe('revise (FR-003, FR-004)', () => {
+    const FINALISED: FeeStructure = { ...DRAFT, status: 'Finalised', version: 5, studentCount: 5 };
+    const needsConfirmation = () =>
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 409,
+            error: { code: 'REVISE_CONFIRMATION_REQUIRED', current: { studentCount: 5 } },
+          }),
+      );
+
+    it('shows Revise and no Add row, Save row or Finalise for a finalised year', () => {
+      setUp(FINALISED);
+
+      expect(text()).toContain('Revise');
+      expect(text()).not.toContain('Add row');
+      expect(text()).not.toContain('Save row');
+      expect(text()).not.toContain('Finalise structure');
+    });
+
+    it('Revise opens the rows for editing with the notice that the year is being revised', () => {
+      setUp(FINALISED);
+
+      view().startRevising();
+      fixture.detectChanges();
+
+      expect(text()).toContain('This year is being revised.');
+      expect(text()).toContain('Save row');
+      expect(text()).toContain('Add row');
+    });
+
+    it('asks for confirmation with the student count and sends nothing changed before it', () => {
+      setUp(FINALISED);
+      fees.editRow.mockReturnValueOnce(needsConfirmation());
+      view().startRevising();
+      const editor = view().editors()[0];
+      editor.form.patchValue({ amount: '37000' });
+
+      view().save(editor);
+
+      expect(view().reviseAsk()?.studentCount).toBe(5);
+      expect(fees.editRow).toHaveBeenCalledTimes(1);
+      expect(fees.editRow.mock.calls[0][3]).toBe(false);
+    });
+
+    it('Confirm sends the same request again with confirm=true', () => {
+      setUp(FINALISED);
+      fees.editRow.mockReturnValueOnce(needsConfirmation());
+      view().startRevising();
+      const editor = view().editors()[0];
+      editor.form.patchValue({ amount: '37000' });
+      view().save(editor);
+
+      view().confirmRevise();
+
+      expect(fees.editRow).toHaveBeenCalledTimes(2);
+      expect(fees.editRow.mock.calls[1][3]).toBe(true);
+      expect(fees.editRow.mock.calls[1][2]).toMatchObject({ amount: 37000, structureVersion: 5 });
+      expect(view().reviseAsk()).toBeNull();
+    });
+
+    it('Cancel changes nothing', () => {
+      setUp(FINALISED);
+      fees.editRow.mockReturnValueOnce(needsConfirmation());
+      view().startRevising();
+      const editor = view().editors()[0];
+      view().save(editor);
+
+      view().cancelRevise();
+
+      expect(fees.editRow).toHaveBeenCalledTimes(1);
+      expect(view().reviseAsk()).toBeNull();
+    });
+
+    it('a delete in a finalised year goes straight to the warning, then repeats with confirm=true', () => {
+      setUp(FINALISED);
+      fees.deleteRow.mockReturnValueOnce(needsConfirmation());
+      view().startRevising();
+
+      view().askDelete(view().editors()[0]);
+      expect(fees.deleteRow).toHaveBeenCalledWith(2, 11, 1, 5, false);
+      expect(view().reviseAsk()?.studentCount).toBe(5);
+
+      view().confirmRevise();
+      expect(fees.deleteRow).toHaveBeenLastCalledWith(2, 11, 1, 5, true);
+    });
+
+    it('reloads the structure on a stale answer before any warning', () => {
+      setUp(FINALISED);
+      fees.editRow.mockReturnValueOnce(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'STALE_VERSION', current: FINALISED } })),
+      );
+      view().startRevising();
+
+      view().save(view().editors()[0]);
+
+      expect(view().reviseAsk()).toBeNull();
+      expect(fees.structure).toHaveBeenCalledTimes(2);
+    });
   });
 });
