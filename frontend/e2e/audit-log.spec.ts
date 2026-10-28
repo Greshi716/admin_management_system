@@ -1,5 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
+import { addFeeRow, createFeeMasterData, finaliseYear, getFeeStructure } from './support/fees';
 import { callApi, clearMasterData } from './support/master-data';
+import { createStudent, studentInput } from './support/students';
 import { signInAsTestAdmin } from './support/test-data';
 
 async function openAuditLog(page: Page): Promise<void> {
@@ -102,5 +104,51 @@ test.describe('audit log', () => {
 
     await expect(page.getByRole('button', { name: /^(Edit|Delete)$/ })).toHaveCount(0);
     await expect(page.getByRole('columnheader', { name: 'Actions' })).toHaveCount(0);
+  });
+
+  test('FR-012: the Fees area shows a finalise, a revise and a brought-forward change with amounts in full and no note text', async ({
+    page,
+  }) => {
+    const master = await createFeeMasterData(page, 1, 'Au');
+    const standard = master.standards[0];
+    await addFeeRow(page, master.yearId, { standardId: standard.id, amount: 36000 });
+    const student = await createStudent(
+      page,
+      studentInput(1, {
+        yearId: master.yearId,
+        standardId: standard.id,
+        divisionId: standard.divisionId,
+        categoryId: master.categories[0].id,
+      }),
+    );
+    await finaliseYear(page, master.yearId);
+    const structure = await getFeeStructure(page, master.yearId);
+    const row = structure.rows[0];
+    await callApi(page, 'PUT', `/api/fee-structures/${master.yearId}/rows/${row.id}?confirm=true`, {
+      version: row.version,
+      structureVersion: structure.version,
+      standardId: standard.id,
+      categoryId: null,
+      amount: 37000.5,
+    });
+    await callApi(page, 'PUT', `/api/students/${student.id}/brought-forward`, {
+      version: null,
+      amount: 2500,
+      note: 'Private audit note text',
+    });
+
+    await openAuditLog(page);
+    await page.getByLabel('Area', { exact: true }).selectOption('Fees');
+
+    const finalise = page.getByRole('row').filter({ hasText: 'Finalise' });
+    await expect(finalise).toContainText(`FeeStructure#${master.yearId}`);
+    await expect(finalise).toContainText('studentsRecalculated: 1');
+    const revise = page.getByRole('row').filter({ hasText: `FeeRow#${row.id}` }).filter({ hasText: 'Edit' });
+    await expect(revise).toContainText('36000.00 → 37000.50');
+    await expect(revise).toContainText('Revise');
+    const forward = page.getByRole('row').filter({ hasText: `BroughtForward#${student.id}` });
+    await expect(forward).toContainText('2500.00');
+    await expect(forward).toContainText('noteChanged: true');
+    await expect(page.locator('main')).not.toContainText('Private audit note text');
   });
 });
