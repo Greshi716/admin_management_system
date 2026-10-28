@@ -16,6 +16,7 @@ const RECORD: Enrollment = {
   categoryId: 7,
   categoryName: 'General',
   yearStatus: 'Studying',
+  feeLocked: false,
 };
 
 const LISTS: PickLists = {
@@ -47,6 +48,7 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
     save(): void;
     keepMine(): void;
     useLatest(): void;
+    locked(): boolean;
   }
   const component = () => fixture.componentInstance as unknown as DialogView;
 
@@ -114,5 +116,61 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
 
     expect(component().stale()).toBeNull();
     expect(changed).toHaveBeenCalled();
+  });
+
+  describe('fee lock (FR-008)', () => {
+    const MESSAGE =
+      'The fee structure for this year is finalised, so the standard and category cannot be changed. The division can.';
+    const element = () => fixture.nativeElement as HTMLElement;
+
+    function reopen(record: typeof RECORD): void {
+      fixture.componentRef.setInput('record', null);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('record', record);
+      fixture.detectChanges();
+    }
+
+    it('shows no notice and keeps every field editable when the year is not finalised', () => {
+      expect(component().locked()).toBe(false);
+      expect(component().form.controls.standardId.disabled).toBe(false);
+      expect(component().form.controls.categoryId.disabled).toBe(false);
+      expect(element().querySelector('[data-testid="fee-lock-notice"]')).toBeNull();
+    });
+
+    it('fixes standard and category with the message when the record is fee locked, the division stays editable', () => {
+      reopen({ ...RECORD, feeLocked: true });
+
+      expect(component().locked()).toBe(true);
+      expect(component().form.controls.standardId.disabled).toBe(true);
+      expect(component().form.controls.categoryId.disabled).toBe(true);
+      expect(component().form.controls.divisionId.disabled).toBe(false);
+      expect(element().querySelector('[data-testid="fee-lock-notice"]')?.textContent?.trim()).toBe(MESSAGE);
+    });
+
+    it('saves only the division change with the unchanged standard and category', () => {
+      reopen({ ...RECORD, feeLocked: true });
+      service.updateEnrollment.mockReturnValue(of(RECORD));
+      component().form.controls.divisionId.setValue(100);
+
+      component().save();
+
+      expect(service.updateEnrollment).toHaveBeenCalledWith(5, 2, { version: 3, standardId: 10, divisionId: 100, categoryId: 7 });
+    });
+
+    it('a 409 FEE_STRUCTURE_FINALISED fixes the fields and shows the same message', () => {
+      service.updateEnrollment.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'FEE_STRUCTURE_FINALISED' } })),
+      );
+      component().form.patchValue({ categoryId: 8 });
+
+      component().save();
+      fixture.detectChanges();
+
+      expect(component().locked()).toBe(true);
+      expect(component().form.controls.categoryId.value).toBe(7); // back to the record's value
+      expect(component().form.controls.categoryId.disabled).toBe(true);
+      expect(element().querySelector('[data-testid="fee-lock-notice"]')?.textContent?.trim()).toBe(MESSAGE);
+      expect(changed).not.toHaveBeenCalled();
+    });
   });
 });

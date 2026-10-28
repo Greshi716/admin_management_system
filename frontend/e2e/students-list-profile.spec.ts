@@ -224,7 +224,7 @@ test.describe('students list and profile', () => {
     await expect(page.getByRole('link', { name: 'Edit details' })).toBeVisible();
 
     const content = page.locator('main');
-    for (const absent of ['Collect fee', 'Receipt', 'Roll', 'leaving certificate', 'Fee']) {
+    for (const absent of ['Collect fee', 'Receipt', 'Paid', 'Pending', 'Roll', 'leaving certificate']) {
       await expect(content).not.toContainText(absent);
     }
     await expect(content).not.toContainText(AADHAAR);

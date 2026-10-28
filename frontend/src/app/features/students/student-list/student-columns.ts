@@ -55,6 +55,9 @@ export function studentColumns(options: FilterOptions | null): CampusColumn[] {
         },
       ],
     },
+    // Fee not set / Not finalised / the amount: drawn by the list's own cell from totalFee and feeState (F2 FR-010).
+    { field: 'totalFee', header: 'Total fee', type: 'number', custom: true },
+    { field: 'feeState', header: 'Fee state', hidden: true },
     { field: 'status', header: 'Status', filterable: false, badgeClass: (value) => (value === 'Left' ? LEFT_BADGE : ACTIVE_BADGE) },
   ];
 }
@@ -70,4 +73,16 @@ export function recordYearNote(row: Record<string, unknown>, currentYearId: numb
     return null;
   }
   return yearId === currentYearId ? null : year;
+}
+
+/**
+ * What the Total fee cell says (F2 FR-010): the amount with two decimals, "Fee not set" when the student's fee account
+ * has no amount, "Not finalised" when the year has no account yet. The amount is the server's total, never computed here.
+ */
+export function feeText(row: Record<string, unknown>, money: (value: number) => string): string {
+  const total = row['totalFee'];
+  if (typeof total === 'number') {
+    return money(total);
+  }
+  return row['feeState'] === 'Fee not set' ? 'Fee not set' : 'Not finalised';
 }

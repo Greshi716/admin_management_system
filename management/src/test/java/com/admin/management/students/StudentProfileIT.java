@@ -112,7 +112,10 @@ class StudentProfileIT extends IntegrationTest {
 			.andExpect(content().string(not(containsString(AADHAAR))))
 			.andExpect(content().string(not(containsString(CASTE))))
 			.andExpect(content().string(not(containsString("rollNo"))))
-			.andExpect(content().string(not(containsString("fee"))));
+			// The fees live on /fees; the only fee word here is the class record flag feeLocked (F2 FR-008).
+			.andExpect(content().string(not(containsString("\"fee\""))))
+			.andExpect(content().string(not(containsString("totalFee"))))
+			.andExpect(content().string(not(containsString("receipt"))));
 	}
 
 	@Test

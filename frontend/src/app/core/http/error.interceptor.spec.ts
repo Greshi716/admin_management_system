@@ -119,6 +119,16 @@ describe('errorInterceptor (FR-008, FR-039, FR-046)', () => {
     expect(caught.error.retryAfterSeconds).toBe(300);
   });
 
+  it('shows no toast for REVISE_CONFIRMATION_REQUIRED, the fee screen asks in its own dialog (F2 FR-004)', () => {
+    const body = { code: 'REVISE_CONFIRMATION_REQUIRED', detail: 'Confirm.', current: { studentCount: 5 } };
+
+    const caught = fail('/api/fee-structures/1/rows', body, 409) as { error: typeof body };
+
+    expect(toast.warn).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(caught.error.current.studentCount).toBe(5);
+  });
+
   it('does not touch successful calls', () => {
     http.get('/api/standards').subscribe();
     controller.expectOne('/api/standards').flush([]);

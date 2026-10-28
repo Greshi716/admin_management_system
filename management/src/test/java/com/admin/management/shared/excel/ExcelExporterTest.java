@@ -21,6 +21,8 @@ import com.admin.management.shared.table.ColumnDef;
 import com.admin.management.support.Covers;
 
 @Covers("FR-033")
+@Covers("FR-010")
+@Covers("FR-011")
 class ExcelExporterTest {
 
 	ExcelExporter exporter = new ExcelExporter();
@@ -61,8 +63,55 @@ class ExcelExporterTest {
 		assertThat(data.getCell(3).getLocalDateTimeCellValue().toString()).isEqualTo("2026-04-01T12:00");
 		assertThat(data.getCell(4).getBooleanCellValue()).isTrue();
 		assertThat(data.getCell(5).getNumericCellValue()).isEqualTo(42d);
-		assertThat(data.getCell(6).getCellType()).isEqualTo(CellType.STRING);
-		assertThat(data.getCell(6).getStringCellValue()).isEqualTo("1234.50");
+		assertThat(data.getCell(6).getCellType()).isEqualTo(CellType.NUMERIC);
+		assertThat(data.getCell(6).getNumericCellValue()).isEqualTo(1234.5d);
+	}
+
+	@Test
+	void anAmountIsANumericCellWithTwoDecimalsSoItCanBeSummed() throws Exception {
+		Sheet sheet = export(List.of(Map.of("amount", new BigDecimal("28000.5")), Map.of("amount", new BigDecimal("28000"))));
+
+		var first = sheet.getRow(1).getCell(6);
+		assertThat(first.getCellType()).isEqualTo(CellType.NUMERIC);
+		assertThat(first.getNumericCellValue()).isEqualTo(28000.5d);
+		assertThat(first.getCellStyle().getDataFormatString()).isEqualTo("0.00");
+		var second = sheet.getRow(2).getCell(6);
+		assertThat(second.getNumericCellValue()).isEqualTo(28000d);
+		assertThat(second.getCellStyle().getDataFormatString()).isEqualTo("0.00");
+	}
+
+	@Test
+	void theLargestAmountOfANumeric12Dot2ColumnSurvivesTheNumericCell() throws Exception {
+		BigDecimal largest = new BigDecimal("9999999999.99");
+
+		Sheet sheet = export(List.of(Map.of("amount", largest)));
+
+		var cell = sheet.getRow(1).getCell(6);
+		assertThat(cell.getCellType()).isEqualTo(CellType.NUMERIC);
+		assertThat(BigDecimal.valueOf(cell.getNumericCellValue())).isEqualByComparingTo(largest);
+	}
+
+	@Test
+	void anAmountThatANumericCellCannotHoldExactlyStaysText() throws Exception {
+		Sheet sheet = export(List.of(Map.of("amount", new BigDecimal("12345678901234567.89")),
+				Map.of("amount", new BigDecimal("1.234"))));
+
+		assertThat(sheet.getRow(1).getCell(6).getCellType()).isEqualTo(CellType.STRING);
+		assertThat(sheet.getRow(1).getCell(6).getStringCellValue()).isEqualTo("12345678901234567.89");
+		// three decimals would be shown as 1.23 by the format 0.00, so the exact text is kept
+		assertThat(sheet.getRow(2).getCell(6).getCellType()).isEqualTo(CellType.STRING);
+		assertThat(sheet.getRow(2).getCell(6).getStringCellValue()).isEqualTo("1.234");
+	}
+
+	@Test
+	void otherNumbersAreNumericCellsAndAreNotTruncated() throws Exception {
+		Sheet sheet = export(List.of(Map.of("count", 2.5d), Map.of("count", 7), Map.of("count", (short) 3),
+				Map.of("count", new java.math.BigInteger("12345"))));
+
+		assertThat(sheet.getRow(1).getCell(5).getNumericCellValue()).isEqualTo(2.5d);
+		assertThat(sheet.getRow(2).getCell(5).getNumericCellValue()).isEqualTo(7d);
+		assertThat(sheet.getRow(3).getCell(5).getNumericCellValue()).isEqualTo(3d);
+		assertThat(sheet.getRow(4).getCell(5).getNumericCellValue()).isEqualTo(12345d);
 	}
 
 	@Test

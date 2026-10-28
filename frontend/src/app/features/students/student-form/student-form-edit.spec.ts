@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ToastService } from '../../../core/toast/toast.service';
+import { FeesService, StudentFees } from '../../fees/fees.service';
 import { PickLists, Student, StudentInput, StudentsService } from '../students.service';
 import { StudentFormComponent } from './student-form.component';
 
@@ -43,6 +44,8 @@ describe('StudentFormComponent in edit mode (FR-004, FR-018)', () => {
     photoUrl: ReturnType<typeof vi.fn>;
   };
   let navigate: ReturnType<typeof vi.spyOn>;
+  let fees: { studentFees: ReturnType<typeof vi.fn>; saveBroughtForward: ReturnType<typeof vi.fn> };
+  let toast: { success: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
   /** The protected members the tests read; reached through a typed view instead of `any`. */
   interface FormView {
@@ -66,11 +69,19 @@ describe('StudentFormComponent in edit mode (FR-004, FR-018)', () => {
       deletePhoto: vi.fn().mockReturnValue(of(undefined)),
       photoUrl: vi.fn((id: number, version: number) => `/api/students/${id}/photo?v=${version}`),
     };
+    fees = {
+      studentFees: vi.fn().mockReturnValue(
+        of({ broughtForward: { version: null, amount: 0, note: null } } as unknown as StudentFees),
+      ),
+      saveBroughtForward: vi.fn().mockReturnValue(of({ version: 0, amount: 2500, note: 'Test note' })),
+    };
+    toast = { success: vi.fn(), warn: vi.fn(), error: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: StudentsService, useValue: service },
-        { provide: ToastService, useValue: { success: vi.fn(), warn: vi.fn(), error: vi.fn() } },
+        { provide: FeesService, useValue: fees },
+        { provide: ToastService, useValue: toast },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '9' }) } } },
       ],
     });
@@ -155,5 +166,98 @@ describe('StudentFormComponent in edit mode (FR-004, FR-018)', () => {
     expect(component().form.getRawValue().address).toBe('Other address');
     click('Save');
     expect(service.update).toHaveBeenLastCalledWith(9, expect.objectContaining({ version: 3 }));
+  });
+
+  describe('Brought forward (FR-007, FR-009, FR-011)', () => {
+    const field = (id: string) => element.querySelector<HTMLInputElement>(id) as HTMLInputElement;
+    const type = (id: string, value: string) => {
+      const input = field(id);
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+
+    it('shows the section in edit mode only, starting from the saved amount and note', () => {
+      expect(element.querySelector('[data-testid="brought-forward-section"]')).not.toBeNull();
+      expect(fees.studentFees).toHaveBeenCalledWith(9);
+      expect(field('#bfAmount').value).toBe('0.00');
+      expect(field('#bfNote').value).toBe('');
+      expect(element.textContent).toContain('A short reason, at most 200 characters.');
+    });
+
+    it('saves the amount and note on their own with a null version the first time', () => {
+      type('#bfAmount', '2,500');
+      type('#bfNote', 'Test note');
+
+      click('Save brought forward');
+
+      expect(fees.saveBroughtForward).toHaveBeenCalledWith(9, { version: null, amount: 2500, note: 'Test note' });
+      expect(service.update).not.toHaveBeenCalled();
+      expect(toast.success).toHaveBeenCalledWith('The brought-forward amount was saved.');
+    });
+
+    it('sends the version of the last save the next time', () => {
+      type('#bfAmount', '2500');
+      click('Save brought forward');
+      type('#bfAmount', '1000.50');
+
+      click('Save brought forward');
+
+      expect(fees.saveBroughtForward).toHaveBeenLastCalledWith(9, { version: 0, amount: 1000.5, note: 'Test note' });
+    });
+
+    it('Clear saves 0 and no note', () => {
+      click('Clear');
+
+      expect(fees.saveBroughtForward).toHaveBeenCalledWith(9, { version: null, amount: 0, note: null });
+    });
+
+    it('puts the server field errors beside the amount and the note', () => {
+      fees.saveBroughtForward.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 422,
+              error: {
+                fieldErrors: [
+                  { field: 'amount', message: 'The amount cannot be negative.' },
+                  { field: 'note', message: 'The note can be at most 200 characters.' },
+                ],
+              },
+            }),
+        ),
+      );
+      type('#bfAmount', '-5');
+
+      click('Save brought forward');
+
+      expect(element.textContent).toContain('The amount cannot be negative.');
+      expect(element.textContent).toContain('The note can be at most 200 characters.');
+    });
+
+    it('flags text that is not a number and sends nothing', () => {
+      type('#bfAmount', 'abc');
+
+      click('Save brought forward');
+
+      expect(fees.saveBroughtForward).not.toHaveBeenCalled();
+      expect(element.textContent).toContain('Enter the amount as a number');
+    });
+
+    it('shows the latest saved values when the save answers STALE_VERSION', () => {
+      fees.saveBroughtForward.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { code: 'STALE_VERSION', current: { version: 3, amount: 700.25, note: 'Latest' } },
+            }),
+        ),
+      );
+      click('Save brought forward');
+
+      expect(field('#bfAmount').value).toBe('700.25');
+      expect(field('#bfNote').value).toBe('Latest');
+    });
   });
 });

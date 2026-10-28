@@ -6,7 +6,8 @@ import { AvatarComponent } from '../../../shared/ui/avatar.component';
 import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
 import { forkJoin } from 'rxjs';
 import { StudentsService } from '../students.service';
-import { recordYearNote, studentColumns } from './student-columns';
+import { formatMoney } from '../../../shared/ui/money';
+import { feeText, recordYearNote, studentColumns } from './student-columns';
 
 type StatusScope = 'Active' | 'Left' | 'All';
 
@@ -45,6 +46,10 @@ export class StudentListComponent implements OnInit {
 
   protected yearNote(row: Record<string, unknown>): string | null {
     return recordYearNote(row, this.currentYearId);
+  }
+
+  protected feeText(row: Record<string, unknown>): string {
+    return feeText(row, formatMoney);
   }
 
   protected id(row: Record<string, unknown>): number {

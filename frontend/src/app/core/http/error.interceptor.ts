@@ -48,6 +48,11 @@ function report(
     return;
   }
 
+  // The fee screen explains this one in its own warning dialog (F2 FR-004), so no toast on top of it.
+  if (problem?.code === 'REVISE_CONFIRMATION_REQUIRED') {
+    return;
+  }
+
   const message = messageFor(error, problem);
   if (problem?.code === STALE_VERSION || error.status === 409 || error.status === 422) {
     toast.warn(message);

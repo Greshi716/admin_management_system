@@ -40,6 +40,8 @@ export interface Enrollment {
   categoryId: number;
   categoryName: string;
   yearStatus: 'Studying' | 'Promoted' | 'Detained' | 'Left';
+  /** True when the year's fee structure is finalised: standard and category are fixed, the division can change (F2 FR-008). */
+  feeLocked: boolean;
 }
 
 export interface EnrollmentInput {

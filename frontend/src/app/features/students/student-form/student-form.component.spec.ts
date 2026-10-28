@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ToastService } from '../../../core/toast/toast.service';
+import { FeesService } from '../../fees/fees.service';
 import { PickLists, Student, StudentsService } from '../students.service';
 import { StudentFormComponent } from './student-form.component';
 
@@ -69,6 +70,7 @@ describe('StudentFormComponent (FR-001, FR-003, FR-005, FR-011, FR-017)', () => 
       providers: [
         provideRouter([]),
         { provide: StudentsService, useValue: service },
+        { provide: FeesService, useValue: { studentFees: vi.fn(), saveBroughtForward: vi.fn() } },
         { provide: ToastService, useValue: toast },
       ],
     });
@@ -77,6 +79,10 @@ describe('StudentFormComponent (FR-001, FR-003, FR-005, FR-011, FR-017)', () => 
     component = fixture.componentInstance;
     element = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
+  });
+
+  it('FR-007: has no Brought forward section when registering a student', () => {
+    expect(element.querySelector('[data-testid="brought-forward-section"]')).toBeNull();
   });
 
   it('does not save while required fields are empty and shows what is missing', () => {

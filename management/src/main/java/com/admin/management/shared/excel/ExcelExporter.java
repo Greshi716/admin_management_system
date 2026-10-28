@@ -105,14 +105,34 @@ public class ExcelExporter {
 			cell.setCellStyle(styles.dateTime);
 		}
 		else if (value instanceof BigDecimal exact) {
-			// Written as text so no amount ever passes through a double (constitution Principle I).
-			cell.setCellValue(exact.toPlainString());
+			writeMoney(cell, exact, styles);
 		}
 		else if (value instanceof Integer || value instanceof Long || value instanceof Short) {
 			cell.setCellValue(((Number) value).longValue());
 		}
+		else if (value instanceof Number number) {
+			cell.setCellValue(number.doubleValue());
+		}
 		else {
 			cell.setCellValue(value.toString());
+		}
+	}
+
+	/**
+	 * An amount is a numeric cell with the format 0.00, so the admin can sum it. A numeric cell holds a double, which
+	 * Excel itself uses for every number, so the value goes through a double once, here. That is allowed only when it
+	 * costs nothing (constitution Principle I): at most two decimals and the double reads back as the same amount.
+	 * Every NUMERIC(12,2) value qualifies (at most 12 digits); anything else keeps the exact text.
+	 */
+	private void writeMoney(Cell cell, BigDecimal amount, Styles styles) {
+		double asDouble = amount.doubleValue();
+		boolean exact = amount.stripTrailingZeros().scale() <= 2 && BigDecimal.valueOf(asDouble).compareTo(amount) == 0;
+		if (exact) {
+			cell.setCellValue(asDouble);
+			cell.setCellStyle(styles.money);
+		}
+		else {
+			cell.setCellValue(amount.toPlainString());
 		}
 	}
 
@@ -130,6 +150,8 @@ public class ExcelExporter {
 
 		final CellStyle dateTime;
 
+		final CellStyle money;
+
 		Styles(SXSSFWorkbook workbook) {
 			CreationHelper helper = workbook.getCreationHelper();
 			Font bold = workbook.createFont();
@@ -140,6 +162,8 @@ public class ExcelExporter {
 			date.setDataFormat(helper.createDataFormat().getFormat("dd-mm-yyyy"));
 			dateTime = workbook.createCellStyle();
 			dateTime.setDataFormat(helper.createDataFormat().getFormat("dd-mm-yyyy hh:mm"));
+			money = workbook.createCellStyle();
+			money.setDataFormat(helper.createDataFormat().getFormat("0.00"));
 		}
 
 	}

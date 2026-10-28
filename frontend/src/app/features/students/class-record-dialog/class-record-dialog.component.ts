@@ -8,6 +8,8 @@ import { StaleField, StaleVersionDialogComponent } from '../../../shared/forms/s
 import { DialogComponent } from '../../../shared/ui/dialog.component';
 import { Enrollment, PickLists, StudentsService } from '../students.service';
 
+const FEE_STRUCTURE_FINALISED = 'FEE_STRUCTURE_FINALISED';
+
 /**
  * Changes the standard, division and category of one year's class record (FR-006). The choices are those of that
  * record's own academic year; a value the record already holds stays in the list even when it is inactive. A save
@@ -25,6 +27,11 @@ import { Enrollment, PickLists, StudentsService } from '../students.service';
     >
       @if (lists(); as pick) {
         <form [formGroup]="form" (ngSubmit)="save()" novalidate class="grid gap-3">
+          @if (locked()) {
+            <p class="m-0 rounded-card bg-warning-bg p-3 text-sm text-warning-text" role="status" data-testid="fee-lock-notice">
+              {{ lockMessage }}
+            </p>
+          }
           <div>
             <label class="mb-1 block text-sm font-semibold" for="crStandard">Standard *</label>
             <select id="crStandard" class="input w-full" formControlName="standardId">
@@ -91,7 +98,11 @@ export class ClassRecordDialogComponent {
     { field: 'stdDiv', label: 'Std / Div' },
     { field: 'categoryName', label: 'Category' },
   ];
+  protected readonly lockMessage =
+    'The fee structure for this year is finalised, so the standard and category cannot be changed. The division can.';
   protected readonly busy = signal(false);
+  /** Standard and category are fixed because the year's fee structure is finalised (F2 FR-008). */
+  protected readonly locked = signal(false);
   protected readonly lists = signal<PickLists | null>(null);
   protected readonly stale = signal<Record<string, unknown> | null>(null);
   private readonly chosenStandard = signal<number | null>(null);
@@ -155,6 +166,11 @@ export class ClassRecordDialogComponent {
             this.stale.set((problemOf(error.error)?.current ?? {}) as Record<string, unknown>);
             return;
           }
+          if (error instanceof HttpErrorResponse && problemOf(error.error)?.code === FEE_STRUCTURE_FINALISED) {
+            // The year was finalised after the dialog opened: fix standard and category as for a locked record.
+            this.lock(record);
+            return;
+          }
           const unmatched = applyFieldErrors(this.form, error);
           if (unmatched.length > 0) {
             this.toast.error(unmatched.map((e) => e.message).join(' '));
@@ -178,11 +194,27 @@ export class ClassRecordDialogComponent {
     this.stale.set(null);
   }
 
+  /** Puts standard and category back to the record's values and disables them; the division stays editable. */
+  private lock(record: Enrollment): void {
+    this.chosenStandard.set(record.standardId);
+    this.form.controls.standardId.setValue(record.standardId);
+    this.form.controls.categoryId.setValue(record.categoryId);
+    this.form.controls.standardId.disable();
+    this.form.controls.categoryId.disable();
+    this.locked.set(true);
+  }
+
   private open(record: Enrollment): void {
     this.version = record.version;
     this.stale.set(null);
     this.chosenStandard.set(record.standardId);
     this.form.reset({ standardId: record.standardId, divisionId: record.divisionId, categoryId: record.categoryId });
+    this.locked.set(false);
+    this.form.controls.standardId.enable();
+    this.form.controls.categoryId.enable();
+    if (record.feeLocked) {
+      this.lock(record);
+    }
     this.students.pickLists(record.academicYearId, this.studentId()).subscribe({
       next: (lists) => this.lists.set(lists),
       error: () => this.closed.emit(), // the error interceptor has shown the reason

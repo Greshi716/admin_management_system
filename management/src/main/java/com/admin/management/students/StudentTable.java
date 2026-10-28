@@ -78,6 +78,9 @@ final class StudentTable {
 				ColumnDef.<Student>text("category", "Category").expression(nameOf(categoryId, categoryNames)::build)
 					.searchable(false),
 				ColumnDef.<Student>text("status", "Status").searchable(false),
+				ColumnDef.<Student>number("totalFee", "Total fee").expression(totalFee(currentYearId)),
+				ColumnDef.<Student>text("feeState", "Fee state").expression(feeState(currentYearId))
+					.searchable(false).asHidden(),
 				ColumnDef.<Student>number("standardId", "Standard id").expression(standardId).asInternal(),
 				ColumnDef.<Student>number("divisionId", "Division id").expression(divisionId).asInternal(),
 				ColumnDef.<Student>number("categoryId", "Category id").expression(categoryId).asInternal(),
@@ -121,6 +124,31 @@ final class StudentTable {
 	private static ExpressionFactory<Student> record(String column, Long currentYearId) {
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(SHOWN_RECORD.formatted(column), Long.class,
 				root.get("id"), cb.literal(currentYearId));
+	}
+
+	/**
+	 * Yearly fee plus registration fee of the shown record's fee account; null when it has no account or no amount
+	 * (F2 FR-010). This is the one place the students module reads the fees module's table (constitution VII 1.1.0,
+	 * plan Complexity Tracking); a summary column was not needed (research R9).
+	 */
+	private static ExpressionFactory<Student> totalFee(Long currentYearId) {
+		String sql = "(select a.amount + coalesce(a.registration_fee, 0) from fee_accounts a where a.enrollment_id = "
+				+ SHOWN_RECORD.formatted("id") + ")";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"),
+				cb.literal(currentYearId));
+	}
+
+	/**
+	 * Text for the student's fee when there is no amount to show: "Not finalised" when the shown record has no fee
+	 * account yet, "Fee not set" when it has an account without an amount; null when the fee is set (owner decision
+	 * 2026-10-28, FR-010).
+	 */
+	private static ExpressionFactory<Student> feeState(Long currentYearId) {
+		String sql = "(select case when a.enrollment_id is null then 'Not finalised' when a.amount is null then "
+				+ "'Fee not set' end from (select " + SHOWN_RECORD.formatted("id")
+				+ " as id) s left join fee_accounts a on a.enrollment_id = s.id)";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, String.class, root.get("id"),
+				cb.literal(currentYearId));
 	}
 
 	@FunctionalInterface

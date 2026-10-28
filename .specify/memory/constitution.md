@@ -44,6 +44,10 @@ module (students, academic-year, leaving certificate, fees, staff, leave, payrol
 audit, admin setup). A module MUST be used by other modules only through its public API
 package; direct access to another module's internals or tables is prohibited. Cross-module
 dependencies MUST be acyclic. No microservices or cloud dependencies.
+One narrow exception: a list screen MAY read another module's table with a read-only query to show a
+column that must be sorted, filtered and exported with the page (for example the student list's Total
+fee, the audit log's user name). Each such read MUST be named in the feature plan's Complexity Tracking
+and recorded in the decision log; it MUST NOT write, and MUST NOT create a dependency cycle.
 
 ### VIII. Every Requirement Is Tested
 Every functional requirement (FR) in a feature spec MUST have at least one automated test that
@@ -80,6 +84,12 @@ or redefined principles, MINOR for added principles or materially expanded guida
 for clarifications. All specs, plans, and reviews MUST verify compliance; unjustified
 complexity or violations block merge.
 
-**Version**: 1.0.1 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24
+**Version**: 1.1.0 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-26
 
 Amendment 1.0.1 was approved by the project owner on 2026-10-25 (decision log).
+
+Amendment 1.1.0 (MINOR) was approved by the project owner on 2026-10-26 (decision log). It adds the
+read-only list-column exception to Principle VII. Rationale: server-paged lists must sort, filter and
+export every column in SQL (F0 FR-029 to FR-033), so a column owned by another module cannot be added
+afterwards. Migration impact: none; existing code already does this once (audit user name), and F2 adds the
+Total fee column.

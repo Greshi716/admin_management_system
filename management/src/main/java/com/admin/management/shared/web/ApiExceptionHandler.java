@@ -35,17 +35,21 @@ public class ApiExceptionHandler {
 	private static final Pattern CONSTRAINT_NAME = Pattern.compile("constraint \"([^\"]+)\"");
 
 	/** Constraint name to the field it belongs to and the message shown next to it. */
-	private static final Map<String, Known> KNOWN = Map.of(
-			"uq_academic_years_name", new Known("name", "An academic year with this name already exists."),
-			"ex_academic_years_no_overlap",
-			new Known("startDate", "These dates overlap another academic year."),
-			"uq_standards_name", new Known("name", "A standard with this name already exists."),
-			"uq_divisions_year_standard_name",
-			new Known("name", "This division already exists for the year and standard."),
-			"uq_student_categories_code", new Known("code", "A category with this code already exists."),
-			"uq_users_username", new Known("username", "This username is already taken."),
-			"uq_students_gr_no_lower", new Known("grNo", "This GR No. is already used by a student."),
-			"pk_student_gr_numbers", new Known("grNo", "This GR No. is already used by a student."));
+	private static final String FEE_ROW_EXISTS = "A fee row for this standard and category already exists for this year.";
+
+	private static final Map<String, Known> KNOWN = Map.ofEntries(
+			Map.entry("uq_academic_years_name", new Known("name", "An academic year with this name already exists.")),
+			Map.entry("ex_academic_years_no_overlap",
+					new Known("startDate", "These dates overlap another academic year.")),
+			Map.entry("uq_standards_name", new Known("name", "A standard with this name already exists.")),
+			Map.entry("uq_divisions_year_standard_name",
+					new Known("name", "This division already exists for the year and standard.")),
+			Map.entry("uq_student_categories_code", new Known("code", "A category with this code already exists.")),
+			Map.entry("uq_users_username", new Known("username", "This username is already taken.")),
+			Map.entry("uq_students_gr_no_lower", new Known("grNo", "This GR No. is already used by a student.")),
+			Map.entry("pk_student_gr_numbers", new Known("grNo", "This GR No. is already used by a student.")),
+			Map.entry("uq_fee_rows_category", new Known("categoryId", FEE_ROW_EXISTS)),
+			Map.entry("uq_fee_rows_no_category", new Known("standardId", FEE_ROW_EXISTS)));
 
 	private record Known(String field, String message) {
 	}
@@ -79,6 +83,18 @@ public class ApiExceptionHandler {
 	ResponseEntity<ApiProblem> conflict(ConflictException ex) {
 		return problem(ApiProblem.of(409, "Conflict", ex.getMessage())
 			.withFieldErrors(List.of(new ApiProblem.FieldError(ex.getField(), ex.getMessage()))));
+	}
+
+	@ExceptionHandler(CodedConflictException.class)
+	ResponseEntity<ApiProblem> codedConflict(CodedConflictException ex) {
+		ApiProblem body = ApiProblem.of(409, "Conflict", ex.getMessage()).withCode(ex.getCode());
+		if (ex.getField() != null) {
+			body = body.withFieldErrors(List.of(new ApiProblem.FieldError(ex.getField(), ex.getMessage())));
+		}
+		if (ex.getCurrent() != null) {
+			body = body.withCurrent(ex.getCurrent());
+		}
+		return problem(body);
 	}
 
 	@ExceptionHandler(ConstraintViolationException.class)

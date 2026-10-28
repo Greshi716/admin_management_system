@@ -70,6 +70,52 @@
     </section>
   </div>
 
+  <section class="mt-4 rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="fees" data-testid="fees-block">
+    <h2 id="fees" class="m-0 mb-3 text-lg font-bold">Fees</h2>
+    @if (fees(); as f) {
+      @if (f.yearName) {
+        <p class="mb-3 mt-0 text-sm text-muted" data-testid="fees-year">{{ f.yearName }}</p>
+      }
+      <dl class="m-0 grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
+        @switch (f.state) {
+          @case ('FEE_SET') {
+            <dt class="text-muted">Yearly fee</dt>
+            <dd class="m-0" data-testid="fee-year-fee">{{ money(f.yearFee) }}</dd>
+            @if (f.registrationFee !== null) {
+              <dt class="text-muted">Registration fee</dt>
+              <dd class="m-0" data-testid="fee-registration">{{ money(f.registrationFee) }}</dd>
+            }
+            <dt class="text-muted">Total fee</dt>
+            <dd class="m-0 font-semibold" data-testid="fee-total">{{ money(f.totalFee) }}</dd>
+            <dt class="text-muted">Due date</dt>
+            <dd class="m-0" data-testid="fee-due-date">{{ formatCell(f.dueDate, 'date') }}</dd>
+          }
+          @case ('FEE_NOT_SET') {
+            <dt class="text-muted">Yearly fee</dt>
+            <dd class="m-0" data-testid="fee-state">Fee not set</dd>
+          }
+          @default {
+            <dt class="text-muted">Yearly fee</dt>
+            <dd class="m-0" data-testid="fee-state">Fee structure not finalised</dd>
+          }
+        }
+        <dt class="text-muted">Brought forward</dt>
+        <dd class="m-0" data-testid="fee-brought-forward">
+          {{ money(f.broughtForward.amount) }}
+          @if (f.broughtForward.note) {
+            <span class="block text-muted" data-testid="fee-brought-forward-note">{{ f.broughtForward.note }}</span>
+          }
+        </dd>
+        <dt class="text-muted">Total due</dt>
+        <dd class="m-0 font-semibold" data-testid="fee-total-due">{{ money(f.totalDue) }}</dd>
+      </dl>
+    } @else if (feesFailed()) {
+      <p class="m-0 text-sm text-danger" role="alert" data-testid="fees-error">The fees could not be loaded.</p>
+    } @else {
+      <p class="m-0 text-sm text-muted" data-testid="fees-loading">Loading the fees…</p>
+    }
+  </section>
+
   <section class="mt-4 rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="classes">
     <h2 id="classes" class="m-0 mb-3 text-lg font-bold">Class history</h2>
     <div class="overflow-x-auto">

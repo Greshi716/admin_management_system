@@ -1,0 +1,187 @@
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="m-0 text-3xl font-bold tracking-tight">Fee structure</h1>
+    <p class="mt-1 text-muted">
+      The yearly fee, registration fee and due date for each standard and category. Finalise to give every student a fee.
+    </p>
+  </div>
+</div>
+
+@if (loadFailed()) {
+  <p class="rounded-card border border-border bg-surface p-5 text-error-text" role="alert">
+    The fee structure could not be loaded. Reload the page and try again.
+  </p>
+} @else if (structure(); as current) {
+  <section class="rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="fee-card-title">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 id="fee-card-title" class="m-0 text-xl font-bold" data-testid="fee-card-title">
+          Fee structure for {{ current.yearName }}
+        </h2>
+        <span
+          class="rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-text"
+          data-testid="fee-status"
+          >{{ current.status }}</span
+        >
+      </div>
+      <label class="flex items-center gap-2 text-sm font-semibold">
+        Academic year
+        <select class="input" aria-label="Academic year" (change)="onYearPicked($event)">
+          @for (year of years(); track year.id) {
+            <option [value]="year.id" [selected]="year.id === yearId()">{{ year.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (revising()) {
+      <div class="mb-4 rounded-card bg-warning-bg p-4 text-warning-text" role="status" data-testid="revise-notice">
+        <p class="m-0 font-bold">This year is being revised.</p>
+        <p class="mb-0 mt-1">
+          Each change asks you to confirm and then recalculates every student's fee for the year.
+        </p>
+      </div>
+    } @else if (isFinalised()) {
+      <p class="mb-4 mt-0 text-muted" data-testid="finalised-note">
+        This structure is finalised. {{ current.studentCount }} class records of the year have a fee from it.
+      </p>
+    }
+
+    <div class="relative overflow-x-auto" data-testid="fee-table-scroll">
+      <table class="w-full min-w-[56rem] border-collapse text-left">
+        <thead>
+          <tr class="border-b border-border text-sm text-muted">
+            <th class="px-2 py-2 font-semibold">Standard</th>
+            <th class="px-2 py-2 font-semibold">Category</th>
+            <th class="px-2 py-2 text-right font-semibold">Yearly fee</th>
+            <th class="px-2 py-2 text-right font-semibold">Registration fee</th>
+            <th class="px-2 py-2 font-semibold">Due date</th>
+            <th class="px-2 py-2 font-semibold"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (editor of editors(); track $index; let index = $index) {
+            @if (!editable()) {
+              <tr class="border-b border-border" data-testid="fee-row">
+                <td class="px-2 py-3">{{ current.rows[index]?.standardName }}</td>
+                <td class="px-2 py-3">{{ current.rows[index]?.categoryName }}</td>
+                <td class="px-2 py-3 text-right tabular-nums">{{ money(current.rows[index]?.amount) }}</td>
+                <td class="px-2 py-3 text-right tabular-nums">{{ money(current.rows[index]?.registrationFee) }}</td>
+                <td class="px-2 py-3">{{ formatDate(current.rows[index]?.dueDate) }}</td>
+                <td class="px-2 py-3"></td>
+              </tr>
+            } @else {
+              <tr class="border-b border-border align-top" data-testid="fee-row" [formGroup]="editor.form">
+                <td class="px-2 py-2">
+                  <select class="input w-full" formControlName="standardId" aria-label="Standard" [attr.data-testid]="'standard-' + index">
+                    <option [ngValue]="null">Choose…</option>
+                    @for (standard of choices().standards; track standard.id) {
+                      @if (standard.active || standard.id === editor.form.controls.standardId.value) {
+                        <option [ngValue]="standard.id">{{ standard.name }}</option>
+                      }
+                    }
+                  </select>
+                  @if (serverMessage(editor.form.controls.standardId); as message) {
+                    <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+                  }
+                </td>
+                <td class="px-2 py-2">
+                  <select class="input w-full" formControlName="categoryId" aria-label="Category">
+                    <option [ngValue]="null">All categories</option>
+                    @for (category of choices().categories; track category.id) {
+                      @if (category.active || category.id === editor.form.controls.categoryId.value) {
+                        <option [ngValue]="category.id">{{ category.name }}</option>
+                      }
+                    }
+                  </select>
+                  @if (serverMessage(editor.form.controls.categoryId); as message) {
+                    <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+                  }
+                </td>
+                <td class="px-2 py-2">
+                  <input class="input w-full text-right" inputmode="decimal" formControlName="amount" aria-label="Yearly fee" autocomplete="off" />
+                  @if (serverMessage(editor.form.controls.amount); as message) {
+                    <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+                  }
+                </td>
+                <td class="px-2 py-2">
+                  <input class="input w-full text-right" inputmode="decimal" formControlName="registrationFee" aria-label="Registration fee" autocomplete="off" />
+                  @if (serverMessage(editor.form.controls.registrationFee); as message) {
+                    <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+                  }
+                </td>
+                <td class="px-2 py-2">
+                  <input class="input w-full" type="date" formControlName="dueDate" aria-label="Due date" />
+                  @if (serverMessage(editor.form.controls.dueDate); as message) {
+                    <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+                  }
+                </td>
+                <td class="whitespace-nowrap px-2 py-2">
+                  <button type="button" class="btn btn-primary btn-sm" [class.btn-loading]="editor.busy" [disabled]="editor.busy" (click)="save(editor)">Save row</button>
+                  <button type="button" class="btn btn-danger btn-outlined btn-sm ml-2" (click)="askDelete(editor)">Delete</button>
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr>
+              <td colspan="6" class="px-2 py-6 text-center text-muted">No fee rows yet. Add the first row.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (finaliseError(); as message) {
+      <p class="mb-0 mt-4 text-error-text" role="alert" data-testid="finalise-error">{{ message }}</p>
+    }
+
+    <div class="mt-4 flex flex-wrap justify-between gap-3">
+      @if (!isFinalised()) {
+        <button type="button" class="btn btn-secondary" (click)="addRow()">Add row</button>
+        <button type="button" class="btn btn-primary" (click)="askFinalise()">Finalise</button>
+      } @else if (revising()) {
+        <button type="button" class="btn btn-secondary" (click)="addRow()">Add row</button>
+        <button type="button" class="btn btn-secondary btn-outlined" (click)="stopRevising()">Done revising</button>
+      } @else {
+        <button type="button" class="btn btn-primary" (click)="startRevising()">Revise</button>
+      }
+    </div>
+  </section>
+}
+
+<app-dialog
+  header="Finalise the fee structure"
+  [visible]="finalising()"
+  (visibleChange)="!$event && finalising.set(false)"
+  width="30rem"
+>
+  <p class="mb-4">
+    Finalise the fee structure for {{ structure()?.yearName }}? Every student of the year gets a fee from it.
+    After this, a row can only be changed through Revise, which recalculates every student's fee.
+  </p>
+  <div class="flex justify-end gap-2">
+    <button type="button" (click)="finalising.set(false)" class="btn btn-secondary btn-outlined">Cancel</button>
+    <button type="button" (click)="confirmFinalise()" class="btn btn-primary" [class.btn-loading]="finaliseBusy()" [disabled]="finaliseBusy()">Finalise</button>
+  </div>
+</app-dialog>
+
+<app-dialog
+  header="Delete fee row"
+  [visible]="deleting() !== null"
+  (visibleChange)="!$event && deleting.set(null)"
+  width="26rem"
+>
+  <p class="mb-4">
+    Delete the row for {{ standardName(deleting()?.form?.controls?.standardId?.value ?? null) }}? This cannot be undone.
+  </p>
+  <div class="flex justify-end gap-2">
+    <button type="button" (click)="deleting.set(null)" class="btn btn-secondary btn-outlined">Cancel</button>
+    <button type="button" (click)="confirmDelete()" class="btn btn-danger" [class.btn-loading]="deleteBusy()" [disabled]="deleteBusy()">Delete</button>
+  </div>
+</app-dialog>
+
+<app-revise-dialog
+  [studentCount]="reviseAsk()?.studentCount ?? null"
+  (confirmed)="confirmRevise()"
+  (cancelled)="cancelRevise()"
+/>

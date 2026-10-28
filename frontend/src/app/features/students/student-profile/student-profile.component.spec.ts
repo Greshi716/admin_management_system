@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
+import { FeesService, StudentFees } from '../../fees/fees.service';
 import { HistoryResult, Student, StudentsService } from '../students.service';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { StudentProfileComponent } from './student-profile.component';
@@ -41,6 +42,7 @@ const STUDENT: Student = {
       categoryId: 1,
       categoryName: 'General',
       yearStatus: 'Studying',
+      feeLocked: false,
     },
     {
       version: 0,
@@ -52,6 +54,7 @@ const STUDENT: Student = {
       categoryId: 1,
       categoryName: 'General',
       yearStatus: 'Promoted',
+      feeLocked: false,
     },
   ],
 };
@@ -76,12 +79,30 @@ const HISTORY: HistoryResult = {
   truncated: false,
 };
 
+const FEES_SET: StudentFees = {
+  yearId: 2,
+  yearName: '2026-27',
+  state: 'FEE_SET',
+  yearFee: 28000,
+  registrationFee: 500,
+  totalFee: 28500,
+  dueDate: '2026-07-15',
+  broughtForward: { version: 1, amount: 2500, note: 'Test note' },
+  totalDue: 31000,
+};
+
 describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
   let fixture: ComponentFixture<StudentProfileComponent>;
   let element: HTMLElement;
   let service: { get: ReturnType<typeof vi.fn>; history: ReturnType<typeof vi.fn>; markLeft: ReturnType<typeof vi.fn> };
 
-  function create(history: HistoryResult = HISTORY, student: unknown = of(STUDENT), currentYear: string | null = null): void {
+  function create(
+    history: HistoryResult = HISTORY,
+    student: unknown = of(STUDENT),
+    currentYear: string | null = null,
+    fees: StudentFees = FEES_SET,
+    feesResult: unknown = of(fees),
+  ): void {
     service = {
       get: vi.fn().mockReturnValue(student),
       history: vi.fn().mockReturnValue(of(history)),
@@ -91,6 +112,7 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
       providers: [
         provideRouter([]),
         { provide: StudentsService, useValue: service },
+        { provide: FeesService, useValue: { studentFees: vi.fn().mockReturnValue(feesResult) } },
         { provide: AuthStore, useValue: { currentYear: () => currentYear } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } } },
       ],
@@ -176,13 +198,68 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     expect(back?.getAttribute('href')).toBe('/students');
   });
 
-  it('has no fee, receipt, Collect fee, leaving certificate or roll number items', () => {
+  it('has no receipt, Collect fee, paid, pending, leaving certificate or roll number items', () => {
     create();
     const text = (element.textContent ?? '').toLowerCase();
 
-    for (const word of ['fee', 'receipt', 'collect', 'leaving certificate', 'roll']) {
+    for (const word of ['receipt', 'collect', 'paid', 'pending', 'leaving certificate', 'roll']) {
       expect(text).not.toContain(word);
     }
+  });
+
+  describe('Fees block (FR-005, FR-009, FR-011)', () => {
+    const text = (id: string) => element.querySelector(`[data-testid="${id}"]`)?.textContent?.trim();
+
+    it('shows the fee, registration fee, total, due date, brought forward with its note and the total due', () => {
+      create();
+
+      expect(text('fee-year-fee')).toBe('28,000.00');
+      expect(text('fee-registration')).toBe('500.00');
+      expect(text('fee-total')).toBe('28,500.00');
+      expect(text('fee-due-date')).toBe('15-07-2026');
+      expect(text('fee-brought-forward')).toContain('2,500.00');
+      expect(text('fee-brought-forward-note')).toBe('Test note');
+      expect(text('fee-total-due')).toBe('31,000.00');
+    });
+
+    it('leaves out the registration fee when there is none', () => {
+      create(HISTORY, of(STUDENT), null, { ...FEES_SET, registrationFee: null, totalFee: 28000, totalDue: 30500 });
+
+      expect(element.querySelector('[data-testid="fee-registration"]')).toBeNull();
+      expect(text('fee-total')).toBe('28,000.00');
+    });
+
+    it('says Fee not set and still shows the brought-forward amount', () => {
+      create(HISTORY, of(STUDENT), null, {
+        ...FEES_SET,
+        state: 'FEE_NOT_SET',
+        yearFee: null,
+        registrationFee: null,
+        totalFee: null,
+        dueDate: null,
+        totalDue: 2500,
+      });
+
+      expect(text('fee-state')).toBe('Fee not set');
+      expect(text('fee-brought-forward')).toContain('2,500.00');
+      expect(text('fee-total-due')).toBe('2,500.00');
+    });
+
+    it('says Fee structure not finalised when the year has no accounts yet', () => {
+      create(HISTORY, of(STUDENT), null, {
+        ...FEES_SET,
+        state: 'NOT_FINALISED',
+        yearFee: null,
+        registrationFee: null,
+        totalFee: null,
+        dueDate: null,
+        broughtForward: { version: null, amount: 0, note: null },
+        totalDue: 0,
+      });
+
+      expect(text('fee-state')).toBe('Fee structure not finalised');
+      expect(text('fee-total-due')).toBe('0.00');
+    });
   });
 
   it('says so when the student cannot be loaded', () => {
@@ -233,6 +310,19 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     fixture.detectChanges();
 
     expect(element.querySelector('[data-testid="latest-values"]')).not.toBeNull();
+  });
+
+  it('says the fees could not be loaded when the Fees block fails (FR-009)', () => {
+    create(HISTORY, of(STUDENT), null, FEES_SET, throwError(() => new Error('down')));
+
+    expect(element.querySelector('[data-testid="fees-error"]')?.textContent).toContain('could not be loaded');
+    expect(element.querySelector('[data-testid="fee-total-due"]')).toBeNull();
+  });
+
+  it('shows a loading line until the Fees block arrives (FR-009)', () => {
+    create(HISTORY, of(STUDENT), null, FEES_SET, NEVER);
+
+    expect(element.querySelector('[data-testid="fees-loading"]')).not.toBeNull();
   });
 
   it('has a Change button on every class record row (FR-006)', () => {

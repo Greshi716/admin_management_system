@@ -32,6 +32,8 @@
           [surname]="text(row, 'surname')"
           [firstName]="text(row, 'firstName')"
         />
+      } @else if (column.field === 'totalFee') {
+        <span data-testid="total-fee" class="tabular-nums">{{ feeText(row) }}</span>
       } @else {
         {{ text(row, 'stdDiv') }}
         @if (yearNote(row); as year) {
