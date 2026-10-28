@@ -230,6 +230,44 @@
       <a class="btn btn-secondary btn-outlined" [routerLink]="editId() === null ? ['/students'] : ['/students', editId()]">Cancel</a>
     </div>
   </form>
+
+  @if (editId() !== null) {
+    <section
+      class="mt-6 rounded-card border border-border bg-surface p-5 shadow-sm"
+      aria-labelledby="brought-forward"
+      data-testid="brought-forward-section"
+    >
+      <h2 id="brought-forward" class="m-0 text-lg font-bold">Brought forward</h2>
+      <p class="mb-4 mt-1 text-sm text-muted">
+        Fees still due from earlier years. It is saved on its own and is added to the total due on the profile.
+      </p>
+      <form [formGroup]="broughtForward" (ngSubmit)="saveBroughtForward()" class="grid gap-4 sm:grid-cols-2" novalidate>
+        <div>
+          <label class="mb-1 block text-sm font-semibold" for="bfAmount">Amount brought forward</label>
+          <input id="bfAmount" class="input w-full text-right" inputmode="decimal" autocomplete="off" formControlName="amount" />
+          @if (serverMessage(broughtForward.controls.amount); as server) {
+            <p class="mt-1 text-sm text-error-text" role="alert">{{ server }}</p>
+          }
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-semibold" for="bfNote">Note</label>
+          <input id="bfNote" class="input w-full" autocomplete="off" formControlName="note" />
+          <p class="mt-1 text-sm text-muted">A short reason, at most {{ noteMax }} characters.</p>
+          @if (serverMessage(broughtForward.controls.note); as server) {
+            <p class="mt-1 text-sm text-error-text" role="alert">{{ server }}</p>
+          }
+        </div>
+        <div class="flex flex-wrap gap-2 sm:col-span-2">
+          <button type="submit" class="btn btn-primary" [class.btn-loading]="broughtForwardBusy()" [disabled]="broughtForwardBusy() || !broughtForwardReady()">
+            Save brought forward
+          </button>
+          <button type="button" class="btn btn-secondary btn-outlined" [disabled]="broughtForwardBusy() || !broughtForwardReady()" (click)="clearBroughtForward()">
+            Clear
+          </button>
+        </div>
+      </form>
+    </section>
+  }
 }
 
 <app-stale-version-dialog [latest]="stale()" [fields]="staleFields" (useLatest)="useLatest()" (keepMine)="keepMine()" />

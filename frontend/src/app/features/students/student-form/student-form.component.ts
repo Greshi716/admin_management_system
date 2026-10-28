@@ -8,8 +8,10 @@ import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../../shared/forms/api-error';
 import { StaleField, StaleVersionDialogComponent } from '../../../shared/forms/stale-version-dialog.component';
+import { formatMoney, parseMoney } from '../../../shared/ui/money';
 import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
 import { PhotoUploadComponent } from '../../../shared/ui/photo-upload.component';
+import { BroughtForward, FeesService } from '../../fees/fees.service';
 import { NameMatch, PickLists, StudentInput, StudentsService } from '../students.service';
 
 type Gender = 'Male' | 'Female' | 'Other' | '';
@@ -36,6 +38,7 @@ type Gender = 'Male' | 'Female' | 'Other' | '';
 })
 export class StudentFormComponent implements OnInit {
   private readonly students = inject(StudentsService);
+  private readonly feeService = inject(FeesService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -66,6 +69,18 @@ export class StudentFormComponent implements OnInit {
     { field: 'status', label: 'Status' },
   ];
   private version = 0;
+
+  /** Edit mode: the amount brought forward from earlier years, saved on its own (F2 FR-007). */
+  protected readonly broughtForward = new FormGroup({
+    amount: new FormControl('0.00', { nonNullable: true }),
+    note: new FormControl('', { nonNullable: true }),
+  });
+  protected readonly broughtForwardBusy = signal(false);
+  /** False until the saved amount has arrived, so a late answer cannot overwrite what the admin typed. */
+  protected readonly broughtForwardReady = signal(false);
+  protected readonly noteMax = 200;
+  protected readonly money = formatMoney;
+  private broughtForwardVersion: number | null = null;
   /** The message after "Save and add next", naming the student just saved. */
   protected readonly lastSaved = signal<string | null>(null);
 
@@ -147,9 +162,68 @@ export class StudentFormComponent implements OnInit {
         this.savedPhotoUrl.set(profile.photoVersion === null ? null : this.students.photoUrl(id, profile.photoVersion));
         this.fill(values);
         this.loading.set(false);
+        this.loadBroughtForward(id);
       },
       error: () => this.loading.set(false), // the error interceptor has shown the reason
     });
+  }
+
+  private loadBroughtForward(id: number): void {
+    this.broughtForward.disable();
+    this.feeService.studentFees(id).subscribe({
+      next: (fees) => {
+        this.fillBroughtForward(fees.broughtForward);
+        this.broughtForward.enable();
+        this.broughtForwardReady.set(true);
+      },
+      // The error interceptor has shown the reason. The section stays closed: saving 0 over an unknown amount is worse.
+      error: () => undefined,
+    });
+  }
+
+  private fillBroughtForward(value: BroughtForward): void {
+    this.broughtForwardVersion = value.version;
+    this.broughtForward.reset({ amount: formatMoney(value.amount).replace(/,/g, ''), note: value.note ?? '' });
+  }
+
+  /** Saves the brought-forward amount and note on their own; the rest of the form is not touched (F2 FR-007). */
+  protected saveBroughtForward(): void {
+    const id = this.editId();
+    if (id === null || this.broughtForwardBusy()) {
+      return;
+    }
+    const { amount, note } = this.broughtForward.getRawValue();
+    const value = parseMoney(amount);
+    if (value !== null && Number.isNaN(value)) {
+      this.broughtForward.controls.amount.setErrors({ server: 'Enter the amount as a number, for example 2500.00.' });
+      this.broughtForward.markAllAsTouched();
+      return;
+    }
+    this.broughtForwardBusy.set(true);
+    this.feeService
+      .saveBroughtForward(id, { version: this.broughtForwardVersion, amount: value as number, note: note.trim() === '' ? null : note })
+      .subscribe({
+        next: (saved) => {
+          this.broughtForwardBusy.set(false);
+          this.fillBroughtForward(saved);
+          this.toast.success('The brought-forward amount was saved.');
+        },
+        error: (error: unknown) => {
+          this.broughtForwardBusy.set(false);
+          if (error instanceof HttpErrorResponse && problemOf(error.error)?.code === STALE_VERSION) {
+            // Someone saved it first: show the latest values; the interceptor has said so in a toast.
+            this.fillBroughtForward(problemOf(error.error)?.current as BroughtForward);
+            return;
+          }
+          applyFieldErrors(this.broughtForward, error);
+        },
+      });
+  }
+
+  /** Clear saves 0 and no note; the row is kept, as the audit log must show what was brought forward. */
+  protected clearBroughtForward(): void {
+    this.broughtForward.setValue({ amount: '0', note: '' });
+    this.saveBroughtForward();
   }
 
   private fill(values: StudentInput): void {

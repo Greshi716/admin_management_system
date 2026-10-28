@@ -6,7 +6,7 @@ import { ToastService } from '../../core/toast/toast.service';
 import { applyFieldErrors, serverMessage } from '../../shared/forms/api-error';
 import { DialogComponent } from '../../shared/ui/dialog.component';
 import { formatCell } from '../../shared/table/format-cell';
-import { formatMoney } from '../../shared/ui/money';
+import { formatMoney, parseMoney } from '../../shared/ui/money';
 import {
   FeeChoices,
   FeeRow,
@@ -37,12 +37,6 @@ export interface RowEditor {
     registrationFee: FormControl<string>;
     dueDate: FormControl<string>;
   }>;
-}
-
-/** A money box is typed text; the server checks it. A blank box is no value, anything that is not a number is flagged. */
-function moneyOf(text: string): number | null | typeof Number.NaN {
-  const cleaned = text.replace(/[,\s]/g, '');
-  return cleaned === '' ? null : Number(cleaned);
 }
 
 /**
@@ -301,8 +295,8 @@ export class FeeStructureComponent implements OnInit {
   /** The request for a row, or null (with the message beside the field) when a money box does not hold a number. */
   private inputOf(editor: RowEditor, structure: FeeStructure): FeeRowInput | null {
     const { standardId, categoryId, amount, registrationFee, dueDate } = editor.form.getRawValue();
-    const amountValue = moneyOf(amount);
-    const registrationValue = moneyOf(registrationFee);
+    const amountValue = parseMoney(amount);
+    const registrationValue = parseMoney(registrationFee);
     let valid = true;
     if (Number.isNaN(amountValue)) {
       editor.form.controls.amount.setErrors({ server: 'Enter the amount as a number, for example 36000.00.' });
