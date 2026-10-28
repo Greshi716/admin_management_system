@@ -158,6 +158,23 @@ class BroughtForwardIT extends IntegrationTest {
 	}
 
 	@Test
+	void anAmountBeyondTenDigitsBeforeTheDecimalPointIsRefusedBesideTheField() throws Exception {
+		Setup setup = setup("BfHuge", 3512);
+		long student = studentIn(setup, 351201, 0);
+		SignedInClient client = SignedInClient.of(mvc);
+
+		client.put(url(student), body(null, "10000000000.00", null))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("amount"))
+			.andExpect(jsonPath("$.fieldErrors[0].message").value(containsString("too large")));
+		assertThat(jdbc.queryForObject("select count(*) from fee_brought_forward where student_id = ?", Integer.class,
+				student)).isZero();
+		assertThat(auditActions(student)).isEmpty();
+
+		client.put(url(student), body(null, "9999999999.99", null)).andExpect(status().isOk());
+	}
+
+	@Test
 	void aNoteOf200CharactersIsAcceptedAndOneOf201IsRefused() throws Exception {
 		Setup setup = setup("BfLen", 3505);
 		long student = studentIn(setup, 350501, 0);

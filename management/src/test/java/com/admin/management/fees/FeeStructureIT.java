@@ -181,6 +181,24 @@ class FeeStructureIT extends IntegrationTest {
 	}
 
 	@Test
+	void anAmountBeyondTenDigitsBeforeTheDecimalPointIsRefusedBesideTheField() throws Exception {
+		Setup setup = FeeTestData.year(jdbc, "RowHuge", LocalDate.of(3115, 4, 1), 1);
+		SignedInClient client = SignedInClient.of(mvc);
+
+		add(client, setup, null, setup.standard(0), null, "10000000000.00")
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("amount"))
+			.andExpect(jsonPath("$.fieldErrors[0].message").value(containsString("too large")));
+		client.post("/api/fee-structures/" + setup.yearId() + "/rows",
+				body(null, null, setup.standard(0), null, "1000", "10000000000", null))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("registrationFee"));
+		assertThat(count("select count(*) from fee_rows where academic_year_id = ?", setup.yearId())).isZero();
+
+		add(client, setup, null, setup.standard(0), null, "9999999999.99").andExpect(status().isCreated());
+	}
+
+	@Test
 	void aMissingStandardOrAnUnknownOneIsRefused() throws Exception {
 		Setup setup = FeeTestData.year(jdbc, "RowStd", LocalDate.of(3107, 4, 1), 1);
 		SignedInClient client = SignedInClient.of(mvc);

@@ -6,6 +6,11 @@ import java.math.RoundingMode;
 /** Money is BigDecimal with exactly two decimals; a value with more decimals is refused, never rounded (FR-011). */
 final class Money {
 
+	/** NUMERIC(12,2) holds ten digits before the decimal point. */
+	static final int MAX_INTEGER_DIGITS = 10;
+
+	static final String TOO_LARGE_MESSAGE = "The amount is too large. Use at most 10 digits before the decimal point.";
+
 	private Money() {
 	}
 

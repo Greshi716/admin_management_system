@@ -265,6 +265,9 @@ class FeeStructureService {
 		else if (value.stripTrailingZeros().scale() > 2) {
 			errors.add(new FieldError(field, "Use at most two decimal places."));
 		}
+		else if (value.precision() - value.scale() > Money.MAX_INTEGER_DIGITS) {
+			errors.add(new FieldError(field, Money.TOO_LARGE_MESSAGE));
+		}
 	}
 
 	private FeeStructureDto toStructure(Long yearId) {

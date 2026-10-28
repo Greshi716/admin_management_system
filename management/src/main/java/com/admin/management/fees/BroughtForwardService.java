@@ -114,6 +114,9 @@ class BroughtForwardService {
 		else if (amount.stripTrailingZeros().scale() > 2) {
 			errors.add(new FieldError("amount", "Use at most two decimals, for example 1250.50."));
 		}
+		else if (amount.precision() - amount.scale() > Money.MAX_INTEGER_DIGITS) {
+			errors.add(new FieldError("amount", Money.TOO_LARGE_MESSAGE));
+		}
 		if (note != null && note.length() > BroughtForward.NOTE_MAX) {
 			errors.add(new FieldError("note", "The note can be at most " + BroughtForward.NOTE_MAX + " characters."));
 		}
