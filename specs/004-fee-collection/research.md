@@ -1,0 +1,165 @@
+# Research: Fee Collection and Receipts (F3)
+
+No item in the Technical Context was left as NEEDS CLARIFICATION. These are the design decisions, each with the alternatives rejected. Where the planning brief and the spec disagree, the spec was followed and the conflict is recorded here and in plan.md "Open questions".
+
+## R1. A receipt never changes: the mark is a separate record
+
+- **Decision**: table `receipts` holds the payment and has no status column. "Cheque not cleared" and the developer correction are rows in the append-only table `receipt_marks` (at most one per receipt, `UNIQUE (receipt_serial_no)`, `kind` `CHEQUE_NOT_CLEARED` or `DEVELOPER_VOID`, reason, who, when, the amount added back). A receipt is **Valid** when it has no mark. A trigger on `receipts` and `receipt_marks` raises an exception on `UPDATE`, `DELETE` and `TRUNCATE`. The JPA entity is `@Immutable`, so Hibernate never issues an update. The view `v_valid_receipts` (receipts without a mark) is the single definition of "valid" for SQL.
+- **Conflict**: the brief (item 2) puts `status`, `unclear_reason`, `unclear_by` and `unclear_at` on `receipts` and lets only those columns change. Spec FR-009, Principle II and CLAUDE.md ("Never change a finalised receipt") say the receipt row is never changed. The spec wins; the owner confirmed it on 2026-10-28. The agreement's `status` and `unclear_reason` fields are shown to the user as if they were fields of the receipt (list, view, print); the table shape differs and is recorded in the decision log and the agreement's section 11.
+- **Rationale**: the printed receipt, the audit trail and the totals can never disagree with the stored row; one guard (a trigger that refuses everything) is easier to prove than a guard that allows some columns.
+- **Alternatives**: status columns on the receipt with a column-level trigger (a mistake in the trigger allows a money change; an exception to Principle II); a `status` column updated by the application (the same, without the database guard); a signed-amount reversal row in `receipts` (a second row per receipt breaks "one row per book receipt" and the register).
+- **Checks**: the mark of a cheque is refused by the database for a Cash receipt (insert trigger); a second mark is refused by the unique constraint (and by a coded 409 before it); a test compares every column of a receipt before and after a mark, and tries `UPDATE`, `DELETE` and `TRUNCATE` through JDBC.
+
+## R2. Balances are computed from the receipts
+
+- **Decision**: paid and pending are never stored. The view `v_fee_position` (one row per fee account) holds the year fee, the registration fee and the sums of valid `fee_paid` and `registration_paid` of that class record; the view `v_earlier_pending` (one row per student with a brought-forward row) holds `fee_brought_forward.amount` minus the sum of valid previous-years `fee_paid`. `FeeBalanceService` reads the same views, so the profile, the receipt form and the Students list cannot disagree. Pending of a row is `max(due - paid, 0)`, and `excess = max(paid - due, 0)` after a revise lowers the fee (F2 FR-004).
+  - Year fee pending = account `amount` − valid `fee_paid` of the class record.
+  - Registration fee pending = account `registration_fee` − valid `registration_paid` of the class record (none when the account has no registration fee).
+  - Brought-forward pending = `fee_brought_forward.amount` − valid previous-years `fee_paid` of the student.
+- **Conflict**: the brief (item 3) recommends paid totals kept on the fee account in the same transaction and a checking test. Spec FR-016 says the balance is "always worked out from the valid receipts, never from a stored running total". The spec wins. A stored total is the kind of figure that drifts; a view cannot.
+- **Integrity test**: instead of a recompute of a stored total, an independent test rebuilds every balance in Java from the receipts and marks (plain `BigDecimal` loops) and compares it with the views and the API for a generated set of students and receipts, including marks and a revise that lowers a fee.
+- **Fallback**: if the performance spike (plan, first tasks 2c and 2d) fails, a summary table owned by `fees`, written by triggers in the same transaction as the receipt and the mark, is the fallback. That would change FR-016, so the owner is asked first (Q5).
+- **Alternatives**: a stored `paid` on `fee_accounts` (the brief; needs a spec change); a materialised view refreshed after each save (stale between save and refresh, which FR-016 forbids).
+
+## R3. Concurrency: one lock per student, a balance token for the stale screen
+
+- **Decision**: every write that depends on a student's balance (create a receipt, mark a cheque, save the brought-forward amount) first takes `pg_advisory_xact_lock(hashtextextended('student-fee:' || studentId, 0))`, which is released at the end of the transaction. Two simultaneous saves for one student are therefore serialised, the second sees the first's receipt and cannot overpay (FR-005). Two students never wait for each other.
+- **Why not a row lock**: a current-year receipt reads the fee account and the brought-forward pending, a previous-years receipt reads only the brought-forward row (which may not exist), and a mark reads either. No single row exists for every case, and the order of two row locks has to be the same everywhere. One advisory lock per student is the same in every path.
+- **Balance token (FEE-03)**: the context response carries `balanceVersion`, an opaque string built from the student's receipt count, mark count, the fee account's `updated_at` and the brought-forward row's `version` (for example `r3.m0.a1730113800123456.b2`). It is not a money total; it changes whenever a receipt, a mark, a revise or a brought-forward edit changes the balance. The create and mark requests carry it; after taking the lock the server recomputes it and, when it differs, returns 409 `BALANCE_CHANGED` with the fresh context in `current`. The screen shows the Refresh pop-up and puts the new balance in place on Refresh. The check runs before any other validation, so a stale screen is always told so first (F2 FR-013 pattern).
+- **Where the screen gets the token**: the receipt view (for Mark not cleared) reads it from the `Receipt` response, which carries `studentId` and the current `balanceVersion` of that student (plan review B2); the Collect fee form reads it from `GET /students/{id}/fee-collection`.
+- **What the token is made of, and the check before relying on it (review S6)**: `fee_accounts.updated_at` signals a revise only if the F2 recalculation rewrites an account when, and only when, its values change; the first tasks check this in `FeeAccountSync` and a test proves that a revise changes the token of the affected students only. Both reads of the token come from the database in the same way, so the `Instant` precision of PostgreSQL (microseconds) does not make two reads differ.
+- **A fee revise and a receipt are not serialised (review M7)**: F2's revise locks the year's status row, a receipt takes the student lock. A revise that lowers a fee while a receipt is being saved leaves the receipt validated against the old fee; the result is "excess paid" for that student, which the spec accepts (FR-014, F2 FR-004). This is a decision, not an oversight.
+- **Alternatives**: `SELECT ... FOR UPDATE` on the account (no row for a previous-years receipt); serialisable isolation (retry logic, failures the admin cannot read); optimistic version on a stored balance row (a stored balance, R2).
+
+## R4. "Paid up to": formula, rounding, cap
+
+- **Decision** (`PaidUpTo`, a pure class):
+  - `days = yearEnd - yearStart + 1` (leap years follow from the dates; a 366-day year divides by 366).
+  - `totalPaid` = sum of the student's valid current-year `fee_paid` for the class record (`v_fee_position.paid_year_fee`). The registration fee is excluded.
+  - If `yearFee` is zero, or `totalPaid >= yearFee`: state **FULL** ("Fully paid for the year"); the date is the year's last day.
+  - Else if `totalPaid = 0`: state **NOTHING** ("Nothing paid"); no date.
+  - Else state **DATE** with `date = yearStart + (max(daysPaid, 1) - 1)`, where `daysPaid = (totalPaid * days / yearFee)` rounded to zero decimals with `RoundingMode.HALF_UP` in **one** division (`totalPaid.multiply(days).divide(yearFee, 0, HALF_UP)`). The date is the **last paid day** (owner answer, 2026-10-28), so `daysPaid` days of fee paid ends on `yearStart + daysPaid - 1`.
+- **Rounding**: the spec formula is `paid ÷ (yearFee ÷ days)`. Computing the daily fee first and then dividing again introduces a rounding error; multiplying first and dividing once gives the same value exactly, with one `HALF_UP` step as in Excel `ROUND(x, 0)` (CLAUDE.md). Examples for a 365-day year starting 1 April, fee 36,500.00: paid 10,000.00 -> 100 days -> **9 July**; paid 18,250.00 -> 182.5 -> 183 days -> **30 September**. A leap year of 366 days and fee 36,600.00: paid 18,300.00 -> 183 days exactly -> the 183rd day.
+- **Rounding decision**: the brief (item 6) said floor; the spec says `HALF_UP`. The owner chose `HALF_UP` on 2026-10-28 (Q4).
+- **Upper bound and the small-payment edge**: because the date is `start + daysPaid - 1` and `daysPaid <= days` while the year is not fully paid, the date never passes the year's last day, so no separate cap is needed (a test pins this with 99.9% paid). A fully paid year is shown as text, not as a date. A payment above zero that rounds to 0 days (less than half a day's fee) shows the start date, not "Nothing paid", so money paid is never shown as nothing paid; this edge is a display rule chosen by us and is listed for the owner to confirm (plan Q6).
+- **Where it lives (owner answer to Q4)**: "Paid up to" is **not on the receipt**. No receipt column, no print line, no register column. It is a figure of the student: the profile's Fees block and the Students list show it beside the paid and remaining fees, always worked out from the current valid receipts (after a mark, a void or a revise it changes at once). Nothing is stored, so nothing can disagree; the brief's "stored date is what was printed" no longer applies.
+- **What "continues from the previous total" means now**: the total paid is the sum of all valid current-year receipts, whatever their dates or the order they were entered (a go-live entry in the wrong order gives the right final date).
+- **SQL copy**: the Students list needs the same value in SQL. It uses `round(numeric)` (half away from zero, which is `HALF_UP` for positive values) with the year length from `MasterDataLookup.yearDatesByYear()`, and `start + (greatest(round(paid * days / fee), 1) - 1)`. A test runs the Java rule and the SQL expression over one table of cases (`.5` boundaries, leap year, zero fee, full, cap) and requires the same result.
+- **Cases in tests**: leap year, year fee zero, full payment, nothing paid with only a registration fee, partial payment of 100 days and of 182.5 days, rounding up to the cap, a cheque not cleared and a voided receipt that lower the total, a revise that raises or lowers the fee.
+
+## R5. Previous-years receipts
+
+- **Decision**: `receipt_type = PREVIOUS_YEARS`, `enrollment_id` null, `registration_paid = 0`, `academic_year_id` = the earlier year the admin picked (a label, from the years before the current one), amount in `fee_paid`, limited by the student's single brought-forward pending (R2) and no "Paid up to" (no receipt has one). The brought-forward row must exist with a pending above zero for the type to be offered; the brought-forward amount itself is never changed by a receipt (F2 FR-007), the pending falls because the receipt counts as paid.
+- **Check against F2 data**: F2 stores `fee_brought_forward (student_id, amount, note)` only. It has no year, no per-year fee and no per-year balance, so a "paid up to" date for an earlier year cannot be supported (the student's fee for that year is stored nowhere) and "limit per year" cannot be enforced. The spec (FR-004, clarify Q1) already says so: no "Paid up to" for these receipts. The plan does not invent data. Open item Q6 for the owner: if the school wants a date or a per-year limit, F2 must record per-year dues first.
+- **Order rule (clarify Q2)**: a current-year receipt is refused with `BROUGHT_FORWARD_PENDING` (and the pending in `current`) while the pending is above zero; a previous-years receipt is always allowed up to the pending.
+- **FR-025**: `BroughtForwardService.save` takes the student lock and refuses a new amount below the sum of the valid previous-years receipts, with that sum in the message. This is a change to F2 code in the same module.
+- **Alternatives**: a per-year breakdown in F2 (reopens F2, spec Q1 option C rejected by the owner); typing the year's fee on the form (option B, rejected).
+
+## R6. Amount in words
+
+- **Decision**: `AmountInWords.of(BigDecimal)`, a pure utility in `fees`. Indian grouping: crore, lakh, thousand, hundred; hyphenated tens ("Twenty-Five"); "Rupee" for 1 and "Rupees" otherwise; "Paisa" for 1 and "Paise" otherwise; ends with "Only"; zero rupees with paise reads "Fifty Paise Only"; zero is refused (a receipt total is always above zero). The largest value is 9,99,99,99,999.99 (`NUMERIC(12,2)` with the `Money.MAX_INTEGER_DIGITS` guard), read as hundreds of crore ("Nine Hundred Ninety-Nine Crore ..."). The words are stored on the receipt (FR-010) so a reprint never changes.
+- **Boundary table** (also in the tests): 0.50; 1.00; 1.01; 19.00; 20.00; 99.99; 100.00; 999.00; 1,000.00; 1,001.00; 99,999.00; 1,00,000.00; 1,25,000.50; 9,99,999.99; 10,00,000.00; 1,00,00,000.00; 12,34,56,789.05; 9,99,99,99,999.99.
+- **Alternatives**: a library (a new dependency for 60 lines of code); words in the browser (the printed words would depend on the browser).
+
+## R7. Audit entries and money fields
+
+- **Decision**: `FeesAudit` gains `receiptCreated` (action `Create`, entity `Receipt#serialNo`, the values: receipt no., student id, type, mode, registration paid, year or previous-years paid, total, cheque no. and bank when Cheque, receipt year) and `chequeNotCleared` (action `Edit`, entity `Receipt#serialNo`, reason = the typed reason, changes: status old `VALID` new `CHEQUE_NOT_CLEARED`, `amountAddedBack`, and the student's `paidUpToBefore` and `paidUpToAfter` worked out for the entry; they are not stored on the receipt). All amounts are text with two decimals, in full. The export entry is written by `TableEndpoints.export` with area `Fees` and `recordIndependent` (as F0 and F1), after the file is produced, with the filters and the row count.
+- **Masking**: the brief (item 4) asks to adjust the masking for the Fees area. `SensitiveMasker.MASKED` holds `aadhaar`, `aadhaarNumber`, `religionCaste`, `bankAccount`, `accountNumber` and nothing a receipt uses; `bankName` is not `bankAccount`. So money fields are already stored in full and no code change is needed. A test (`AuditMaskingIT` extension) asserts that every money field and the cheque fields come back unmasked for a Fees entry, so a later addition to the masked list cannot hide them silently. The rule is recorded in the decision log (closes the open item "Audit masking for money fields" for fee receipts; F5 and F8 still decide for salary).
+- **Action `Edit` for the mark**: the audit table's CHECK list has Create, Edit, Delete, Login, Export, Cancel, Finalise, Import. `Cancel` would suggest the owner's rejected cancellation; `Edit` with the reason is used, as F2 did for Revise.
+
+## R8. Printing: one layout, every print identical
+
+- **Decision**: one Angular component `receipt-print` holds the A4 layout. Print uses `window.print()` with `@page { size: A4; margin: 12mm }` and `@media print` (Tailwind `print:` variants hide the shell and the buttons); no PDF library, no server rendering. The school header comes from `campusflow.school.*` through the receipt response (the name is required, address and phone are optional and empty for now), so the sample from the school only changes this component and a property file.
+- **Every print is identical (owner answer to Q8, FR-018)**: there is no DUPLICATE mark, no print table, no print endpoint and no print count. The first plan's `receipt_prints`, `ReceiptPrintService` and `POST /receipts/{serialNo}/prints` are dropped. The agreement's section 8 says "Duplicate copies are marked DUPLICATE"; the owner decision changes it, and the docs task adds a decision-log row and a line in the agreement's section 11. A print writes no audit entry (it is not a financial write).
+- **Status line**: a receipt with a mark prints its status ("Cheque not cleared" or "Voided by correction") so a bounced or voided receipt cannot pass as valid. That is a fact about the receipt, not a DUPLICATE mark.
+- **Alternatives**: server-side PDF (a library, fonts, a second place for the layout); keeping a print record for the audit (the owner decided against it).
+- **Layout (first draft, decided by us)**: title bar with the school name (address and phone when configured); "FEE RECEIPT"; receipt no. and date on one line; "Received from" student, GR no., Std / Div; a table with the rows registration fee and year fee (or one row "Previous years' fee" with the earlier year); mode and, for Cheque, cheque no., date and bank; total; total in words; signature line; no "Paid up to". The content fills the top half of the A4 page so the page can be cut or the book copy kept.
+
+## R9. Developer correction: a void (a reversal), with an audit row
+
+- **Decision**: the migration creates `void_receipt(serial_no BIGINT, reason TEXT, done_by TEXT)`: in one transaction it inserts a `DEVELOPER_VOID` row in `receipt_marks` (reason required, at most one mark per receipt) and inserts an `audit_log` row (area `Fees`, action `Edit`, entity `Receipt#serialNo`, the old and new status, `by` = the developer's name, the reason). The runbook `docs/runbooks/correct-receipt.md` says: only the developer, only on the owner's written request, back up first (`pg_dump` as in the backup procedure), look at the receipt, run `SELECT void_receipt(...)`, check the balance and the audit entry, tell the admin to enter the corrected receipt (it may use the voided receipt's number, which is free again; the serial no. is new), and note it in the school's correction log. The owner chose this form of correction on 2026-10-28 (Q3). The application never calls the function: a source scan test fails if `void_receipt` appears in main sources.
+- **Accepted manual data change (owner answer, 2026-10-28; review S4)**: the owner accepted a developer-run function in the database as the way to void. Principle V forbids manual changes to a database; this is the one permitted exception for data (not schema), and it is recorded in the decision log (docs task 1) with these safeguards: the function refuses an empty `done_by` and an empty reason, so "who" is always recorded (the audit row has no `user_id` because the developer is not a user); the function is created only by the migration; the application never calls it (source-scan test); every call writes an audit row. Whether `psql` (or another way to run one SQL statement) is available on the school PC is not verified; the decision-log row hands that to F11 (the installer must provide it).
+- **Proof**: an integration test calls the function, checks the status "Voided", the balance, the audit row, that the receipt row is unchanged, that a second call fails, that an `UPDATE` of the receipt still fails, and that a new receipt with the voided number is accepted while a new receipt with the number of a Valid or Cheque not cleared receipt is still refused.
+- **Constitution**: the correction is a reversal entry followed by a new entry (Principle II), written with an audit row (Principle III); nothing is edited or deleted. If the owner wants an in-place edit instead, that needs an amendment (Q3).
+- **Alternatives**: a script that disables the trigger and edits the row (breaks Principle II and the guard); `DELETE` of the receipt (forbidden); a psql script with variables (cannot be tested through JDBC; a function can).
+- **Why a mark that voids and not a cheque mark**: the cheque mark is the admin's action for a bounced cheque and is limited to Cheque receipts; a wrong Cash receipt needs the same effect (not counted as paid) without being a cheque.
+
+## R10. Receipt register, export, day-wise totals
+
+- **Decision**: `ReceiptTable.build` declares the columns once for the page and the export (F0 framework): serial no., receipt no., date, student, GR no., Std / Div (from the snapshot names), type, mode, registration amount, year-fee amount, previous-years amount, total, status, plus hidden cheque no., cheque date, bank. Status is a correlated subquery on `receipt_marks` (this module's table). Filters: date range (from and to on the date column), mode, standard (snapshot standard id as an internal column), status; search on receipt no. and student name. `POST /receipts/search` and `POST /receipts/export`, as `StudentListController`.
+- **Day-wise totals**: `TableEndpoints.export` gets an optional extra: an observer called for every streamed row and a second sheet written after the main one. `DayTotals` adds each valid receipt to its date's count, cash, cheque and total (`BigDecimal`, exact) and is written as the sheet "Day-wise totals"; not-cleared and voided receipts are listed in the main sheet with their status and excluded from the totals (FR-020). `GET /receipts/day-totals` (a POST with the same filters, see the contract) uses the same code over the same filters for the on-screen panel (first thing to defer, see the task budget). The shared exporter change is small, covered by the F0 export tests and a new one.
+- **Performance expectation**: page, filter and sort under 2 s on 10,000 receipts, export of 10,000 rows under 30 s (F1's limits; F1 SC-003). Measured in T002 with 10,000 synthetic receipts and again in the last task; recorded in `quickstart-results.md`.
+- **Indexes**: see data-model; chosen for the register's filters and the student lookups.
+- **Standard and status filter choices**: the register reuses `GET /student-filter-options` (F1; standards, divisions, categories) for the standard filter; the status filter has three fixed values.
+- **Students list cost (review S11)**: the Students list adds five columns on top of F2's two. The spike (plan, first tasks 2c) tries first **one join per row** (the shown record, its `v_fee_position` row and its `v_earlier_pending` row joined once and read by every column) instead of one correlated subquery per column; only if that fails does it fall back to a summary (which needs FR-016 changed and the owner's say, R2).
+- **Alternatives**: a separate day-totals SQL query (a second copy of the filters); a pivot in Excel formulas (totals would depend on Excel recalculating).
+
+## R11. Modules and cross-module reads
+
+Every read of another module's data, named (constitution VII):
+
+| From | Reads | How | Status |
+|---|---|---|---|
+| fees | student name, GR no., status, existence | `students.api.StudentLookup.summary` / `exists` | new method on an existing public interface |
+| fees | class record of the current year (standard, division, category) | `students.api.EnrollmentLookup.byStudentAndYear`; `ClassRecordRef` gains `divisionId` | additive change |
+| fees | current year, year start and end dates, years before a date, names | `masterdata.api.MasterDataLookup` (`currentYear`, new `yearDates`, `earlierYears`) | new methods on an existing public interface |
+| fees | signed-in user id | `shared.CurrentUserProvider` (through `AuditService` and for `created_by`) | existing |
+| students | `fee_accounts` (Total fee) | read-only subquery | existing exception (F2) |
+| students | `v_fee_position`, `v_earlier_pending` (Paid, Pending, Earlier years pending, Paid up to, Fee status) | read-only subqueries | **new**: needs the owner's decision-log row before the Students list task |
+| students | year dates for the "Paid up to" column | `MasterDataLookup.yearDatesByYear()` turned into a `CASE`, as names are today | no table read |
+
+`ModuleDependencyTest` (F2) is extended: the allowed cross-module table reads are `audit_log` joins `users`; `students` reads `fee_accounts`, `v_fee_position`, `v_earlier_pending`; nothing in `students` reads `receipts`, `receipt_marks` or `fee_brought_forward`.
+
+## R12. Receipt number: unique across all years, a voided receipt frees its number
+
+- **Decision (owner answers to Q1 and Q3)**: `receipt_no` is typed by the admin, stored trimmed (1 to 20 characters, any text the book uses) and is unique across all receipts of all years, Cheque not cleared ones included, case-insensitively, **except** that a receipt voided by the developer correction no longer holds its number. The system's `serial_no` is `BIGINT GENERATED ALWAYS AS IDENTITY` and the primary key; it is never reused (a rolled-back insert leaves a gap, which is not a reuse).
+- **Why a trigger and not a unique index**: a unique index on `upper(receipt_no)` cannot ignore a receipt that has a row in another table (`receipt_marks`), and the receipt row cannot change when it is voided. So a plain index `ix_receipts_receipt_no` on `upper(receipt_no)` serves the lookups, and a `BEFORE INSERT` trigger on `receipts` refuses a number held by a receipt that has no `DEVELOPER_VOID` mark. The trigger first takes `pg_advisory_xact_lock(hashtextextended('receipt-no:' || upper(receipt_no), 0))`, so two simultaneous saves of the same number (different students, so different student locks) are serialised and the second sees the first. It raises SQLSTATE `23505` with the constraint name `uq_receipts_receipt_no`, which is added to the `KNOWN` map so the message appears beside the receipt number field.
+- **The service** pre-checks the same rule and answers 409 `DUPLICATE_RECEIPT_NO` naming the existing receipt (date and serial no.), so the admin sees which receipt holds the number; the trigger is the guarantee.
+- **Consequence**: the register can show two receipts with one number, one of them voided. Anything that groups by receipt number (F9) must ignore voided receipts.
+- **Text of the number (review M8)**: the number is compared as text after trimming and upper-casing, so "03100" and "3100" are different receipts; the admin types what the book shows. A test pins this.
+- **Alternatives**: a unique index on every receipt (a voided number could never be reused, which the owner does not want); a separate `receipt_numbers` table whose rows are deleted on a void (a delete, against the append-only rule); unique per academic year (the owner said the number must stay unique).
+
+## R13. Errors, validation order
+
+- **Decision**: state-dependent refusals use `CodedConflictException` (409, with `code`, field and `current`): `BALANCE_CHANGED`, `DUPLICATE_RECEIPT_NO` (the number is held by another receipt that is not voided), `OVERPAYMENT` (`current` = the amount still due), `FEE_NOT_SET`, `FEE_NOT_FINALISED`, `NO_CLASS_RECORD`, `NO_CURRENT_YEAR`, `BROUGHT_FORWARD_PENDING` (`current` = the pending), `NOT_A_CHEQUE`, `ALREADY_MARKED`. Pure input errors stay `ValidationException` (422 with field errors, as F2): missing or invalid fields, more than two decimals, negative amount, both amounts zero, `FUTURE_DATE`, missing cheque fields, a registration fee on a standard that has none, an earlier year that is not before the current year.
+- **Order** (one transaction): take the student lock; check `balanceVersion`; resolve the student and the year; check the fee state; check the order rule; validate the fields; check the amounts against what is still due; check the receipt number; insert; write the audit entry; return the receipt. A failure at any step changes nothing.
+- **The date**: "not in the future" is compared with today from the injected `Clock` in the school's time zone (`ClockConfig.SCHOOL_ZONE`), never a SQL date function.
+
+## R14. Frontend
+
+- **Decision**: signals and standalone components under `features/finance/`; the F2 `Money` formatting (two decimals, Indian grouping); the existing table component, dialog components and tokens; the live total and "balance after" on the form come from `POST /students/{id}/fee-collection/preview` (a read that returns the same numbers the save will use), so the browser adds no money. The confirmation dialog shows the server's preview of the receipt: student, receipt no., date, each amount, total and total in words (the "balance after" and the student's "Paid up to" after the receipt are on the form beside it, not on the receipt). `BALANCE_CHANGED` opens `balance-changed-dialog` with a Refresh button that reloads the context; whether F0's stale-save dialog can be reused is checked in the first task.
+- **Tag colours (review S3)**: only tokens that exist in `frontend/src/styles.css` are used. Receipt status: Valid = `badge-violet` pair, Cheque not cleared = `warning` pair, Voided by correction = `error` pair. Fee status: Paid = `badge-violet` pair, Partly paid = `badge-amber` pair, Unpaid = `error` pair. A pending amount is shown in `danger-text`. The prototype's own hex values are not used (ui-prototype decision 2). The theme conformance e2e test is extended to these tags.
+- **Prototype differences (review S2)**: see plan.md "Differences from the prototype".
+- **Profile and list**: the Fees block shows the F2 values plus paid, pending, earlier years pending, "Paid up to", the receipts with status, and Collect fee; the Students list gets the columns of FR-015; Fee tracker, reminders, payroll and expenses stay hidden.
+- **Alternatives**: browser-side totals (floating point); one dialog for both stale cases (different texts and actions).
+- **Testing print (review M6)**: the e2e test cannot drive the browser's print dialog. It emulates print media (Playwright `emulateMedia`), checks the visible content and that the shell and buttons are hidden, and compares the text of two prints of one receipt (no DUPLICATE mark).
+
+## R15. FR coverage map
+
+| FR | Where it is built | Main tests |
+|---|---|---|
+| FR-001, FR-002, FR-003 | `ReceiptService` validation, `uq_receipts_receipt_no`, CHECKs | `ReceiptCreateIT`, e2e |
+| FR-004, FR-025 | previous-years path, `BroughtForwardService` | `PreviousYearsReceiptIT`, `BroughtForwardLimitIT` |
+| FR-005 | `FeeBalanceService`, advisory lock, order rule | `ReceiptOverpaymentIT`, `ReceiptConcurrencyIT` |
+| FR-006, FR-007 | `ReceiptService`, CHECKs | `ReceiptCreateIT`, `ReceiptFeeStateIT` |
+| FR-008 | confirmation dialog, preview endpoint | e2e, component test |
+| FR-009 | triggers, `@Immutable`, no endpoint | `ReceiptImmutabilityIT` |
+| FR-010, FR-011 | entity, `AmountInWords` | `AmountInWordsTest`, `ReceiptCreateIT` |
+| FR-012, FR-013 | `PaidUpTo`, `ReceiptMarkService` | `PaidUpToTest`, `ChequeNotClearedIT` |
+| FR-014, FR-015, FR-016 | views, `StudentFeesService`, `StudentTable`, token | `FeeBalanceIT`, `StudentListFeeColumnsIT`, `BalanceChangedIT`, e2e |
+| FR-017, FR-018 | `receipt-print` (one component, no DUPLICATE) | e2e (print twice, same content), component test |
+| FR-019, FR-020 | `ReceiptTable`, `DayTotals`, exporter extra | `ReceiptRegisterIT`, `ReceiptExportIT` |
+| FR-021 | `FeesAudit` | `ReceiptAuditIT`, `AuditMaskingIT` |
+| FR-022 | `void_receipt`, runbook | `VoidReceiptIT` |
+| FR-023 | `Money`, CHECKs | `ReceiptMoneyInputIT` |
+| FR-024 | `scripts/check-fr-coverage.sh --strict` | last task |
+
+## Starting point (task T001, 2026-10-28)
+
+Branch `004-fee-collection` from `main` at `6fa7d7e` (F2 merge `62cfabb`); `V7__fees.sql` and `fees/` exist. `scripts/verify.sh` on the unchanged branch:
+
+- Backend `./mvnw verify`: 475 tests, 0 failures, 0 errors, 0 skipped (BUILD SUCCESS).
+- Frontend unit tests: 24 files, 209 tests passed.
+- Playwright: 144 passed, 1 failed. The failure is `fr-coverage-check.spec.ts` "FR-036: every requirement of the foundation spec is covered, in strict mode", which runs the coverage script on the current branch and gets `FR coverage on branch 004-fee-collection: 0 of 25 covered` (no F3 test exists yet). This is the expected red line; it turns green when the F3 tests carry FR-001 to FR-025 (task T029). F0 to F2 coverage is complete (`46 of 46`).
+- Docker is not running on this machine; PostgreSQL listens on 5432 (databases `admin_management_db` and `admin_management_test`), which the tests use.
+- Note for the verify run: the whole script takes about 12 minutes here; run it in the background, not with a 10-minute tool timeout.
