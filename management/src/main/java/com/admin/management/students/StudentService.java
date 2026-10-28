@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import com.admin.management.shared.ClassRecordFees;
 import com.admin.management.masterdata.api.MasterDataLookup.PickLists;
 import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
 import com.admin.management.shared.web.ApiProblem.FieldError;
+import com.admin.management.shared.web.CodedConflictException;
 import com.admin.management.shared.web.ConflictException;
 import com.admin.management.shared.web.NotFoundException;
 import com.admin.management.shared.web.StaleVersionException;
@@ -147,6 +149,14 @@ public class StudentService {
 		StudentEnrollment record = enrollments.findByStudentIdAndAcademicYearId(studentId, yearId)
 			.orElseThrow(() -> new NotFoundException("Class record", yearId));
 		checkVersion(in.version(), record.getVersion(), () -> toDto(record));
+		// Once the year's fee structure is finalised the standard and category are fixed; the division can still change (F2 FR-008).
+		boolean feeRelevant = !Objects.equals(in.standardId(), record.getStandardId())
+				|| !Objects.equals(in.categoryId(), record.getCategoryId());
+		if (feeRelevant && classRecordFees.lockedForChange(yearId)) {
+			throw new CodedConflictException("FEE_STRUCTURE_FINALISED", "standardId",
+					"The fee structure for this year is finalised, so the standard and category cannot be changed. The division can.",
+					null);
+		}
 		List<FieldError> errors = StudentValidator.newErrors();
 		validator.enrollmentChoice(in, record, errors);
 		StudentValidator.throwIfAny(errors);
@@ -274,13 +284,13 @@ public class StudentService {
 				masterData.categoryNames());
 	}
 
-	private static EnrollmentDto toDto(StudentEnrollment e, Map<Long, String> yearNames,
+	private EnrollmentDto toDto(StudentEnrollment e, Map<Long, String> yearNames,
 			Map<Long, String> standardNames, Map<Long, String> divisionNames, Map<Long, String> categoryNames) {
 		String stdDiv = standardNames.getOrDefault(e.getStandardId(), "") + "-"
 				+ divisionNames.getOrDefault(e.getDivisionId(), "");
 		return new EnrollmentDto(e.getVersion(), e.getAcademicYearId(), yearNames.get(e.getAcademicYearId()),
 				e.getStandardId(), e.getDivisionId(), stdDiv, e.getCategoryId(),
-				categoryNames.get(e.getCategoryId()), e.getYearStatus());
+				categoryNames.get(e.getCategoryId()), e.getYearStatus(), classRecordFees.isLocked(e.getAcademicYearId()));
 	}
 
 	/** A GR No. any student has or ever had is refused (FR-002), whatever the capitals or the spaces around it. */

@@ -40,6 +40,12 @@ class FeeClassRecordHooks implements ClassRecordFees {
 
 	@Override
 	@Transactional(propagation = Propagation.MANDATORY)
+	public boolean lockedForChange(Long yearId) {
+		return statuses.lockForShare(yearId).map(FeeYearStatus::isFinalised).orElse(false);
+	}
+
+	@Override
+	@Transactional(propagation = Propagation.MANDATORY)
 	public void classRecordAdded(Long enrollmentId, Long yearId, Long standardId, Long categoryId) {
 		boolean finalised = statuses.lockForShare(yearId).map(FeeYearStatus::isFinalised).orElse(false);
 		if (!finalised) {
