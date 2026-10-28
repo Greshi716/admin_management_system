@@ -207,8 +207,7 @@ class FeeReviseIT extends IntegrationTest {
 			.andExpect(status().isOk());
 		Duration took = Duration.ofNanos(System.nanoTime() - start);
 
-		System.out.println("Revise of 2000 class records took " + took.toMillis() + " ms");
-		assertThat(took).isLessThan(Duration.ofSeconds(10));
+		assertThat(took).as("Revise of 2000 class records took %d ms", took.toMillis()).isLessThan(Duration.ofSeconds(10));
 		assertThat(jdbc.queryForObject("select count(*) from fee_accounts where academic_year_id = ? and amount = 11000",
 				Long.class, setup.yearId())).isEqualTo(500);
 	}

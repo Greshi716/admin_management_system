@@ -188,8 +188,7 @@ class FeeFinaliseIT extends IntegrationTest {
 		client.post(finalise(setup, 0L), "{\"version\":0}").andExpect(status().isOk());
 		Duration took = Duration.ofNanos(System.nanoTime() - start);
 
-		System.out.println("Finalise of 2000 class records took " + took.toMillis() + " ms");
-		assertThat(took).isLessThan(Duration.ofSeconds(10));
+		assertThat(took).as("Finalise of 2000 class records took %d ms", took.toMillis()).isLessThan(Duration.ofSeconds(10));
 		assertThat(accounts(setup)).isEqualTo(2000);
 		assertThat(jdbc.queryForObject("select count(*) from fee_accounts where academic_year_id = ? and amount is null",
 				Long.class, setup.yearId())).isZero();
