@@ -36,6 +36,10 @@ export const routes: Routes = [
           },
           {
             path: '',
+            loadChildren: () => import('./features/fees/fees.routes').then((m) => m.FEES_ROUTES),
+          },
+          {
+            path: '',
             loadChildren: () => import('./features/masterdata/masterdata.routes').then((m) => m.MASTER_DATA_ROUTES),
           },
         ],

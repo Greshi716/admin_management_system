@@ -68,6 +68,7 @@ export class SetupLayoutComponent {
         { label: 'Student categories', link: '/setup/student-categories' },
       ],
     },
+    { title: 'Fees and salary', items: [{ label: 'Fee structure', link: '/setup/fees' }] },
     { title: 'System', items: [{ label: 'Audit log', link: '/setup/audit-log' }] },
   ];
 
