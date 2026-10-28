@@ -41,6 +41,7 @@ export class StudentProfileComponent implements OnInit {
   protected readonly history = signal<HistoryResult>({ entries: [], truncated: false });
   /** The Fees block: amounts come from the server, the browser adds nothing (F2 FR-009, FR-011). */
   protected readonly fees = signal<StudentFees | null>(null);
+  protected readonly feesFailed = signal(false);
 
   /** The record shown in the heading: the current academic year's, else the most recent one (as in the list). */
   protected readonly current = computed(() => {
@@ -112,8 +113,14 @@ export class StudentProfileComponent implements OnInit {
   /** The Fees block loads on its own: a failure leaves the rest of the profile as it is (the interceptor says why). */
   private loadFees(studentId: number): void {
     this.feeService.studentFees(studentId).subscribe({
-      next: (fees) => this.fees.set(fees),
-      error: () => this.fees.set(null),
+      next: (fees) => {
+        this.fees.set(fees);
+        this.feesFailed.set(false);
+      },
+      error: () => {
+        this.fees.set(null);
+        this.feesFailed.set(true);
+      },
     });
   }
 

@@ -109,6 +109,10 @@
         <dt class="text-muted">Total due</dt>
         <dd class="m-0 font-semibold" data-testid="fee-total-due">{{ money(f.totalDue) }}</dd>
       </dl>
+    } @else if (feesFailed()) {
+      <p class="m-0 text-sm text-danger" role="alert" data-testid="fees-error">The fees could not be loaded.</p>
+    } @else {
+      <p class="m-0 text-sm text-muted" data-testid="fees-loading">Loading the fees…</p>
     }
   </section>
 

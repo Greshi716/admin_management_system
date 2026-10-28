@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FeesService, StudentFees } from '../../fees/fees.service';
 import { HistoryResult, Student, StudentsService } from '../students.service';
@@ -101,6 +101,7 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     student: unknown = of(STUDENT),
     currentYear: string | null = null,
     fees: StudentFees = FEES_SET,
+    feesResult: unknown = of(fees),
   ): void {
     service = {
       get: vi.fn().mockReturnValue(student),
@@ -111,7 +112,7 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
       providers: [
         provideRouter([]),
         { provide: StudentsService, useValue: service },
-        { provide: FeesService, useValue: { studentFees: vi.fn().mockReturnValue(of(fees)) } },
+        { provide: FeesService, useValue: { studentFees: vi.fn().mockReturnValue(feesResult) } },
         { provide: AuthStore, useValue: { currentYear: () => currentYear } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '5' }) } } },
       ],
@@ -309,6 +310,19 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     fixture.detectChanges();
 
     expect(element.querySelector('[data-testid="latest-values"]')).not.toBeNull();
+  });
+
+  it('says the fees could not be loaded when the Fees block fails (FR-009)', () => {
+    create(HISTORY, of(STUDENT), null, FEES_SET, throwError(() => new Error('down')));
+
+    expect(element.querySelector('[data-testid="fees-error"]')?.textContent).toContain('could not be loaded');
+    expect(element.querySelector('[data-testid="fee-total-due"]')).toBeNull();
+  });
+
+  it('shows a loading line until the Fees block arrives (FR-009)', () => {
+    create(HISTORY, of(STUDENT), null, FEES_SET, NEVER);
+
+    expect(element.querySelector('[data-testid="fees-loading"]')).not.toBeNull();
   });
 
   it('has a Change button on every class record row (FR-006)', () => {

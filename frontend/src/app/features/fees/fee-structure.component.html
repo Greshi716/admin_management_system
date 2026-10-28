@@ -178,7 +178,6 @@
 
 <app-revise-dialog
   [studentCount]="reviseAsk()?.studentCount ?? null"
-  [busy]="false"
   (confirmed)="confirmRevise()"
   (cancelled)="cancelRevise()"
 />

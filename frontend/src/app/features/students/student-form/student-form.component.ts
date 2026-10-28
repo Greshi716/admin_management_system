@@ -78,6 +78,7 @@ export class StudentFormComponent implements OnInit {
   protected readonly broughtForwardBusy = signal(false);
   /** False until the saved amount has arrived, so a late answer cannot overwrite what the admin typed. */
   protected readonly broughtForwardReady = signal(false);
+  protected readonly broughtForwardFailed = signal(false);
   protected readonly noteMax = 200;
   protected readonly money = formatMoney;
   private broughtForwardVersion: number | null = null;
@@ -177,7 +178,7 @@ export class StudentFormComponent implements OnInit {
         this.broughtForwardReady.set(true);
       },
       // The error interceptor has shown the reason. The section stays closed: saving 0 over an unknown amount is worse.
-      error: () => undefined,
+      error: () => this.broughtForwardFailed.set(true),
     });
   }
 

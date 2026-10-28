@@ -241,6 +241,11 @@
       <p class="mb-4 mt-1 text-sm text-muted">
         Fees still due from earlier years. It is saved on its own and is added to the total due on the profile.
       </p>
+      @if (broughtForwardFailed()) {
+        <p class="mb-4 mt-0 text-sm text-danger" role="alert" data-testid="brought-forward-error">
+          The brought forward amount could not be loaded, so it cannot be changed now. Reload the page to try again.
+        </p>
+      }
       <form [formGroup]="broughtForward" (ngSubmit)="saveBroughtForward()" class="grid gap-4 sm:grid-cols-2" novalidate>
         <div>
           <label class="mb-1 block text-sm font-semibold" for="bfAmount">Amount brought forward</label>
