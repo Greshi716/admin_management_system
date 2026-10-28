@@ -76,7 +76,9 @@
                   <select class="input w-full" formControlName="standardId" aria-label="Standard" [attr.data-testid]="'standard-' + index">
                     <option [ngValue]="null">Choose…</option>
                     @for (standard of choices().standards; track standard.id) {
-                      <option [ngValue]="standard.id">{{ standard.name }}</option>
+                      @if (standard.active || standard.id === editor.form.controls.standardId.value) {
+                        <option [ngValue]="standard.id">{{ standard.name }}</option>
+                      }
                     }
                   </select>
                   @if (serverMessage(editor.form.controls.standardId); as message) {
@@ -87,7 +89,9 @@
                   <select class="input w-full" formControlName="categoryId" aria-label="Category">
                     <option [ngValue]="null">All categories</option>
                     @for (category of choices().categories; track category.id) {
-                      <option [ngValue]="category.id">{{ category.name }}</option>
+                      @if (category.active || category.id === editor.form.controls.categoryId.value) {
+                        <option [ngValue]="category.id">{{ category.name }}</option>
+                      }
                     }
                   </select>
                   @if (serverMessage(editor.form.controls.categoryId); as message) {

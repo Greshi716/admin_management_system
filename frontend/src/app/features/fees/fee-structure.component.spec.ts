@@ -49,7 +49,16 @@ describe('FeeStructureComponent (FR-001, FR-002, FR-011)', () => {
     fees = {
       structure: vi.fn().mockReturnValue(of(structure)),
       choices: vi.fn().mockReturnValue(
-        of({ standards: [{ id: 10, name: '10', displayOrder: 10 }], categories: [{ id: 3, code: 'OS', name: 'O/S' }] }),
+        of({
+          standards: [
+            { id: 10, name: '10', displayOrder: 10, active: true },
+            { id: 11, name: 'Old std', displayOrder: 11, active: false },
+          ],
+          categories: [
+            { id: 3, code: 'OS', name: 'O/S', active: true },
+            { id: 4, code: 'OLD', name: 'Old cat', active: false },
+          ],
+        }),
       ),
       addRow: vi.fn().mockReturnValue(of({})),
       editRow: vi.fn().mockReturnValue(of({})),
@@ -132,6 +141,26 @@ describe('FeeStructureComponent (FR-001, FR-002, FR-011)', () => {
     view().save(editor);
 
     expect(fees.structure).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers an inactive standard or category only in the row that holds it (FR-001)', () => {
+    setUp();
+    view().addRow();
+    fixture.detectChanges();
+
+    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="fee-row"]');
+    const options = (row: Element, label: string) =>
+      Array.from(row.querySelectorAll(`select[aria-label="${label}"] option`)).map((option) => option.textContent?.trim());
+    expect(options(rows[0], 'Standard')).toEqual(['Choose…', '10']);
+    expect(options(rows[1], 'Standard')).toEqual(['Choose…', '10']);
+    expect(options(rows[1], 'Category')).toEqual(['All categories', 'O/S']);
+
+    const first = view().editors()[0];
+    first.form.patchValue({ standardId: 11, categoryId: 4 });
+    fixture.detectChanges();
+    expect(options(rows[0], 'Standard')).toEqual(['Choose…', '10', 'Old std']);
+    expect(options(rows[0], 'Category')).toEqual(['All categories', 'O/S', 'Old cat']);
+    expect(options(rows[1], 'Standard')).toEqual(['Choose…', '10']);
   });
 
   it('adds a new empty row for Add row', () => {

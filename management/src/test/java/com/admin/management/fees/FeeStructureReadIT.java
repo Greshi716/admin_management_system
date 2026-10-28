@@ -107,7 +107,11 @@ class FeeStructureReadIT extends IntegrationTest {
 			.andExpect(jsonPath("$.standards[*].id", hasItem((int) setup.standard(2))))
 			.andExpect(jsonPath("$.categories[*].id", hasItem((int) setup.category(1))))
 			.andExpect(jsonPath("$.categories[*].id", not(hasItem((int) setup.category(2)))))
-			.andExpect(jsonPath("$.categories[*].id", hasItem((int) setup.category(0))));
+			.andExpect(jsonPath("$.categories[*].id", hasItem((int) setup.category(0))))
+			.andExpect(jsonPath("$.standards[?(@.id == " + setup.standard(0) + ")].active", hasItem(false)))
+			.andExpect(jsonPath("$.standards[?(@.id == " + setup.standard(2) + ")].active", hasItem(true)))
+			.andExpect(jsonPath("$.categories[?(@.id == " + setup.category(1) + ")].active", hasItem(false)))
+			.andExpect(jsonPath("$.categories[?(@.id == " + setup.category(0) + ")].active", hasItem(true)));
 	}
 
 }

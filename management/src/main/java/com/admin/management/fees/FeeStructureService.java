@@ -82,12 +82,12 @@ class FeeStructureService {
 					.stream()
 					.filter(s -> s.active() || heldStandards.contains(s.id()))
 					.sorted(Comparator.comparingInt(StandardOption::displayOrder).thenComparing(StandardOption::id))
-					.map(s -> new FeeChoicesDto.StandardChoice(s.id(), s.name(), s.displayOrder()))
+					.map(s -> new FeeChoicesDto.StandardChoice(s.id(), s.name(), s.displayOrder(), s.active()))
 					.toList(),
 				all.categories()
 					.stream()
 					.filter(c -> c.active() || heldCategories.contains(c.id()))
-					.map(c -> new FeeChoicesDto.CategoryChoice(c.id(), c.code(), c.name()))
+					.map(c -> new FeeChoicesDto.CategoryChoice(c.id(), c.code(), c.name(), c.active()))
 					.toList());
 	}
 
@@ -106,8 +106,8 @@ class FeeStructureService {
 	@Transactional
 	FeeRowDto editRow(Long yearId, Long rowId, FeeRowInput in, boolean confirm) {
 		requireYear(yearId);
+		boolean revise = lockAndCheck(yearId, in.structureVersion(), confirm); // a stale screen is told first
 		FeeRow row = rowOfYear(yearId, rowId);
-		boolean revise = lockAndCheck(yearId, in.structureVersion(), confirm);
 		checkRowVersion(in.version(), row, yearId);
 		validate(yearId, in, row);
 		Map<String, Object> before = row.snapshot();
@@ -121,8 +121,8 @@ class FeeStructureService {
 	@Transactional
 	void deleteRow(Long yearId, Long rowId, Long version, Long structureVersion, boolean confirm) {
 		requireYear(yearId);
+		boolean revise = lockAndCheck(yearId, structureVersion, confirm); // a stale screen is told first
 		FeeRow row = rowOfYear(yearId, rowId);
-		boolean revise = lockAndCheck(yearId, structureVersion, confirm);
 		checkRowVersion(version, row, yearId);
 		Map<String, Object> values = row.snapshot();
 		rows.delete(row);

@@ -29,8 +29,9 @@ export interface FeeStructure {
 }
 
 export interface FeeChoices {
-  standards: { id: number; name: string; displayOrder: number }[];
-  categories: { id: number; code: string; name: string }[];
+  /** An inactive one is listed only so the row that holds it can show it; it is not offered for other rows. */
+  standards: { id: number; name: string; displayOrder: number; active: boolean }[];
+  categories: { id: number; code: string; name: string; active: boolean }[];
 }
 
 /** What a row request carries. `categoryId` null means all categories of the standard. */

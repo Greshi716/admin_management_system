@@ -268,6 +268,26 @@ class FeeStructureIT extends IntegrationTest {
 	}
 
 	@Test
+	void editingOrDeletingARowThatAnotherWindowDeletedAnswersStaleVersionNotNotFound() throws Exception {
+		Setup setup = FeeTestData.year(jdbc, "RowGone", LocalDate.of(3116, 4, 1), 2);
+		SignedInClient client = SignedInClient.of(mvc);
+		add(client, setup, null, setup.standard(0), null, "1000").andExpect(status().isCreated());
+		add(client, setup, 1L, setup.standard(1), null, "2000").andExpect(status().isCreated());
+		long gone = jdbc.queryForObject("select id from fee_rows where standard_id = ?", Long.class, setup.standard(1));
+		// The other window deletes the second row; this window still holds structure version 2.
+		client.delete("/api/fee-structures/" + setup.yearId() + "/rows/" + gone + "?version=0&structureVersion=2")
+			.andExpect(status().isNoContent());
+
+		client.put("/api/fee-structures/" + setup.yearId() + "/rows/" + gone,
+				body(2L, 0L, setup.standard(1), null, "2500", "null", null))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("STALE_VERSION"));
+		client.delete("/api/fee-structures/" + setup.yearId() + "/rows/" + gone + "?version=0&structureVersion=2")
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("STALE_VERSION"));
+	}
+
+	@Test
 	void aRowOfAnotherYearIsNotFound() throws Exception {
 		Setup setup = FeeTestData.year(jdbc, "RowOther", LocalDate.of(3111, 4, 1), 1);
 		Setup other = FeeTestData.year(jdbc, "RowOtherB", LocalDate.of(3112, 4, 1), 1);
@@ -276,9 +296,9 @@ class FeeStructureIT extends IntegrationTest {
 		long rowId = onlyRowOf(other);
 
 		client.put("/api/fee-structures/" + setup.yearId() + "/rows/" + rowId,
-				body(null, 0L, other.standard(0), null, "1200", "null", null))
+				body(null, null, other.standard(0), null, "1200", "null", null)) // the year has no structure yet
 			.andExpect(status().isNotFound());
-		client.delete("/api/fee-structures/" + setup.yearId() + "/rows/" + rowId + "?version=0&structureVersion=0")
+		client.delete("/api/fee-structures/" + setup.yearId() + "/rows/" + rowId + "?version=0")
 			.andExpect(status().isNotFound());
 	}
 
