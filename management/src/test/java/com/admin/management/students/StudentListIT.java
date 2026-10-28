@@ -316,9 +316,9 @@ class StudentListIT extends IntegrationTest {
 			.andExpect(jsonPath("$.rows[0].totalFee").value(28500.00))
 			.andExpect(jsonPath("$.rows[0].feeState").doesNotExist())
 			.andExpect(jsonPath("$.rows[1].totalFee").doesNotExist())
-			.andExpect(jsonPath("$.rows[1].feeState").value("NOT_SET"))
+			.andExpect(jsonPath("$.rows[1].feeState").value("Fee not set"))
 			.andExpect(jsonPath("$.rows[2].totalFee").doesNotExist())
-			.andExpect(jsonPath("$.rows[2].feeState").doesNotExist());
+			.andExpect(jsonPath("$.rows[2].feeState").value("Not finalised"));
 	}
 
 	@Test
@@ -358,7 +358,8 @@ class StudentListIT extends IntegrationTest {
 			assertThat(fee.getCellStyle().getDataFormatString()).isEqualTo("0.00");
 			var notSet = sheet.getRow(2).getCell(headers.indexOf("Total fee"));
 			assertThat(notSet == null || notSet.getCellType() == org.apache.poi.ss.usermodel.CellType.BLANK).isTrue();
-			assertThat(sheet.getRow(2).getCell(headers.indexOf("Fee state")).getStringCellValue()).isEqualTo("NOT_SET");
+			assertThat(sheet.getRow(2).getCell(headers.indexOf("Fee state")).getStringCellValue()).isEqualTo("Fee not set");
+				assertThat(sheet.getRow(3).getCell(headers.indexOf("Fee state")).getStringCellValue()).isEqualTo("Not finalised");
 		}
 	}
 

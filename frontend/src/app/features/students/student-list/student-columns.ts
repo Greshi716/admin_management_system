@@ -84,5 +84,5 @@ export function feeText(row: Record<string, unknown>, money: (value: number) => 
   if (typeof total === 'number') {
     return money(total);
   }
-  return row['feeState'] === 'NOT_SET' ? 'Fee not set' : 'Not finalised';
+  return row['feeState'] === 'Fee not set' ? 'Fee not set' : 'Not finalised';
 }

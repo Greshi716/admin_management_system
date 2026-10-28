@@ -39,7 +39,7 @@ The first full run found two F1 shell specs (`students-shell.spec.ts`) that stil
 | 18 | Pass: area Fees lists the finalise, the revise (36000.00 → 37000.50, reason Revise) and the brought-forward change, no note text | `audit-log.spec.ts` |
 | 19 | Pass on the development PC (measured when each task was built, tagged `performance`, not part of `verify`): finalise of 2,000 class records 0.3 s, revise 0.1 s; Students list on 10,000 students: sort by Total fee at page 200 555 ms, filter 81 ms, Excel export 12.6 s | `FeeFinaliseIT`, `FeeReviseIT`, `StudentListPerformanceIT` |
 | 20 | **Open, owner task T030** (timed check, under 10 minutes) | - |
-| 21 | Pass: Total fee is a numeric cell, blank for Fee not set; the Fee state column holds NOT_SET; no paid or pending column. Open owner decision: what the export shows for "Fee not set" and "Not finalised" (current default above) | `fees-student-views.spec.ts`, `StudentListIT` |
+| 21 | Pass: Total fee is a numeric cell, blank for Fee not set; the Fee state column holds "Fee not set" or "Not finalised" (owner decision 2026-10-28, in the decision log); no paid or pending column | `fees-student-views.spec.ts`, `StudentListIT` |
 | 22 | Pass: a registration waits for a running finalise and a finalise waits for a running registration, in both orders every class record has an account; a standard change waits for a finalise and is then refused | `FeeClassRecordIT`, `FeeLockIT` |
 | 23 | Pass: 28,000.00 and 28,000.50 displayed everywhere; stored scale 2; Excel cell numeric | `fees-student-views.spec.ts`, `fees-structure.spec.ts`, `StudentFeesIT` |
 

@@ -98,7 +98,7 @@ describe('feeText (FR-010, FR-011)', () => {
   });
 
   it('says Fee not set when the account has no amount', () => {
-    expect(feeText({ totalFee: null, feeState: 'NOT_SET' }, money)).toBe('Fee not set');
+    expect(feeText({ totalFee: null, feeState: 'Fee not set' }, money)).toBe('Fee not set');
   });
 
   it('says Not finalised when there is no account', () => {

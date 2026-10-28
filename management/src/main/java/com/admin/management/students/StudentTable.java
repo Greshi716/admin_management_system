@@ -138,10 +138,15 @@ final class StudentTable {
 				cb.literal(currentYearId));
 	}
 
-	/** NOT_SET when the shown record has an account without an amount; null otherwise (no account means not finalised). */
+	/**
+	 * Text for the student's fee when there is no amount to show: "Not finalised" when the shown record has no fee
+	 * account yet, "Fee not set" when it has an account without an amount; null when the fee is set (owner decision
+	 * 2026-10-28, FR-010).
+	 */
 	private static ExpressionFactory<Student> feeState(Long currentYearId) {
-		String sql = "(select case when a.amount is null then 'NOT_SET' end from fee_accounts a where a.enrollment_id = "
-				+ SHOWN_RECORD.formatted("id") + ")";
+		String sql = "(select case when a.enrollment_id is null then 'Not finalised' when a.amount is null then "
+				+ "'Fee not set' end from (select " + SHOWN_RECORD.formatted("id")
+				+ " as id) s left join fee_accounts a on a.enrollment_id = s.id)";
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, String.class, root.get("id"),
 				cb.literal(currentYearId));
 	}

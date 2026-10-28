@@ -146,7 +146,7 @@ description: "Task list for F2 Fee Structure and Student Fee Accounts"
 
 ## Not decided (NEEDS-CLARIFICATION)
 
-- Export of "Fee not set" and "Not finalised" in the Students Excel (T018): default is a blank `totalFee` and a hidden `feeState` text column until the owner decides.
+- Export of "Fee not set" and "Not finalised" in the Students Excel (T018): blank `totalFee` and a hidden `feeState` text column holding "Fee not set" or "Not finalised" (owner decision 2026-10-28, decision log).
 - "Excess paid" (spec FR-004) is F3 behaviour and has no F2 task; F2's FR-004 tests cover warning, confirmation and recalculation only.
 - Nothing else in this task list is undecided; the financial rules come only from the agreement, the decision log and the clarified spec.
 

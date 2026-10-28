@@ -167,7 +167,7 @@ test.describe('fees on the student views', () => {
       expect(Number(row(n)[fee].value)).toBe(amount);
     }
     expect(row('E2E-4')[fee].kind).toBe('empty');
-    expect(row('E2E-4')[state].value).toBe('NOT_SET');
+    expect(row('E2E-4')[state].value).toBe('Fee not set');
     expect(headers.join('|')).not.toMatch(/paid|pending/i);
   });
 });
