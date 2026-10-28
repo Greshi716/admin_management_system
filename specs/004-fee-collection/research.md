@@ -176,3 +176,44 @@ All on the test database, PostgreSQL **15.6** (`SHOW server_version`; `deploy/do
 - **`flyway.clean()` and triggers**: every test class resets the schema with `flyway.clean()` (`AbstractIntegrationTest`) and V2 and V5 already put append-only triggers on `audit_log`; the clean drops them without trouble. The same will hold for the receipt triggers (checked again in `ReceiptSchemaIT`, T004).
 - **Trigger-raised 23505**: a trigger that raises `ERRCODE = '23505'` with the message `duplicate key value violates unique constraint "uq_receipts_receipt_no"` reaches the application as a `DataIntegrityViolationException` with SQLState 23505, and `ApiExceptionHandler.constraintName` (it reads `constraint "<name>"` from the message) finds the name. **The trigger must put that text in its message** (T004 does); then the `KNOWN` entry (T006) maps it to the field `receiptNo`.
 - **`FeeAccountSync` and `updated_at` (R3 token)**: `recalculate` writes an account only when it is missing or `differs(...)` from the computed values, so an unchanged account keeps its `updated_at`; a revise therefore changes the token of the affected students only. No change needed in T010.
+
+## Performance spikes (task T003, 2026-10-28, throwaway `ReceiptPerformanceSpikeIT`, deleted after these results)
+
+Scratch tables `spike_receipts` and `spike_receipt_marks` and views with the definitions of `data-model.md` (indexes as in V8), the real F2 `fee_accounts` and `fee_brought_forward`. Data: **10,000 students, 25,000 class records (2 to 3 each), 10,000 receipts (9,700 current-year, 300 previous-years), 322 not-cleared marks, 1,000 brought-forward rows**. Each figure is the worst of 3 runs after a warm-up, a page plus its count query, run with JDBC straight on PostgreSQL 15.6. Machine: development PC (20 processors, 8 GB heap), **not** the 4 GB Windows 10 target; the target is checked in F11. Limits: 2 s for a page, sort or filter, 30 s for an export (F1 SC-003, spec SC-008).
+
+**(c) Students list with Paid, Pending, Earlier years pending, Paid up to, Fee status**
+
+| Operation | One scalar subquery per column | One join per row |
+|---|---|---|
+| page 1, default order | 16 ms | 380 ms |
+| sort by Paid desc | 428 ms | 816 ms |
+| sort by Pending desc, page 200 | 906 ms | 867 ms |
+| sort by Paid up to | 540 ms | 913 ms |
+| filter Fee status = Partly paid | 828 ms | 420 ms |
+| filter Fee status = Unpaid, sort by Pending | **1,711 ms** | 922 ms |
+| filter Pending > 0 | 398 ms | 416 ms |
+| filter Earlier years pending > 0, sort by it | 110 ms | 107 ms |
+| export of all 10,000 students | 2,438 ms | 514 ms |
+
+Both forms meet the 2 s and 30 s limits, so **no summary table is needed and FR-016 (balance never from a stored total) stays as written**. The views are written with correlated sums (`cross join lateral` over `v_valid_receipts` by enrollment or student), so a lookup of one record reads only that record's receipts (EXPLAIN: index scans on `ix_receipts_enrollment` per row, a top-N sort of 25 rows, no full receipt scan per record).
+
+Finding for T017: the table framework builds every column as one scalar SQL fragment (`HibernateCriteriaBuilder.sql(...)`, as F2's `totalFee`), which is the **per-column form**. It works without a framework change but its heaviest case (an unpaid filter plus a sort on a computed column) took 1,711 ms, a thin margin on a slower machine. The join form is about twice as fast on that case and four times faster on the export, but needs a framework hook to add a join to a list. **Decision**: T017 builds the per-column form first (no framework change, like F2) and its real performance test (2,000 students, 10,000 receipts, with the same operations) must stay under 1.5 s on the development PC; if any operation is above 1.5 s, T017 adds the one-join hook to `TableDef` and measures again. The summary table remains a fallback only if both fail, and it re-opens FR-016 with the owner first.
+
+**(d) Receipt register on 10,000 receipts**
+
+| Operation | Time |
+|---|---|
+| first page, default order (date desc) | 2 ms |
+| page 200 | 250 ms |
+| date range of one month | 2 ms |
+| mode Cheque | 1 ms |
+| standard filter | 2 ms |
+| status Cheque not cleared (subquery on marks) | 565 ms |
+| status Valid | 503 ms |
+| search by receipt no. (prefix) | 6 ms |
+| search by student name | 25 ms |
+| sort by Total desc | 8 ms |
+| mode, date range and standard together | 2 ms |
+| export of all 10,000 receipts with the day-wise totals pass (BigDecimal per date) | 595 ms |
+
+All pass with wide margins; the status filter is the slowest (a `NOT EXISTS`/scalar lookup per row), still under 0.6 s. The day-wise totals pass adds nothing noticeable to the export (R10). T024's real tests (`ReceiptRegisterPerformanceIT`) repeat the measurement through the framework.
