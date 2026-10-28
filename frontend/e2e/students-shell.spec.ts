@@ -55,6 +55,7 @@ test.describe('the shell (F1 US4)', () => {
       'Standards',
       'Divisions',
       'Student categories',
+      'Fee structure',
       'Audit log',
     ]);
     await expect(list.getByText('Master data')).toBeVisible();
@@ -128,10 +129,10 @@ test.describe('the shell (F1 US4)', () => {
     });
   }
 
-  test('FR-015: the Students list and the profile have no fee, receipt, promote or roll number items', async ({ page }) => {
+  test('FR-015: the Students list and the profile have no receipt, paid, pending, promote or roll number items', async ({ page }) => {
     const master = await createStudentMasterData(page);
     const student = await createStudent(page, studentInput(1, master));
-    const absent = ['Fees', 'Receipt', 'Collect fee', 'Prepare LC', 'Promote', 'Left students (LC)', 'Roll'];
+    const absent = ['Paid', 'Pending', 'Receipt', 'Collect fee', 'Prepare LC', 'Promote', 'Left students (LC)', 'Roll'];
 
     for (const path of ['/students', `/students/${student.id}`]) {
       await page.goto(path);
