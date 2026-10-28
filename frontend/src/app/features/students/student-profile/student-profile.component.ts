@@ -11,13 +11,16 @@ import { AvatarComponent } from '../../../shared/ui/avatar.component';
 import { DialogComponent } from '../../../shared/ui/dialog.component';
 import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
 import { ClassRecordDialogComponent } from '../class-record-dialog/class-record-dialog.component';
+import { FeesService, StudentFees } from '../../fees/fees.service';
+import { formatMoney } from '../../../shared/ui/money';
 import { Enrollment, HistoryResult, Student, StudentsService } from '../students.service';
 import { historyLines, recordLabel } from './history-lines';
 
 /**
  * The student profile (FR-007, FR-009, FR-019): personal details, contact and admission, the class history and the
- * History block. Aadhaar and religion/caste arrive masked. There are no fee, receipt or roll number items here:
- * fees belong to a later feature.
+ * History block. Aadhaar and religion/caste arrive masked. The Fees block (F2) shows the fee and the amount brought
+ * forward, never receipts, paid or pending amounts; there are no roll number items here:
+ * receipts belong to a later feature.
  */
 @Component({
   selector: 'app-student-profile',
@@ -28,6 +31,7 @@ import { historyLines, recordLabel } from './history-lines';
 export class StudentProfileComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly students = inject(StudentsService);
+  private readonly feeService = inject(FeesService);
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthStore);
 
@@ -35,6 +39,8 @@ export class StudentProfileComponent implements OnInit {
   protected readonly failed = signal(false);
   protected readonly student = signal<Student | null>(null);
   protected readonly history = signal<HistoryResult>({ entries: [], truncated: false });
+  /** The Fees block: amounts come from the server, the browser adds nothing (F2 FR-009, FR-011). */
+  protected readonly fees = signal<StudentFees | null>(null);
 
   /** The record shown in the heading: the current academic year's, else the most recent one (as in the list). */
   protected readonly current = computed(() => {
@@ -59,6 +65,7 @@ export class StudentProfileComponent implements OnInit {
   ];
 
   protected readonly formatCell = formatCell;
+  protected readonly money = formatMoney;
   protected readonly historyLines = historyLines;
   protected readonly recordLabel = recordLabel;
 
@@ -102,12 +109,21 @@ export class StudentProfileComponent implements OnInit {
     this.load();
   }
 
+  /** The Fees block loads on its own: a failure leaves the rest of the profile as it is (the interceptor says why). */
+  private loadFees(studentId: number): void {
+    this.feeService.studentFees(studentId).subscribe({
+      next: (fees) => this.fees.set(fees),
+      error: () => this.fees.set(null),
+    });
+  }
+
   protected load(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     forkJoin({ student: this.students.get(id), history: this.students.history(id) }).subscribe({
       next: ({ student, history }) => {
         this.student.set(student);
         this.history.set(history);
+        this.loadFees(student.id);
         this.loading.set(false);
       },
       error: () => {

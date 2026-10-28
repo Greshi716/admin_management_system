@@ -1,5 +1,5 @@
 import { FilterOptions } from '../students.service';
-import { recordYearNote, studentColumns } from './student-columns';
+import { feeText, recordYearNote, studentColumns } from './student-columns';
 
 const LISTS: FilterOptions = {
   standards: [
@@ -16,13 +16,14 @@ const LISTS: FilterOptions = {
 describe('studentColumns (FR-008, FR-010)', () => {
   const visible = (columns = studentColumns(LISTS)) => columns.filter((column) => !column.hidden);
 
-  it('shows photo, GR No., name, Std / Div, category and status', () => {
+  it('shows photo, GR No., name, Std / Div, category, Total fee and status', () => {
     expect(visible().map((column) => column.header)).toEqual([
       'Photo',
       'GR No.',
       'Name',
       'Std / Div',
       'Category',
+      'Total fee',
       'Status',
     ]);
   });
@@ -65,7 +66,7 @@ describe('studentColumns (FR-008, FR-010)', () => {
   });
 
   it('still builds the columns when the pick-lists could not be loaded', () => {
-    expect(visible(studentColumns(null))).toHaveLength(6);
+    expect(visible(studentColumns(null))).toHaveLength(7);
   });
 
   it('badges Left differently from Active', () => {
@@ -85,5 +86,28 @@ describe('recordYearNote (FR-008)', () => {
     expect(recordYearNote({ recordYearId: null, recordYear: null }, 1)).toBeNull();
     expect(recordYearNote({}, 1)).toBeNull();
     expect(recordYearNote({ recordYearId: 2, recordYear: '2025-26' }, null)).toBe('2025-26');
+  });
+});
+
+describe('feeText (FR-010, FR-011)', () => {
+  const money = (value: number) => value.toFixed(2);
+
+  it('shows the amount with two decimals when the student has a fee', () => {
+    expect(feeText({ totalFee: 28000 }, money)).toBe('28000.00');
+    expect(feeText({ totalFee: 0 }, money)).toBe('0.00');
+  });
+
+  it('says Fee not set when the account has no amount', () => {
+    expect(feeText({ totalFee: null, feeState: 'NOT_SET' }, money)).toBe('Fee not set');
+  });
+
+  it('says Not finalised when there is no account', () => {
+    expect(feeText({ totalFee: null, feeState: null }, money)).toBe('Not finalised');
+  });
+
+  it('sorts and filters Total fee as a number and keeps Fee state as a hidden column', () => {
+    const columns = studentColumns(null);
+    expect(columns.find((column) => column.field === 'totalFee')?.type).toBe('number');
+    expect(columns.find((column) => column.field === 'feeState')?.hidden).toBe(true);
   });
 });
