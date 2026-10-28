@@ -20,7 +20,7 @@ CampusFlow replaces the Excel sheets, receipt books and paper registers used for
 
 **Principles**
 
-- Nothing financial is deleted. A wrong receipt is cancelled with a reason; the number stays in the register.
+- Nothing financial is deleted. A receipt is never cancelled or edited (decided 28-10-2026); the only reversal is marking a cheque as not cleared, with a reason, which adds the amount back to the balance.
 - Students and staff who leave move to their own register and disappear from active lists; their history is kept.
 - A finalised payroll month is locked. Later rule changes apply only from their effective month.
 - All amounts are exact to the paisa (decimal arithmetic, never floating point). Rounding follows section 5.
@@ -68,7 +68,7 @@ One person (the school admin) uses the system. There is **no role-based access c
 | FEE-01 | Fee structure per standard & category | Set in the Admin panel per academic year (amount for each standard and category). |
 | FEE-02 | Fee collection & receipt | Receipt for the amount paid, by cash or cheque. Partial payments are allowed. The admin types the receipt number from the school's printed receipt book; the system adds its own serial number. |
 | FEE-03 | Paid & pending per student | Always an up-to-date balance. The displayed balance must be consistent with the ledger; because the application is eventually consistent, an inconsistency shows a pop-up with a hard-refresh option. |
-| FEE-04 | Receipt cancellation | With reason and audit trail; never deleted. |
+| FEE-04 | Cheque not cleared | Receipts cannot be cancelled or edited. If a cheque does not clear, the admin marks the receipt "Cheque not cleared" with a reason; the amount is added back to the balance; audited; the receipt is never deleted. |
 | FEE-05 | Due dates | The admin enters the due date in the fee data. There is no late fee. |
 | FEE-06 | Fee reminder notices | Printable notice and WhatsApp / SMS draft message, with data grouped per standard. |
 
@@ -216,7 +216,6 @@ Amount per standard and category per year.
 | Category | `category` | Link | Optional | Blank = all |
 | Amount (₹) | `amount` | Amount | Required |  |
 | Due date | `due_date` | Date | Optional | Entered by the admin |
-| Registration fee (₹) | `registration_fee` | Amount | Optional | Charged to every student in a standard that has it (for example Std 10 and 12), whether the student is new or existing; included in the receipt |
 
 #### Users  `users`
 
@@ -326,8 +325,6 @@ What each student must pay in a year: one row for the year's fee and one brought
 | Due date | `due_date` | Date | Optional |  |
 | Brought forward | `carried_forward` | Yes / No | Auto | From previous year |
 
-*F2 (fees) stores this differently, as decided on 26-10-2026: the brought-forward dues are one amount per student (table `fee_brought_forward`), so there is no `carried_forward` flag; the account also holds the registration fee; a table `fee_year_status` holds the Draft or Finalised state of each year's fee structure. See the decision log.*
-
 #### Receipts  `receipts`
 
 Every fee receipt, matching the receipt book.
@@ -346,8 +343,12 @@ Every fee receipt, matching the receipt book.
 | Bank name | `bank_name` | Text | Optional |  |
 | Total (₹) | `total` | Amount | Auto |  |
 | Total in words | `total_words` | Text | Auto |  |
-| Status | `status` | Choice | Auto | Valid / Cancelled |
-| Cancellation reason | `cancel_reason` | Text | Optional |  |
+| Receipt type | `receipt_type` | Choice | Auto | Current year (registration fee row + year fee row) / Previous years' pending (for one earlier academic year) |
+| Registration fee paid (₹) | `registration_paid` | Amount | Optional | Separate row on the receipt; current-year receipts only |
+| Year fee paid (₹) | `fee_paid` | Amount | Optional | Separate row on the receipt |
+| Paid up to | `paid_up_to` | Date | Auto | Date reached by the cumulative year-fee paid, stored on the receipt |
+| Status | `status` | Choice | Auto | Valid / Cheque not cleared |
+| Not-cleared reason | `unclear_reason` | Text | Optional | Required when marked; marked by and on are audited |
 | Received by | `created_by` | Link | Auto |  |
 
 #### Fee Reminders  `fee_reminders`
@@ -664,13 +665,6 @@ Replaces the CLASSFORMATION sheet (year 2026-27). Sheet columns map as follows:
 - Fee structure: one amount per **(academic year, standard, category)**.
 - Pending fee = Net payable − sum of valid (non-cancelled) receipts. Cancelled receipts are excluded and reversed in the fund ledger.
 - Unpaid fee of a closed year is carried into the new year as "brought forward".
-- Fee amounts are decimal (two places). There is no late fee, concession, caution money or mid-year admission.
-- Payments can be of any amount and at any time (yearly, monthly or any part). There is no instalment schedule.
-- **Fees paid up to (display):** daily fee = yearly fee ÷ number of days of the academic year; days covered = total paid ÷ daily fee; the screen shows the date up to which the fee is paid. The registration fee is not part of this calculation. The count starts from the academic year's start date.
-- The admin enters the fee structure for a year and **finalises** it. After finalising, a change is still possible through a "Revise" action: the screen warns that every student's fee for the year will be recalculated and asks the admin to confirm; the change is audited, and receipts already issued are never changed. Each student pays the amount for his or her standard and category; there is no per-student change of the amount.
-- A student's standard and category cannot be changed within an academic year once the year's fee structure is finalised.
-- The admin also enters the receipts already collected before go-live (receipt date in the past, receipt number from the book).
-- Pending fees of earlier years are entered by the admin on the student's profile (a brought-forward amount) and are included in the student's total pending.
 
 ### 5.2 Salary
 
@@ -772,8 +766,8 @@ Student fills Google Form → Admin clicks Import → Waiting list → Duplicate
 **Fee collection**  
 Search student → See pending balance → Enter receipt no. from the book, amount and cash / cheque details → Save (system adds a serial no.) → Print receipt → Fund ledger updated
 
-**Receipt cancellation**  
-Open receipt → Cancel with reason → Balance restored → Reverse entry in fund ledger → Audit log
+**Cheque not cleared**  
+Open cheque receipt → Mark "Cheque not cleared" with reason → Amount added back to the balance and "paid up to" recalculated → Audit log (fund ledger reversal when F9 exists)
 
 **Fee reminders**  
 Fee dashboard → Filter pending by standard → Select students → Generate notice / message → Print or copy to send
@@ -864,7 +858,7 @@ Every list screen has a search box, filters on any column, sorting and export to
 - Cloud hosting.
 - Late fees, fee concessions, caution money and monthly-varying salary deductions such as electricity.
 
-**Defined in the feature specs:** cancellation limits for receipts; leave types and encashment details (from the client's answers); the fund coverage formula (from the salary data entered); Gujarati / English wording of notices.
+**Defined in the feature specs:** leave types and encashment details (from the client's answers); the fund coverage formula (from the salary data entered); Gujarati / English wording of notices.
 
 ---
 
@@ -904,3 +898,4 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 26-10-2026 | Fees: any payment amount at any time (no instalment schedule), "fees paid up to" date shown from total paid ÷ daily fee; one registration fee for some standards, included in the receipt; decimals allowed; no mid-year admission; fee structure is finalised per year and then locked; standard and category fixed within a year; past receipts are entered by the admin. |
 | 26-10-2026 | Fees: a finalised structure can be revised with a warning and confirmation (all students' fees for the year are recalculated, receipts untouched); the registration fee applies to every student in the standards that have it; pending fees of earlier years are entered on the student's profile and counted in the pending amount; division change within a year is allowed. |
 | 26-10-2026 | Fees (F2): table shapes differ from section 4.4 on purpose (brought-forward amount per student, registration fee on the account, a status table per year); see the decision log. |
+| 28-10-2026 | Receipts (F3): the receipt shows the registration fee as its own row; a separate receipt type pays an earlier year's pending; overpayment is refused; the admin types the receipt number and date; no cancellation and no corrections (a confirmation dialog before saving); a cheque counts when received and can be marked "not cleared" with a reason (amount added back, audited). FEE-04 changed from cancellation to cheque-not-cleared. Printed on A4. |
