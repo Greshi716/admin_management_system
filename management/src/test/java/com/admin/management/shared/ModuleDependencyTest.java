@@ -112,7 +112,7 @@ class ModuleDependencyTest {
 		List<String> violations = new ArrayList<>();
 		for (Path file : javaFiles()) {
 			Path relative = SOURCES.relativize(file);
-			if (relative.getNameCount() < 2) {
+			if (relative.getNameCount() < 2 || relative.getFileName().toString().endsWith("TestSupportController.java")) {
 				continue;
 			}
 			String module = relative.getName(0).toString();

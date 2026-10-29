@@ -48,6 +48,7 @@ final class StudentTable {
 		Map<Long, String> divisionNames = lookup.divisionNames();
 		Map<Long, String> categoryNames = lookup.categoryNames();
 		Map<Long, String> yearNames = lookup.yearNames();
+		Map<Long, MasterDataLookup.YearDates> yearDates = lookup.yearDatesByYear();
 
 		ExpressionFactory<Student> standardId = record("standard_id", currentYearId);
 		ExpressionFactory<Student> divisionId = record("division_id", currentYearId);
@@ -81,6 +82,17 @@ final class StudentTable {
 				ColumnDef.<Student>number("totalFee", "Total fee").expression(totalFee(currentYearId)),
 				ColumnDef.<Student>text("feeState", "Fee state").expression(feeState(currentYearId))
 					.searchable(false).asHidden(),
+				ColumnDef.<Student>number("paid", "Paid").expression(position(currentYearId, "case when p.year_fee is null then null else p.paid_year_fee + p.paid_registration end"))
+					.searchable(false),
+				ColumnDef.<Student>number("pending", "Pending")
+					.expression(position(currentYearId, "p.pending_year_fee + p.pending_registration")).searchable(false),
+				ColumnDef.<Student>number("earlierPending", "Earlier years pending").expression(earlierPending())
+					.searchable(false),
+				ColumnDef.<Student>date("paidUpTo", "Paid up to").expression(paidUpTo(currentYearId, yearDates))
+					.searchable(false),
+				ColumnDef.<Student>text("paidUpToState", "Paid up to state")
+					.expression(paidUpToState(currentYearId)).searchable(false).asHidden(),
+				ColumnDef.<Student>text("feeStatus", "Fee status").expression(feeStatus(currentYearId)).searchable(false),
 				ColumnDef.<Student>number("standardId", "Standard id").expression(standardId).asInternal(),
 				ColumnDef.<Student>number("divisionId", "Division id").expression(divisionId).asInternal(),
 				ColumnDef.<Student>number("categoryId", "Category id").expression(categoryId).asInternal(),
@@ -149,6 +161,83 @@ final class StudentTable {
 				+ " as id) s left join fee_accounts a on a.enrollment_id = s.id)";
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, String.class, root.get("id"),
 				cb.literal(currentYearId));
+	}
+
+	/**
+	 * One figure of the shown record's row in {@code v_fee_position} (alias {@code p}); null when the record has no fee
+	 * account or no fee amount (FR-015). Reads the view, never the receipts (constitution VII 1.1.0, research R11).
+	 */
+	private static ExpressionFactory<Student> position(Long currentYearId, String figure) {
+		String sql = "(select " + figure + " from v_fee_position p where p.enrollment_id = " + SHOWN_RECORD.formatted("id")
+				+ ")";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"),
+				cb.literal(currentYearId));
+	}
+
+	/** Brought-forward amount minus the valid previous-years receipts, 0.00 when the student has none (FR-015). */
+	private static ExpressionFactory<Student> earlierPending() {
+		String sql = "coalesce((select greatest(v.pending, 0) from v_earlier_pending v where v.student_id = ?), 0)";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"));
+	}
+
+	/** Year fully paid (or no year fee): the whole year is paid, so there is no date to count. */
+	private static final String YEAR_PAID = "p.year_fee = 0 or p.paid_year_fee >= p.year_fee";
+
+	/**
+	 * "Paid up to", the last paid day (FR-012): the year's start plus the days paid minus one, the days paid being
+	 * {@code paid * days / fee} rounded half up and at least one; the year's last day when the year fee is fully paid;
+	 * null when nothing is paid or there is no fee. The same rule as PaidUpTo in the fees module,
+	 * with the year dates turned into a {@code CASE} over the few academic years (no table is read).
+	 */
+	private static ExpressionFactory<Student> paidUpTo(Long currentYearId,
+			Map<Long, MasterDataLookup.YearDates> yearDates) {
+		String start = dateCase(yearDates, true);
+		String end = dateCase(yearDates, false);
+		String sql = "(select case when p.year_fee is null then null when " + YEAR_PAID + " then " + end
+				+ " when p.paid_year_fee = 0 then null else " + start
+				+ " + cast(greatest(round(p.paid_year_fee * (" + end + " - " + start
+				+ " + 1) / p.year_fee), 1) - 1 as integer) end from v_fee_position p where p.enrollment_id = "
+				+ SHOWN_RECORD.formatted("id") + ")";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.time.LocalDate.class, root.get("id"),
+				cb.literal(currentYearId));
+	}
+
+	/** NOTHING, DATE or FULL for the "Paid up to" column; null when there is no fee amount. */
+	private static ExpressionFactory<Student> paidUpToState(Long currentYearId) {
+		String sql = "(select case when p.year_fee is null then null when " + YEAR_PAID
+				+ " then 'FULL' when p.paid_year_fee = 0 then 'NOTHING' else 'DATE' end from v_fee_position p "
+				+ "where p.enrollment_id = " + SHOWN_RECORD.formatted("id") + ")";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, String.class, root.get("id"),
+				cb.literal(currentYearId));
+	}
+
+	/**
+	 * Paid when neither the record's pending nor the earlier years' pending is above zero, Partly paid when something is
+	 * paid and something is pending, Unpaid when nothing is paid and something is pending; null when there is no fee
+	 * amount (the Fee state column says why). Previous-years payments count as paid (default until the owner answers).
+	 */
+	private static ExpressionFactory<Student> feeStatus(Long currentYearId) {
+		String earlier = "coalesce(greatest(e.pending, 0), 0)";
+		String sql = "(select case when p.year_fee is null then null when p.pending_year_fee + p.pending_registration + "
+				+ earlier + " <= 0 then 'Paid' when p.paid_year_fee + p.paid_registration + coalesce(e.paid, 0) > 0 "
+				+ "then 'Partly paid' else 'Unpaid' end from v_fee_position p left join v_earlier_pending e on "
+				+ "e.student_id = ? where p.enrollment_id = " + SHOWN_RECORD.formatted("id") + ")";
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, String.class, root.get("id"), root.get("id"),
+				cb.literal(currentYearId));
+	}
+
+	/** {@code case p.academic_year_id when 7 then date '2026-04-01' ... end}; ids and ISO dates only, no user input. */
+	private static String dateCase(Map<Long, MasterDataLookup.YearDates> yearDates, boolean start) {
+		if (yearDates.isEmpty()) {
+			return "cast(null as date)";
+		}
+		StringBuilder text = new StringBuilder("(case p.academic_year_id");
+		yearDates.forEach((id, dates) -> text.append(" when ")
+			.append(id.longValue())
+			.append(" then date '")
+			.append(start ? dates.startDate() : dates.endDate())
+			.append("'"));
+		return text.append(" end)").toString();
 	}
 
 	@FunctionalInterface
