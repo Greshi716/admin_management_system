@@ -13,6 +13,11 @@ export const FINANCE_ROUTES: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'fee-collection' },
       {
+        path: 'fee-collection',
+        title: 'Collect fee',
+        loadComponent: () => import('./receipt-form/receipt-form.component').then((m) => m.ReceiptFormComponent),
+      },
+      {
         path: 'receipts/:serialNo',
         title: 'Receipt',
         loadComponent: () => import('./receipt-view/receipt-view.component').then((m) => m.ReceiptViewComponent),

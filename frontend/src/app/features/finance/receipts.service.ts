@@ -178,6 +178,11 @@ export function receiptConflictOf(error: unknown): ReceiptConflict | null {
 export class ReceiptsService {
   private readonly http = inject(HttpClient);
 
+  /** Finds students by name or GR No. through the F1 students search (the Collect fee form picks the student with it). */
+  findStudents(text: string): Observable<TablePage> {
+    return this.http.post<TablePage>('/api/students/search', { first: 0, rows: 10, globalFilter: text, filters: {}, status: 'All' });
+  }
+
   feeCollection(studentId: number): Observable<FeeCollection> {
     return this.http.get<FeeCollection>(`/api/students/${studentId}/fee-collection`);
   }

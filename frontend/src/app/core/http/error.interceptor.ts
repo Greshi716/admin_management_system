@@ -48,6 +48,11 @@ function report(
     return;
   }
 
+  // The Collect fee screen explains this one in its own pop-up with a Refresh button (F3 FR-016), so no toast on top.
+  if (problem?.code === 'BALANCE_CHANGED') {
+    return;
+  }
+
   // The fee screen explains this one in its own warning dialog (F2 FR-004), so no toast on top of it.
   if (problem?.code === 'REVISE_CONFIRMATION_REQUIRED') {
     return;
