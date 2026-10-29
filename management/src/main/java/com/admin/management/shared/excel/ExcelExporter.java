@@ -47,11 +47,33 @@ public class ExcelExporter {
 	}
 
 	/**
+	 * Looks at every row as it is written and, when the rows are done, supplies a second sheet (for example day-wise
+	 * totals). Only what the observer keeps in memory counts against the heap, so it must stay small.
+	 */
+	public interface Extra {
+
+		void observe(Map<String, Object> row);
+
+		ExtraSheet sheet();
+
+	}
+
+	/** A small second sheet: a name, a header row and the rows of values (same value types as the main sheet). */
+	public record ExtraSheet(String name, List<String> headers, List<List<Object>> rows) {
+	}
+
+	/**
 	 * @param columns every column the list can show; the map of each row is keyed by {@code field}
 	 * @return the number of data rows written
 	 */
 	public long write(String sheetName, List<? extends ColumnDef<?>> columns, RowSource rows, OutputStream out)
 			throws IOException {
+		return write(sheetName, columns, rows, out, null);
+	}
+
+	/** As above; the extra sheet, if any, is written after the main one. */
+	public long write(String sheetName, List<? extends ColumnDef<?>> columns, RowSource rows, OutputStream out,
+			Extra extra) throws IOException {
 		try (SXSSFWorkbook workbook = new SXSSFWorkbook(WINDOW)) {
 			Styles styles = new Styles(workbook);
 			Sheet sheet = workbook.createSheet(safeSheetName(sheetName));
@@ -71,10 +93,38 @@ public class ExcelExporter {
 					}
 					writeCell(excelRow.createCell(c), value, styles);
 				}
+				if (extra != null) {
+					extra.observe(row);
+				}
 				written[0]++;
 			});
+			if (extra != null) {
+				writeExtra(workbook, extra.sheet(), styles);
+			}
 			workbook.write(out);
 			return written[0];
+		}
+	}
+
+	private void writeExtra(SXSSFWorkbook workbook, ExtraSheet extra, Styles styles) {
+		if (extra == null) {
+			return;
+		}
+		Sheet sheet = workbook.createSheet(safeSheetName(extra.name()));
+		Row header = sheet.createRow(0);
+		for (int c = 0; c < extra.headers().size(); c++) {
+			Cell cell = header.createCell(c);
+			cell.setCellValue(extra.headers().get(c));
+			cell.setCellStyle(styles.header);
+			sheet.setColumnWidth(c, Math.min(Math.max(extra.headers().get(c).length() + 4, 14), 50) * 256);
+		}
+		sheet.createFreezePane(0, 1);
+		int index = 1;
+		for (List<Object> values : extra.rows()) {
+			Row row = sheet.createRow(index++);
+			for (int c = 0; c < values.size(); c++) {
+				writeCell(row.createCell(c), values.get(c), styles);
+			}
 		}
 	}
 

@@ -54,12 +54,19 @@ public class TableEndpoints {
 	 */
 	public <T> void export(String area, String listName, TableDef<T> def, TableRequest request,
 			TableQueryService.Scope<T> scope, HttpServletResponse response) throws IOException {
+		export(area, listName, def, request, scope, response, null);
+	}
+
+	/** As above; {@code extra} sees every row and adds a second sheet (the register's day-wise totals). */
+	public <T> void export(String area, String listName, TableDef<T> def, TableRequest request,
+			TableQueryService.Scope<T> scope, HttpServletResponse response, ExcelExporter.Extra extra)
+			throws IOException {
 		response.setContentType(ExcelExporter.CONTENT_TYPE);
 		response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName(listName) + "\"");
 		long rows;
 		try {
 			rows = exporter.write(listName, def.columns().stream().filter((column) -> !column.internal()).toList(), sink -> queries.stream(def, request, scope, sink),
-					response.getOutputStream());
+					response.getOutputStream(), extra);
 		}
 		catch (IOException | RuntimeException ex) {
 			if (!response.isCommitted()) {
