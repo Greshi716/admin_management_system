@@ -62,6 +62,39 @@ class MasterDataLookupService implements MasterDataLookup {
 
 	@Override
 	@Transactional(readOnly = true)
+	public Optional<YearDates> yearDates(Long yearId) {
+		return yearId == null ? Optional.empty() : years.findById(yearId).map(MasterDataLookupService::dates);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Map<Long, YearDates> yearDatesByYear() {
+		Map<Long, YearDates> result = new LinkedHashMap<>();
+		for (AcademicYear year : years.findAllByOrderByStartDateDesc()) {
+			result.put(year.getId(), dates(year));
+		}
+		return result;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<YearDates> earlierYears(LocalDate beforeStart) {
+		if (beforeStart == null) {
+			return List.of();
+		}
+		return years.findAllByOrderByStartDateDesc()
+			.stream()
+			.filter((year) -> year.getStartDate().isBefore(beforeStart))
+			.map(MasterDataLookupService::dates)
+			.toList();
+	}
+
+	private static YearDates dates(AcademicYear year) {
+		return new YearDates(year.getId(), year.getName(), year.getStartDate(), year.getEndDate());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
 	public boolean divisionBelongsTo(Long divisionId, Long yearId, Long standardId) {
 		if (divisionId == null || yearId == null || standardId == null) {
 			return false;

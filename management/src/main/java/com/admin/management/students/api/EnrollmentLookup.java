@@ -24,7 +24,8 @@ public interface EnrollmentLookup {
 	/** The student's class record of that year, if there is one. */
 	Optional<ClassRecordRef> byStudentAndYear(Long studentId, Long yearId);
 
-	record ClassRecordRef(Long enrollmentId, Long studentId, Long yearId, Long standardId, Long categoryId) {
+	record ClassRecordRef(Long enrollmentId, Long studentId, Long yearId, Long standardId, Long divisionId,
+			Long categoryId) {
 	}
 
 }

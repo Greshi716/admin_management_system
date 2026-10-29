@@ -18,6 +18,15 @@ public interface MasterDataLookup {
 	/** The start date of an academic year, or empty when there is no such year. */
 	Optional<LocalDate> yearStartDate(Long yearId);
 
+	/** The start and end dates of an academic year, or empty when there is no such year or the id is null. */
+	Optional<YearDates> yearDates(Long yearId);
+
+	/** The dates of every academic year by id, for list columns that depend on the length of a year. */
+	Map<Long, YearDates> yearDatesByYear();
+
+	/** The academic years that start before the date, newest first; empty for a null date. */
+	List<YearDates> earlierYears(LocalDate beforeStart);
+
 	/** Whether the division exists, belongs to the academic year and belongs to the standard. */
 	boolean divisionBelongsTo(Long divisionId, Long yearId, Long standardId);
 
@@ -59,6 +68,10 @@ public interface MasterDataLookup {
 	}
 
 	record YearRef(Long id, String name, LocalDate startDate) {
+	}
+
+	/** The first and last day of an academic year; the year has {@code endDate - startDate + 1} days. */
+	record YearDates(Long id, String name, LocalDate startDate, LocalDate endDate) {
 	}
 
 	record StandardOption(Long id, String name, int displayOrder, String stream, boolean active) {

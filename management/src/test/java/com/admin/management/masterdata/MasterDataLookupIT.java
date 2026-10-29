@@ -72,6 +72,45 @@ class MasterDataLookupIT extends IntegrationTest {
 	}
 
 	@Test
+	void yearDatesById() {
+		assertThat(lookup.yearDates(year1)).hasValueSatisfying(y -> {
+			assertThat(y.id()).isEqualTo(year1);
+			assertThat(y.name()).isEqualTo("2026-27");
+			assertThat(y.startDate()).isEqualTo(LocalDate.of(2026, 4, 1));
+			assertThat(y.endDate()).isEqualTo(LocalDate.of(2027, 3, 31));
+		});
+		assertThat(lookup.yearDates(-1L)).isEmpty();
+		assertThat(lookup.yearDates(null)).isEmpty();
+	}
+
+	@Test
+	void aLeapYearHas366Days() {
+		long leap = insertYear("2027-28", "2027-04-01", "2028-03-31");
+		MasterDataLookup.YearDates dates = lookup.yearDates(leap).orElseThrow();
+		assertThat(java.time.temporal.ChronoUnit.DAYS.between(dates.startDate(), dates.endDate()) + 1).isEqualTo(366);
+		assertThat(java.time.temporal.ChronoUnit.DAYS.between(lookup.yearDates(year1).orElseThrow().startDate(),
+				lookup.yearDates(year1).orElseThrow().endDate()) + 1)
+			.isEqualTo(365);
+	}
+
+	@Test
+	void yearDatesOfEveryYearById() {
+		assertThat(lookup.yearDatesByYear()).containsOnlyKeys(year1, year2);
+		assertThat(lookup.yearDatesByYear().get(year2).endDate()).isEqualTo(LocalDate.of(2029, 3, 31));
+	}
+
+	@Test
+	void earlierYearsAreThoseStartingBeforeTheDateNewestFirst() {
+		long middle = insertYear("2027-28", "2027-04-01", "2028-03-31");
+		assertThat(lookup.earlierYears(LocalDate.of(2028, 4, 1))).extracting(MasterDataLookup.YearDates::id)
+			.containsExactly(middle, year1);
+		assertThat(lookup.earlierYears(LocalDate.of(2026, 4, 1))).isEmpty();
+		assertThat(lookup.earlierYears(LocalDate.of(2026, 4, 2))).extracting(MasterDataLookup.YearDates::id)
+			.containsExactly(year1);
+		assertThat(lookup.earlierYears(null)).isEmpty();
+	}
+
+	@Test
 	void divisionOfAnotherYearOrAnotherStandardIsRefused() {
 		long std1 = insertStandard("Standard 1", 1);
 		long std2 = insertStandard("Standard 2", 2);
