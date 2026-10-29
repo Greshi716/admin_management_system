@@ -32,8 +32,9 @@ paths:
     post:
       summary: The receipt as it would be saved, without saving (FR-008, FR-011, FR-012)
       description: |
-        Same request body and same validation as POST /receipts, but nothing is written, no receipt number is checked for
-        use beyond the format, and no audit entry is made. Returns the total, the total in words and the student's balance
+        Same request body and the same rules as POST /receipts for the fee state, the earlier-years order rule, the amounts and what is
+        still due, but the receipt number, date, mode and cheque fields are not checked (they cannot change a number and the
+        form is not complete while it is typed), the balance token is not checked, nothing is written and no audit entry is made. Returns the total, the total in words and the student's balance
         after (including the "Paid up to" the student would show). The form shows these numbers (the browser adds no money)
         and the confirmation dialog repeats the receipt's own values.
       parameters:

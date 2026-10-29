@@ -1,7 +1,8 @@
 package com.admin.management.fees;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,9 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.admin.management.masterdata.api.MasterDataLookup;
 import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
-import com.admin.management.shared.web.ApiProblem.FieldError;
 import com.admin.management.shared.web.NotFoundException;
-import com.admin.management.shared.web.ValidationException;
 import com.admin.management.students.api.EnrollmentLookup;
 import com.admin.management.students.api.EnrollmentLookup.ClassRecordRef;
 import com.admin.management.students.api.StudentLookup;
@@ -34,14 +33,20 @@ class FeeCollectionService {
 
 	private final ReceiptSummaryReader summaries;
 
+	private final ReceiptRules rules;
+
+	private final Clock clock;
+
 	FeeCollectionService(StudentLookup students, EnrollmentLookup enrollments, MasterDataLookup masterData,
-			FeeAccountRepository accounts, FeeBalanceService balances, ReceiptSummaryReader summaries) {
+			FeeAccountRepository accounts, FeeBalanceService balances, ReceiptSummaryReader summaries, ReceiptRules rules, Clock clock) {
 		this.students = students;
 		this.enrollments = enrollments;
 		this.masterData = masterData;
 		this.accounts = accounts;
 		this.balances = balances;
 		this.summaries = summaries;
+		this.rules = rules;
+		this.clock = clock;
 	}
 
 	/** The student, the current year, the student's class record in it and that record's fee account. */
@@ -102,37 +107,17 @@ class FeeCollectionService {
 	}
 
 	/**
-	 * The receipt as it would be saved, with the balance after it. Nothing is written. The amounts are checked for
-	 * form only here; the save checks everything else.
+	 * The receipt as it would be saved, with the balance after it. Nothing is written. The same rules as the save (ReceiptRules), without
+	 * the receipt number, date and mode, which cannot change a number.
 	 */
 	@Transactional(readOnly = true)
 	ReceiptPreviewDto preview(Long studentId, ReceiptInput input) {
 		Current current = current(studentId);
-		List<FieldError> errors = new ArrayList<>();
-		BigDecimal registration = amount("registrationPaid", input.registrationPaid(), errors);
-		BigDecimal fee = amount("feePaid", input.feePaid(), errors);
-		if (input.receiptType() == null) {
-			errors.add(new FieldError("receiptType", "Choose the type of receipt."));
-		}
-		if (!errors.isEmpty()) {
-			throw new ValidationException(errors);
-		}
-		BigDecimal total = registration.add(fee);
-		FeeBalance.Position position = balances.position(studentId, current.enrollmentId())
-			.withReceipt(input.receiptType(), registration, fee);
-		return new ReceiptPreviewDto(total, AmountInWords.of(total), FeeBalance.of(position));
-	}
-
-	private static BigDecimal amount(String field, BigDecimal value, List<FieldError> errors) {
-		if (value == null) {
-			return new BigDecimal("0.00");
-		}
-		String problem = Money.problem(value);
-		if (problem != null) {
-			errors.add(new FieldError(field, problem));
-			return new BigDecimal("0.00");
-		}
-		return Money.scale2(value);
+		FeeBalance.Position position = balances.position(studentId, current.enrollmentId());
+		ReceiptRules.Amounts amounts = rules.check(current, FeeBalance.of(position), input, LocalDate.now(clock), false);
+		BigDecimal total = amounts.total();
+		FeeBalance after = FeeBalance.of(position.withReceipt(input.receiptType(), amounts.registration(), amounts.fee()));
+		return new ReceiptPreviewDto(total, AmountInWords.of(total), after);
 	}
 
 	private FeeCollectionDto.StudentPart studentPart(Current current) {
