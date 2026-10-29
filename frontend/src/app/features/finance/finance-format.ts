@@ -1,4 +1,4 @@
-import { PaidUpTo } from './receipts.service';
+import { PaidUpTo, ReceiptStatus } from './receipts.service';
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -29,4 +29,26 @@ export function paidUpToText(paidUpTo: PaidUpTo | null | undefined): string {
     default:
       return 'Nothing paid';
   }
+}
+
+const STATUS_TEXT: Record<ReceiptStatus, string> = {
+  VALID: 'Valid',
+  CHEQUE_NOT_CLEARED: 'Cheque not cleared',
+  VOIDED: 'Voided by correction',
+};
+
+const STATUS_CLASS: Record<ReceiptStatus, string> = {
+  VALID: 'bg-badge-violet-bg text-badge-violet-text',
+  CHEQUE_NOT_CLEARED: 'bg-warning-bg text-warning-text',
+  VOIDED: 'bg-error-bg text-error-text',
+};
+
+/** The words of a receipt status (the server sends the code). */
+export function receiptStatusText(status: ReceiptStatus): string {
+  return STATUS_TEXT[status];
+}
+
+/** The tag classes of a receipt status: Valid violet, Cheque not cleared warning, Voided by correction error. */
+export function receiptStatusClass(status: ReceiptStatus): string {
+  return STATUS_CLASS[status];
 }

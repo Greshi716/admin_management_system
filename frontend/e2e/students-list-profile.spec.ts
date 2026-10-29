@@ -199,7 +199,7 @@ test.describe('students list and profile', () => {
     await expect(page.locator('tbody tr').first().getByTestId('record-year')).toHaveCount(0);
   });
 
-  test('FR-007, FR-015: View profile opens one page with the details and none of the fee items', async ({ page }) => {
+  test('FR-007, FR-015: View profile opens one page with the details and no roll number or leaving certificate', async ({ page }) => {
     await openList(page);
     await search(page).fill('E2E-01');
     await expect(page.getByText('of 1 rows')).toBeVisible();
@@ -224,7 +224,7 @@ test.describe('students list and profile', () => {
     await expect(page.getByRole('link', { name: 'Edit details' })).toBeVisible();
 
     const content = page.locator('main');
-    for (const absent of ['Collect fee', 'Receipt', 'Paid', 'Pending', 'Roll', 'leaving certificate']) {
+    for (const absent of ['Roll', 'leaving certificate']) {
       await expect(content).not.toContainText(absent);
     }
     await expect(content).not.toContainText(AADHAAR);

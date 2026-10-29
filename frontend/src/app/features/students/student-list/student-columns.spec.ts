@@ -1,5 +1,5 @@
 import { FilterOptions } from '../students.service';
-import { feeText, recordYearNote, studentColumns } from './student-columns';
+import { feeStatusClass, feeText, paidUpToCell, recordYearNote, studentColumns } from './student-columns';
 
 const LISTS: FilterOptions = {
   standards: [
@@ -16,7 +16,7 @@ const LISTS: FilterOptions = {
 describe('studentColumns (FR-008, FR-010)', () => {
   const visible = (columns = studentColumns(LISTS)) => columns.filter((column) => !column.hidden);
 
-  it('shows photo, GR No., name, Std / Div, category, Total fee and status', () => {
+  it('shows photo, GR No., name, Std / Div, category, the fee columns and status', () => {
     expect(visible().map((column) => column.header)).toEqual([
       'Photo',
       'GR No.',
@@ -24,6 +24,11 @@ describe('studentColumns (FR-008, FR-010)', () => {
       'Std / Div',
       'Category',
       'Total fee',
+      'Paid',
+      'Pending',
+      'Earlier years pending',
+      'Paid up to',
+      'Fee status',
       'Status',
     ]);
   });
@@ -66,7 +71,7 @@ describe('studentColumns (FR-008, FR-010)', () => {
   });
 
   it('still builds the columns when the pick-lists could not be loaded', () => {
-    expect(visible(studentColumns(null))).toHaveLength(7);
+    expect(visible(studentColumns(null))).toHaveLength(12);
   });
 
   it('badges Left differently from Active', () => {
@@ -109,5 +114,49 @@ describe('feeText (FR-010, FR-011)', () => {
     const columns = studentColumns(null);
     expect(columns.find((column) => column.field === 'totalFee')?.type).toBe('number');
     expect(columns.find((column) => column.field === 'feeState')?.hidden).toBe(true);
+  });
+});
+
+describe('fee columns of the list (FR-015)', () => {
+  it('has Paid, Pending, Earlier years pending, Paid up to and Fee status after Total fee', () => {
+    const headers = studentColumns(null)
+      .filter((column) => !column.hidden)
+      .map((column) => column.header);
+
+    expect(headers).toEqual(expect.arrayContaining(['Total fee', 'Paid', 'Pending', 'Earlier years pending', 'Paid up to', 'Fee status']));
+    expect(headers.indexOf('Paid')).toBe(headers.indexOf('Total fee') + 1);
+  });
+
+  it('sorts and filters the amounts as numbers and Paid up to as a date; its state is a hidden column', () => {
+    const columns = studentColumns(null);
+
+    for (const field of ['paid', 'pending', 'earlierPending']) {
+      expect(columns.find((column) => column.field === field)?.type).toBe('number');
+    }
+    expect(columns.find((column) => column.field === 'paidUpTo')?.type).toBe('date');
+    expect(columns.find((column) => column.field === 'paidUpToState')?.hidden).toBe(true);
+  });
+
+  it('filters Fee status with the three values the server writes', () => {
+    const column = studentColumns(null).find((c) => c.field === 'feeStatus');
+
+    expect(column?.dropdowns?.[0].field).toBe('feeStatus');
+    expect(column?.dropdowns?.[0].options.map((o) => o.value)).toEqual(['Paid', 'Partly paid', 'Unpaid']);
+  });
+
+  it('tags Paid violet, Partly paid amber and Unpaid error', () => {
+    expect(feeStatusClass('Paid')).toContain('badge-violet');
+    expect(feeStatusClass('Partly paid')).toContain('badge-amber');
+    expect(feeStatusClass('Unpaid')).toContain('error');
+    expect(feeStatusClass(null)).toBe('');
+  });
+
+  it('writes the Paid up to cell from the date and its state', () => {
+    const date = (iso: string) => `D:${iso}`;
+
+    expect(paidUpToCell({ paidUpTo: '2026-07-09', paidUpToState: 'DATE' }, date)).toBe('D:2026-07-09');
+    expect(paidUpToCell({ paidUpTo: '2027-03-31', paidUpToState: 'FULL' }, date)).toBe('Fully paid for the year');
+    expect(paidUpToCell({ paidUpTo: null, paidUpToState: 'NOTHING' }, date)).toBe('Nothing paid');
+    expect(paidUpToCell({ paidUpTo: null, paidUpToState: null }, date)).toBe('');
   });
 });

@@ -89,6 +89,24 @@ const FEES_SET: StudentFees = {
   dueDate: '2026-07-15',
   broughtForward: { version: 1, amount: 2500, note: 'Test note' },
   totalDue: 31000,
+  balance: {
+    dueDate: '2026-07-15',
+    yearFee: 28000,
+    registrationFee: 500,
+    broughtForward: 2500,
+    totalFee: 31000,
+    paid: 10500,
+    pending: 20500,
+    yearFeeDue: 18000,
+    registrationDue: 0,
+    earlierYearsPending: 2500,
+    excessPaid: 0,
+    paidUpTo: { state: 'DATE', date: '2026-07-09' },
+  },
+  receipts: [
+    { serialNo: 7, receiptNo: 'R-7', receiptDate: '2026-06-01', receiptType: 'CURRENT_YEAR', paymentMode: 'CASH', total: 10500, status: 'VALID' },
+    { serialNo: 8, receiptNo: 'R-8', receiptDate: '2026-06-02', receiptType: 'CURRENT_YEAR', paymentMode: 'CHEQUE', total: 500, status: 'CHEQUE_NOT_CLEARED' },
+  ],
 };
 
 describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
@@ -198,13 +216,62 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
     expect(back?.getAttribute('href')).toBe('/students');
   });
 
-  it('has no receipt, Collect fee, paid, pending, leaving certificate or roll number items', () => {
+  it('has no leaving certificate or roll number items', () => {
     create();
     const text = (element.textContent ?? '').toLowerCase();
 
-    for (const word of ['receipt', 'collect', 'paid', 'pending', 'leaving certificate', 'roll']) {
+    for (const word of ['leaving certificate', 'roll']) {
       expect(text).not.toContain(word);
     }
+  });
+
+  describe('Fees block with receipts (FR-012, FR-014)', () => {
+    const text = (id: string) => element.querySelector(`[data-testid="${id}"]`)?.textContent?.trim();
+
+    it('shows paid, pending, earlier years pending and Paid up to as the server sent them', () => {
+      create();
+
+      expect(text('fee-paid')).toBe('10,500.00');
+      expect(text('fee-pending')).toBe('20,500.00');
+      expect(text('fee-earlier-pending')).toBe('2,500.00');
+      expect(element.querySelector('[data-testid="fee-excess"]')).toBeNull();
+      expect(text('fee-paid-up-to')).toBe('9 Jul 2026');
+    });
+
+    it('says Fully paid for the year, Nothing paid and shows excess paid when there is one', () => {
+      create(HISTORY, of(STUDENT), null, {
+        ...FEES_SET,
+        balance: { ...FEES_SET.balance, paidUpTo: { state: 'FULL', date: '2027-03-31' }, excessPaid: 400, pending: 0 },
+      });
+      expect(text('fee-paid-up-to')).toBe('Fully paid for the year');
+      expect(text('fee-excess')).toBe('400.00');
+    });
+
+    it('says Nothing paid when nothing is paid', () => {
+      create(HISTORY, of(STUDENT), null, { ...FEES_SET, balance: { ...FEES_SET.balance, paidUpTo: { state: 'NOTHING', date: null } } });
+      expect(text('fee-paid-up-to')).toBe('Nothing paid');
+    });
+
+    it('lists the receipts with a link and a status tag, and has a Collect fee button for the student', () => {
+      create();
+
+      const links = Array.from(element.querySelectorAll('[data-testid="receipt-link"]')) as HTMLAnchorElement[];
+      expect(links.map((a) => a.textContent?.trim())).toEqual(['R-7', 'R-8']);
+      expect(links[0].getAttribute('href')).toBe('/finance/receipts/7');
+      const tags = Array.from(element.querySelectorAll('[data-testid="receipt-status"]')).map((e) => e.textContent?.trim());
+      expect(tags).toEqual(['Valid', 'Cheque not cleared']);
+      expect(element.querySelector('[data-testid="collect-fee"]')?.getAttribute('href')).toContain('/finance/fee-collection');
+    });
+
+    it('says there are no receipts yet and offers no edit, cancel or delete control', () => {
+      create(HISTORY, of(STUDENT), null, { ...FEES_SET, receipts: [] });
+
+      expect(text('receipts-empty')).toBe('No receipts yet.');
+      const buttons = (element.querySelector('[data-testid="fees-block"]')?.textContent ?? '').toLowerCase();
+      for (const word of ['edit', 'cancel', 'delete']) {
+        expect(buttons).not.toContain(word);
+      }
+    });
   });
 
   describe('Fees block (FR-005, FR-009, FR-011)', () => {

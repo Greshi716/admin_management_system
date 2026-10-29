@@ -1,11 +1,12 @@
 import { expect, Page, test } from '@playwright/test';
 import { addFeeRow, createFeeMasterData, FeeMasterData, finaliseYear } from './support/fees';
 import { clearMasterData } from './support/master-data';
+import { clearReceipts, recordReceipt } from './support/receipts';
 import { createStudent, studentInput } from './support/students';
 import { signInAsTestAdmin } from './support/test-data';
 import { readFirstSheetTyped } from './support/xlsx';
 
-// Synthetic values only (constitution VI). Quickstart scenarios 6, 11, 15, 21 and 23.
+// Synthetic values only (constitution VI). Quickstart scenarios 6 to 8, 11, 15, 21 and 23.
 
 interface Seed {
   master: FeeMasterData;
@@ -75,8 +76,13 @@ test.describe('fees on the student views', () => {
 
   test.beforeEach(async ({ page }) => {
     await signInAsTestAdmin(page);
+    await clearReceipts(page);
     await clearMasterData(page);
     data = await seed(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await clearReceipts(page);
   });
 
   test('FR-009, FR-011: before the structure is finalised the profile and the list say so (scenario 15)', async ({ page }) => {
@@ -112,13 +118,16 @@ test.describe('fees on the student views', () => {
     await expect(page.getByTestId('fee-state')).toHaveText('Fee not set');
     expect(await text(page, 'fee-total-due')).toBe('0.00');
 
-    const block = page.getByTestId('fees-block');
-    for (const absent of ['Receipt', 'Paid', 'Pending', 'Collect']) {
-      await expect(block).not.toContainText(absent);
-    }
+    // no receipts yet: nothing paid, all pending (F3 FR-014)
+    await page.goto(`/students/${data.ids.get(1)}`);
+    await expect(page.getByTestId('fee-paid')).toHaveText('0.00');
+    expect(await text(page, 'fee-pending')).toBe('36,500.00');
+    expect(await text(page, 'fee-paid-up-to')).toBe('Nothing paid');
+    await expect(page.getByTestId('receipts-empty')).toBeVisible();
+    await expect(page.getByTestId('collect-fee')).toBeVisible();
   });
 
-  test('FR-010, FR-011: the list has a Total fee column with the amount, Fee not set or Not finalised, and no paid or pending column (scenarios 6, 23)', async ({
+  test('FR-010, FR-011: the list has a Total fee column with the amount, Fee not set or Not finalised, and the Paid, Pending and Fee status columns (scenarios 6, 23)', async ({
     page,
   }) => {
     await finaliseYear(page, data.master.yearId);
@@ -129,9 +138,12 @@ test.describe('fees on the student views', () => {
     await expect(listRow(page, 'E2E-2').getByTestId('total-fee')).toHaveText('40,500.50');
     await expect(listRow(page, 'E2E-3').getByTestId('total-fee')).toHaveText('28,000.00');
     await expect(listRow(page, 'E2E-4').getByTestId('total-fee')).toHaveText('Fee not set');
-    for (const absent of ['Paid', 'Pending', 'Fee status']) {
-      await expect(page.locator('thead')).not.toContainText(absent);
+    for (const header of ['Paid', 'Pending', 'Earlier years pending', 'Paid up to', 'Fee status']) {
+      await expect(page.locator('thead')).toContainText(header);
     }
+    await expect(listRow(page, 'E2E-1').getByTestId('pending')).toHaveText('36,500.00');
+    await expect(listRow(page, 'E2E-1').getByTestId('fee-status')).toHaveText('Unpaid');
+    await expect(listRow(page, 'E2E-4').getByTestId('fee-status')).toHaveCount(0); // no fee, no status
   });
 
   test('FR-006, FR-009: a student registered after finalising has a fee on the profile at once (scenario 11)', async ({ page }) => {
@@ -168,6 +180,36 @@ test.describe('fees on the student views', () => {
     }
     expect(row('E2E-4')[fee].kind).toBe('empty');
     expect(row('E2E-4')[state].value).toBe('Fee not set');
-    expect(headers.join('|')).not.toMatch(/paid|pending/i);
+    for (const header of ['Paid', 'Pending', 'Earlier years pending', 'Paid up to', 'Fee status']) {
+      expect(headers).toContain(header);
+    }
+    const pending = headers.indexOf('Pending');
+    expect(row('E2E-1')[pending].kind).toBe('number');
+    expect(Number(row('E2E-1')[pending].value)).toBe(36500);
+    expect(row('E2E-4')[pending].kind).toBe('empty');
   });
+  test('FR-012, FR-014, FR-015: after a receipt the profile and the list show paid, pending, paid up to and the receipt (scenarios 7, 8)', async ({
+    page,
+  }) => {
+    await finaliseYear(page, data.master.yearId);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    await recordReceipt(page, { studentId: data.ids.get(1)!, receiptNo: 'VW-1', receiptDate: today, registrationPaid: 500, feePaid: 10000 });
+
+    await page.goto(`/students/${data.ids.get(1)}`);
+    await expect(page.getByTestId('fee-paid')).toHaveText('10,500.00');
+    expect(await text(page, 'fee-pending')).toBe('26,000.00');
+    expect(await text(page, 'fee-paid-up-to')).not.toBe('Nothing paid');
+    await expect(page.getByTestId('receipt-link')).toHaveText('VW-1');
+    await expect(page.getByTestId('receipt-status')).toHaveText('Valid');
+    await page.getByTestId('receipt-link').click();
+    await expect(page.getByTestId('receipt-total')).toHaveText('10,500.00');
+
+    await openList(page);
+    await expect(listRow(page, 'E2E-1').getByTestId('paid')).toHaveText('10,500.00');
+    await expect(listRow(page, 'E2E-1').getByTestId('pending')).toHaveText('26,000.00');
+    await expect(listRow(page, 'E2E-1').getByTestId('fee-status')).toHaveText('Partly paid');
+    await expect(listRow(page, 'E2E-2').getByTestId('fee-status')).toHaveText('Unpaid');
+  });
+
 });

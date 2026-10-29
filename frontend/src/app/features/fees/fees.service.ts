@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiProblem, problemOf, STALE_VERSION } from '../../core/http/api-problem';
+import type { Balance, ReceiptSummary } from '../finance/receipts.service';
 
 export const REVISE_CONFIRMATION_REQUIRED = 'REVISE_CONFIRMATION_REQUIRED';
 
@@ -71,6 +72,9 @@ export interface StudentFees {
   dueDate: string | null;
   broughtForward: BroughtForward;
   totalDue: number;
+  /** F3: the balance computed by the server from the valid receipts, and the student's receipts, newest first. */
+  balance: Balance;
+  receipts: ReceiptSummary[];
 }
 
 /** The answer 409 REVISE_CONFIRMATION_REQUIRED carries: nothing was changed, the admin must confirm. */
