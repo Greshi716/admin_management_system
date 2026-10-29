@@ -2,7 +2,6 @@ package com.admin.management.fees;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -135,7 +134,7 @@ class StudentFeesIT extends IntegrationTest {
 	}
 
 	@Test
-	void anUnknownStudentIsNotFoundAndTheAnswerHasNoPaymentFields() throws Exception {
+	void anUnknownStudentIsNotFoundAndTheAnswerCarriesTheBalanceAndTheReceipts() throws Exception {
 		Setup setup = FeeTestData.year(jdbc, "PfShape", LocalDate.of(3406, 4, 1), 1);
 		FeeTestData.addRow(jdbc, setup.yearId(), setup.standard(0), null, "1000", null, null);
 		FeeTestData.setStatus(jdbc, setup.yearId(), false);
@@ -146,9 +145,10 @@ class StudentFeesIT extends IntegrationTest {
 
 		client.get("/api/students/999999999/fees").andExpect(status().isNotFound());
 		var body = client.get("/api/students/" + student + "/fees").andExpect(status().isOk())
-			.andExpect(content().string(not(containsString("paid"))))
-			.andExpect(content().string(not(containsString("pending"))))
-			.andExpect(content().string(not(containsString("receipt"))))
+			.andExpect(jsonPath("$.balance.paid").value(0.00))
+			.andExpect(jsonPath("$.balance.pending").value(1000.00))
+			.andExpect(jsonPath("$.balance.paidUpTo.state").value("NOTHING"))
+			.andExpect(jsonPath("$.receipts").isEmpty())
 			.andReturn().getResponse().getContentAsString();
 		assertThat(body).contains("totalDue");
 	}

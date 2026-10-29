@@ -12,7 +12,7 @@ import com.admin.management.students.api.EnrollmentLookup;
 import com.admin.management.students.api.EnrollmentLookup.ClassRecordRef;
 import com.admin.management.students.api.StudentLookup;
 
-/** Reads the Fees block of the profile from the fee account of the class record the profile shows (FR-005, FR-009). */
+/** Reads the Fees block of the profile: the fee account of the class record it shows, the balance and the receipts (FR-005, FR-009, FR-014). */
 @Service
 class StudentFeesService {
 
@@ -28,8 +28,15 @@ class StudentFeesService {
 
 	private final MasterDataLookup masterData;
 
+	private final FeeBalanceService balances;
+
+	private final ReceiptSummaryReader summaries;
+
 	StudentFeesService(StudentLookup students, EnrollmentLookup enrollments, FeeAccountRepository accounts,
-			BroughtForwardRepository broughtForwards, MasterDataLookup masterData) {
+			BroughtForwardRepository broughtForwards, MasterDataLookup masterData, FeeBalanceService balances,
+			ReceiptSummaryReader summaries) {
+		this.balances = balances;
+		this.summaries = summaries;
 		this.students = students;
 		this.enrollments = enrollments;
 		this.accounts = accounts;
@@ -48,21 +55,23 @@ class StudentFeesService {
 			.orElse(new StudentFeesDto.BroughtForwardDto(null, ZERO, null));
 		Optional<ClassRecordRef> record = yearId == null ? enrollments.shownRecord(studentId)
 				: enrollments.byStudentAndYear(studentId, yearId);
+		FeeBalance balance = balances.balance(studentId, record.map(ClassRecordRef::enrollmentId).orElse(null));
+		java.util.List<ReceiptSummaryDto> receipts = summaries.forStudent(studentId);
 		Long shownYear = record.map(ClassRecordRef::yearId).orElse(yearId);
 		String yearName = shownYear == null ? null : masterData.yearNames().get(shownYear);
 		Optional<FeeAccount> account = record.flatMap(r -> accounts.findById(r.enrollmentId()));
 		if (account.isEmpty()) {
 			return new StudentFeesDto(shownYear, yearName, StudentFeesDto.NOT_FINALISED, null, null, null, null,
-					broughtForward, broughtForward.amount());
+					broughtForward, broughtForward.amount(), balance, receipts);
 		}
 		FeeAccount a = account.get();
 		if (a.getAmount() == null) {
 			return new StudentFeesDto(shownYear, yearName, StudentFeesDto.FEE_NOT_SET, null, null, null, null,
-					broughtForward, broughtForward.amount());
+					broughtForward, broughtForward.amount(), balance, receipts);
 		}
 		BigDecimal totalFee = FeeSelection.totalFee(a.getAmount(), a.getRegistrationFee());
 		return new StudentFeesDto(shownYear, yearName, StudentFeesDto.FEE_SET, a.getAmount(), a.getRegistrationFee(),
-				totalFee, a.getDueDate(), broughtForward, totalFee.add(broughtForward.amount()));
+				totalFee, a.getDueDate(), broughtForward, totalFee.add(broughtForward.amount()), balance, receipts);
 	}
 
 }
