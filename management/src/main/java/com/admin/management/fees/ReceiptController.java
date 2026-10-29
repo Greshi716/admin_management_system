@@ -19,8 +19,11 @@ class ReceiptController {
 
 	private final ReceiptService service;
 
-	ReceiptController(ReceiptService service) {
+	private final ReceiptMarkService marks;
+
+	ReceiptController(ReceiptService service, ReceiptMarkService marks) {
 		this.service = service;
+		this.marks = marks;
 	}
 
 	@PostMapping
@@ -32,6 +35,12 @@ class ReceiptController {
 	@GetMapping("/{serialNo}")
 	ReceiptDto get(@PathVariable Long serialNo) {
 		return service.get(serialNo);
+	}
+
+	/** The only change to a receipt: it is marked, never edited (FR-013). */
+	@PostMapping("/{serialNo}/not-cleared")
+	ReceiptDto markNotCleared(@PathVariable Long serialNo, @RequestBody NotClearedInput input) {
+		return marks.markNotCleared(serialNo, input);
 	}
 
 }

@@ -23,6 +23,15 @@ public record FeeBalance(LocalDate dueDate, BigDecimal yearFee, BigDecimal regis
 
 		static final String FULL = "FULL";
 
+		/** The value as text for the audit entry: the last paid day, or the words for fully paid and nothing paid. */
+		String text() {
+			return switch (state) {
+				case NOTHING -> "Nothing paid";
+				case FULL -> "Fully paid for the year";
+				default -> String.valueOf(date);
+			};
+		}
+
 	}
 
 	/**
