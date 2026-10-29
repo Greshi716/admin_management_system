@@ -23,6 +23,23 @@ final class Money {
 		return amount == null ? null : amount.setScale(2, RoundingMode.UNNECESSARY);
 	}
 
+	/**
+	 * Why an amount typed by the admin is not acceptable (negative, more than two decimals, more than ten digits before
+	 * the point), or null when it is. Nothing is rounded (FR-023).
+	 */
+	static String problem(BigDecimal value) {
+		if (value.signum() < 0) {
+			return "The amount cannot be negative.";
+		}
+		if (value.stripTrailingZeros().scale() > 2) {
+			return "Use at most two decimal places.";
+		}
+		if (value.precision() - value.scale() > MAX_INTEGER_DIGITS) {
+			return TOO_LARGE_MESSAGE;
+		}
+		return null;
+	}
+
 	/** The amount as the plain text kept in the audit log, such as 28000.00; null stays null. */
 	static String text(BigDecimal amount) {
 		return amount == null ? null : scale2(amount).toPlainString();
