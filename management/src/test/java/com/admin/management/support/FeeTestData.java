@@ -214,6 +214,30 @@ public final class FeeTestData {
 				""", prefix, adminId(jdbc), receipts, setup.yearId(), prefix + "-%");
 	}
 
+	/**
+	 * Inserts a receipt for the register tests with the class kept on the receipt (standard 1 / division A named
+	 * "Reg Std 1"). {@code type} is CURRENT_YEAR or PREVIOUS_YEARS; a previous-years receipt has no class record.
+	 * A CHEQUE receipt gets a cheque number, bank and date. Returns the serial no.
+	 */
+	public static long registerReceipt(JdbcTemplate jdbc, Setup setup, Fx student, String receiptNo, LocalDate date,
+			String mode, String type, String registrationPaid, String feePaid) {
+		BigDecimal registration = new BigDecimal(registrationPaid);
+		BigDecimal fee = new BigDecimal(feePaid);
+		boolean cheque = "CHEQUE".equals(mode);
+		boolean current = "CURRENT_YEAR".equals(type);
+		return jdbc.queryForObject("""
+				insert into receipts (receipt_no, receipt_date, academic_year_id, student_id, enrollment_id, student_name,
+				    gr_no, standard_id, standard_name, division_name, receipt_type, registration_paid, fee_paid, total,
+				    total_words, payment_mode, cheque_no, bank_name, cheque_date, created_by, created_at)
+				values (?, ?, ?, ?, ?, 'Register Student', ?, ?, 'Reg Std 1', 'A', ?, ?, ?, ?, 'Test words', ?, ?, ?, ?, ?,
+				    now())
+				returning serial_no
+				""", Long.class, receiptNo, Date.valueOf(date), setup.yearId(), student.studentId(),
+				current ? student.enrollmentId() : null, student.grNo(), setup.standard(0), type, registration, fee,
+				registration.add(fee), mode, cheque ? "CQ" + receiptNo : null, cheque ? "Test Bank" : null,
+				cheque ? Date.valueOf(date) : null, adminId(jdbc));
+	}
+
 	/** Paid amounts of a class record, worked out in plain Java from the receipts and marks (not from the views). */
 	public record Balance(BigDecimal paidYearFee, BigDecimal paidRegistration, BigDecimal pendingYearFee,
 			BigDecimal pendingRegistration) {
