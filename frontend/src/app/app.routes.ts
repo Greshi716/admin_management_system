@@ -26,6 +26,10 @@ export const routes: Routes = [
         loadChildren: () => import('./features/students/students.routes').then((m) => m.STUDENTS_ROUTES),
       },
       {
+        path: 'finance',
+        loadChildren: () => import('./features/finance/finance.routes').then((m) => m.FINANCE_ROUTES),
+      },
+      {
         path: 'setup',
         loadComponent: () => import('./features/setup/setup-layout.component').then((m) => m.SetupLayoutComponent),
         children: [

@@ -41,6 +41,7 @@ export class ShellComponent {
 
   protected readonly tabs: Tab[] = [
     { label: 'Students', link: '/students' },
+    { label: 'Finance', link: '/finance' },
     { label: 'Setup', link: '/setup', alwaysOpen: true },
   ];
 

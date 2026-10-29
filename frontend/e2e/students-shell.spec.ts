@@ -30,12 +30,12 @@ test.describe('the shell (F1 US4)', () => {
     await clearMasterData(page);
   });
 
-  test('FR-014: the top bar shows exactly the tabs Students and Setup and no unbuilt module', async ({ page }) => {
+  test('FR-014: the top bar shows exactly the tabs Students, Finance and Setup and no unbuilt module', async ({ page }) => {
     await page.goto('/');
 
     const tabs = page.getByRole('navigation', { name: 'Main' }).getByRole('link');
-    await expect(tabs).toHaveText(['Students', 'Setup']);
-    for (const unbuilt of ['Dashboard', 'Approvals', 'Staff', 'Finance', 'Reports']) {
+    await expect(tabs).toHaveText(['Students', 'Finance', 'Setup']);
+    for (const unbuilt of ['Dashboard', 'Approvals', 'Staff', 'Reports']) {
       await expect(page.getByRole('navigation', { name: 'Main' }).getByText(unbuilt)).toHaveCount(0);
     }
     await expect(page.getByTestId('current-year')).toBeVisible();
@@ -157,6 +157,7 @@ test.describe('the shell without a current academic year (F1 US4)', () => {
     const bar = page.getByRole('navigation', { name: 'Main' });
     await expect(bar.getByRole('link', { name: 'Students' })).toHaveCount(0);
     await expect(bar.getByText('Students', { exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await expect(bar.getByText('Finance', { exact: true })).toHaveAttribute('aria-disabled', 'true');
     await expect(bar.getByRole('link', { name: 'Setup' })).toBeVisible();
 
     for (const path of ['/students', '/students/new', '/students/1']) {
