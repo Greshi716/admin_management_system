@@ -66,11 +66,12 @@ import { BalanceChanged, FeeCollection, Receipt, ReceiptsService } from '../rece
           <div><dt class="text-sm text-muted">Total</dt><dd class="font-semibold" data-testid="receipt-total">{{ money(r.total) }}</dd></div>
           <div><dt class="text-sm text-muted">In words</dt><dd>{{ r.totalWords }}</dd></div>
         </dl>
-        @if (r.status === 'VALID' && r.paymentMode === 'CHEQUE') {
-          <div class="mt-5">
+        <div class="mt-5 flex flex-wrap gap-2">
+          <a [routerLink]="['/finance/receipts', r.serialNo, 'print']" class="btn btn-primary" data-testid="print-receipt">Print</a>
+          @if (r.status === 'VALID' && r.paymentMode === 'CHEQUE') {
             <button type="button" class="btn btn-danger btn-outlined" (click)="marking.set(true)" data-testid="mark-not-cleared">Cheque not cleared</button>
-          </div>
-        }
+          }
+        </div>
       </section>
       <app-receipt-mark-dialog
         [receipt]="marking() ? r : null"

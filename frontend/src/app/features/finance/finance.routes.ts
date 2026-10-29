@@ -22,6 +22,11 @@ export const FINANCE_ROUTES: Routes = [
         title: 'Receipt',
         loadComponent: () => import('./receipt-view/receipt-view.component').then((m) => m.ReceiptViewComponent),
       },
+      {
+        path: 'receipts/:serialNo/print',
+        title: 'Print receipt',
+        loadComponent: () => import('./receipt-print/receipt-print.component').then((m) => m.ReceiptPrintComponent),
+      },
     ],
   },
 ];
