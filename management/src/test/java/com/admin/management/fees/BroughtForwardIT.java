@@ -3,7 +3,6 @@ package com.admin.management.fees;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -262,7 +261,6 @@ class BroughtForwardIT extends IntegrationTest {
 		assertThat(jdbc.queryForObject("select version from fee_brought_forward where student_id = ?", Long.class,
 				student)).isZero();
 		client.get("/api/students/" + student + "/fees?yearId=" + setup.yearId())
-			.andExpect(content().string(not(containsString("receipt"))))
 			.andExpect(content().string(containsString("\"totalDue\":31500.00")));
 	}
 

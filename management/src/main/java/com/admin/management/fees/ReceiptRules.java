@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.admin.management.masterdata.api.MasterDataLookup;
 import com.admin.management.shared.web.ApiProblem.FieldError;
 import com.admin.management.shared.web.CodedConflictException;
 import com.admin.management.shared.web.ValidationException;
@@ -20,6 +21,12 @@ import com.admin.management.shared.web.ValidationException;
  */
 @Component
 class ReceiptRules {
+
+	private final MasterDataLookup masterData;
+
+	ReceiptRules(MasterDataLookup masterData) {
+		this.masterData = masterData;
+	}
 
 	static final int MAX_RECEIPT_NO = 20;
 
@@ -46,7 +53,7 @@ class ReceiptRules {
 			throw new ValidationException("receiptType", "Choose the type of receipt.");
 		}
 		if (in.receiptType() == Receipt.Type.PREVIOUS_YEARS) {
-			throw new ValidationException("receiptType", "Previous-years receipts are not available yet.");
+			return checkPreviousYears(current, balance, in, today, complete);
 		}
 		checkState(current);
 		if (balance.earlierYearsPending().signum() > 0) {
@@ -81,6 +88,49 @@ class ReceiptRules {
 			throw overpayment("feePaid", "year fee", balance.yearFeeDue());
 		}
 		return new Amounts(registration, fee);
+	}
+
+	/**
+	 * A previous-years receipt pays the student's brought-forward pending from one earlier year (FR-004, FR-005). It
+	 * needs no fee state of the current year, so a Left student or one with no class record this year can pay. One
+	 * amount, above zero and not above what earlier years still have pending; no registration fee.
+	 */
+	private Amounts checkPreviousYears(FeeCollectionService.Current current, FeeBalance balance, ReceiptInput in,
+			LocalDate today, boolean complete) {
+		if (current.year().isEmpty()) {
+			throw new CodedConflictException(FeeCollectionDto.NO_CURRENT_YEAR, null,
+					"There is no academic year for today's date.", null);
+		}
+		if (balance.earlierYearsPending().signum() <= 0) {
+			throw new CodedConflictException("NO_EARLIER_PENDING", null,
+					"This student has no earlier years' pending to pay.", null);
+		}
+		List<FieldError> errors = new ArrayList<>();
+		if (in.previousYearId() == null) {
+			errors.add(new FieldError("previousYearId", "Choose the earlier year."));
+		}
+		else if (masterData.earlierYears(current.year().get().startDate())
+			.stream()
+			.noneMatch(year -> year.id().equals(in.previousYearId()))) {
+			errors.add(new FieldError("previousYearId", "Choose a year before the current academic year."));
+		}
+		if (in.registrationPaid() != null && in.registrationPaid().signum() != 0) {
+			errors.add(new FieldError("registrationPaid", "A previous-years receipt has no registration fee."));
+		}
+		BigDecimal fee = amount("feePaid", in.feePaid(), errors);
+		if (errors.isEmpty() && complete && fee.signum() == 0) {
+			errors.add(new FieldError("feePaid", "Enter an amount above zero."));
+		}
+		if (complete) {
+			checkNumberDateAndMode(in, today, errors);
+		}
+		if (!errors.isEmpty()) {
+			throw new ValidationException(errors);
+		}
+		if (fee.compareTo(balance.earlierYearsPending()) > 0) {
+			throw overpayment("feePaid", "previous years' fee", balance.earlierYearsPending());
+		}
+		return new Amounts(FeeBalance.ZERO, fee);
 	}
 
 	private static void checkState(FeeCollectionService.Current current) {

@@ -10,7 +10,7 @@ import java.time.LocalDate;
  */
 public record FeeBalance(LocalDate dueDate, BigDecimal yearFee, BigDecimal registrationFee, BigDecimal broughtForward,
 		BigDecimal totalFee, BigDecimal paid, BigDecimal pending, BigDecimal yearFeeDue, BigDecimal registrationDue,
-		BigDecimal earlierYearsPending, BigDecimal excessPaid, PaidUpToView paidUpTo) {
+		BigDecimal earlierYearsPending, BigDecimal excessPaid, PaidUpToView paidUpTo, BigDecimal previousYearsPaid) {
 
 	static final BigDecimal ZERO = new BigDecimal("0.00");
 
@@ -66,7 +66,7 @@ public record FeeBalance(LocalDate dueDate, BigDecimal yearFee, BigDecimal regis
 		BigDecimal pending = yearFeeDue.add(registrationDue).add(earlier);
 		return new FeeBalance(p.dueDate(), two(yearFee), two(registrationFee), two(p.broughtForward()), two(total),
 				two(paid), two(pending), two(yearFeeDue), two(registrationDue), two(earlier), two(excess),
-				paidUpTo(p));
+				paidUpTo(p), two(p.paidPrevious()));
 	}
 
 	private static PaidUpToView paidUpTo(Position p) {

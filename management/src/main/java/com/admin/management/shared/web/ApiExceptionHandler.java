@@ -68,7 +68,8 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(ValidationException.class)
 	ResponseEntity<ApiProblem> invalidRequest(ValidationException ex) {
-		return validation(ex.getFieldErrors());
+		ResponseEntity<ApiProblem> response = validation(ex.getFieldErrors());
+		return ex.getCode() == null ? response : problem(response.getBody().withCode(ex.getCode()));
 	}
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)

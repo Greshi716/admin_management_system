@@ -12,6 +12,7 @@ import com.admin.management.shared.CurrentUserProvider;
 import com.admin.management.shared.web.CodedConflictException;
 import com.admin.management.shared.web.NotFoundException;
 import com.admin.management.shared.web.ValidationException;
+import com.admin.management.students.api.EnrollmentLookup;
 import com.admin.management.students.api.EnrollmentLookup.ClassRecordRef;
 
 /**
@@ -26,6 +27,8 @@ class ReceiptService {
 	private final FeeCollectionService collection;
 
 	private final FeeBalanceService balances;
+
+	private final EnrollmentLookup enrollments;
 
 	private final ReceiptRules rules;
 
@@ -43,11 +46,13 @@ class ReceiptService {
 
 	private final Clock clock;
 
-	ReceiptService(FeeCollectionService collection, FeeBalanceService balances, ReceiptRules rules,
+	ReceiptService(FeeCollectionService collection, FeeBalanceService balances, EnrollmentLookup enrollments,
+			ReceiptRules rules,
 			ReceiptRepository receipts, ReceiptMarkRepository marks, FeesAudit audit, MasterDataLookup masterData,
 			CurrentUserProvider currentUser, SchoolProperties school, Clock clock) {
 		this.collection = collection;
 		this.balances = balances;
+		this.enrollments = enrollments;
 		this.rules = rules;
 		this.receipts = receipts;
 		this.marks = marks;
@@ -82,14 +87,20 @@ class ReceiptService {
 		String number = in.receiptNo().trim();
 		rejectUsedNumber(number);
 
-		ClassRecordRef record = current.record().orElseThrow();
+		// A current-year receipt is tied to the current class record. A previous-years receipt is tied to the chosen
+		// earlier year and has no class record of its own; its snapshot is the record the student's screens show.
+		boolean previous = in.receiptType() == Receipt.Type.PREVIOUS_YEARS;
+		ClassRecordRef record = previous ? enrollments.shownRecord(studentId).orElse(null)
+				: current.record().orElseThrow();
 		boolean cheque = in.paymentMode() == Receipt.Mode.CHEQUE;
 		Receipt saved = receipts.saveAndFlush(new Receipt(new Receipt.Draft(number, in.receiptDate(),
-				record.yearId(), studentId, record.enrollmentId(), current.student().fullName(),
-				current.student().grNo(), record.standardId(), record.divisionId(), record.categoryId(),
-				masterData.standardNames().get(record.standardId()),
-				record.divisionId() == null ? null : masterData.divisionNames().get(record.divisionId()),
-				Receipt.Type.CURRENT_YEAR, amounts.registration(), amounts.fee(), AmountInWords.of(amounts.total()),
+				previous ? in.previousYearId() : record.yearId(), studentId, previous ? null : record.enrollmentId(),
+				current.student().fullName(), current.student().grNo(), record == null ? null : record.standardId(),
+				record == null ? null : record.divisionId(), record == null ? null : record.categoryId(),
+				record == null ? null : masterData.standardNames().get(record.standardId()),
+				record == null || record.divisionId() == null ? null
+						: masterData.divisionNames().get(record.divisionId()),
+				in.receiptType(), amounts.registration(), amounts.fee(), AmountInWords.of(amounts.total()),
 				in.paymentMode(), cheque ? in.chequeNo().trim() : null, cheque ? in.bankName().trim() : null,
 				cheque ? in.chequeDate() : null, currentUser.currentUserId().orElseThrow(),
 				clock.instant())));
