@@ -26,6 +26,8 @@ class FeesAudit {
 
 	static final String BROUGHT_FORWARD = "BroughtForward";
 
+	static final String RECEIPT = "Receipt";
+
 	/** The reason of an entry written for a row change in a finalised year. */
 	static final String REVISE = "Revise";
 
@@ -109,6 +111,41 @@ class FeesAudit {
 			changes.put("noteChanged", true);
 		}
 		audit.record(AREA, "Edit", entity, changes, null);
+	}
+
+	/** A receipt was saved (FR-021): every amount in full, the cheque details only for a Cheque receipt. */
+	void receiptCreated(Receipt receipt) {
+		Map<String, Object> values = new LinkedHashMap<>();
+		values.put("receiptNo", receipt.getReceiptNo());
+		values.put("studentId", receipt.getStudentId());
+		values.put("type", receipt.getReceiptType().name());
+		values.put("mode", receipt.getPaymentMode().name());
+		values.put("academicYearId", receipt.getAcademicYearId());
+		values.put("registrationPaid", Money.text(receipt.getRegistrationPaid()));
+		values.put("feePaid", Money.text(receipt.getFeePaid()));
+		values.put("total", Money.text(receipt.getTotal()));
+		if (receipt.getPaymentMode() == Receipt.Mode.CHEQUE) {
+			values.put("chequeNo", receipt.getChequeNo());
+			values.put("bankName", receipt.getBankName());
+		}
+		Map<String, Object> changes = new LinkedHashMap<>();
+		changes.put("new", values);
+		audit.record(AREA, "Create", RECEIPT + "#" + receipt.getSerialNo(), changes, null);
+	}
+
+	/**
+	 * A cheque receipt was marked "Cheque not cleared" (FR-011): the status goes from VALID to CHEQUE_NOT_CLEARED,
+	 * the amount is added back, and the paid-up-to text before and after is kept (null when there is none).
+	 */
+	void chequeNotCleared(Long serialNo, BigDecimal amountAddedBack, String paidUpToBefore, String paidUpToAfter,
+			String reason) {
+		Map<String, Object> changes = new LinkedHashMap<>();
+		changes.put("old", new LinkedHashMap<>(Map.of("status", "VALID")));
+		changes.put("new", new LinkedHashMap<>(Map.of("status", "CHEQUE_NOT_CLEARED")));
+		changes.put("amountAddedBack", Money.text(amountAddedBack));
+		changes.put("paidUpToBefore", paidUpToBefore);
+		changes.put("paidUpToAfter", paidUpToAfter);
+		audit.record(AREA, "Edit", RECEIPT + "#" + serialNo, changes, reason);
 	}
 
 	private void write(String action, String entity, Map<String, Object> changes, String reason,
