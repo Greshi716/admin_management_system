@@ -8,6 +8,9 @@ export interface ReceiptConfirmDetails {
   studentName: string;
   grNo: string;
   stdDiv: string;
+  /** Current year, or Previous years with the earlier year's name (FR-004). */
+  typeLabel: string;
+  yearName: string | null;
   receiptNo: string;
   receiptDate: string;
   lines: { label: string; amount: number }[];
@@ -39,6 +42,13 @@ export interface ReceiptConfirmDetails {
         <dl class="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1" data-testid="confirm-details">
           <dt class="font-semibold">Student</dt>
           <dd data-testid="confirm-student">{{ d.studentName }} (GR {{ d.grNo }}, {{ d.stdDiv }})</dd>
+          <dt class="font-semibold">Type</dt>
+          <dd data-testid="confirm-type">
+            {{ d.typeLabel }}
+            @if (d.yearName) {
+              — {{ d.yearName }}
+            }
+          </dd>
           <dt class="font-semibold">Receipt no.</dt>
           <dd data-testid="confirm-receipt-no">{{ d.receiptNo }}</dd>
           <dt class="font-semibold">Date</dt>

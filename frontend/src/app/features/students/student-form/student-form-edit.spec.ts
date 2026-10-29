@@ -235,6 +235,26 @@ describe('StudentFormComponent in edit mode (FR-004, FR-018)', () => {
       expect(element.textContent).toContain('The note can be at most 200 characters.');
     });
 
+    it('shows the BELOW_PREVIOUS_YEARS_PAID message with the total beside the amount (FR-025)', () => {
+      fees.saveBroughtForward.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 422,
+              error: {
+                code: 'BELOW_PREVIOUS_YEARS_PAID',
+                fieldErrors: [{ field: 'amount', message: 'Receipts for earlier years already total 2000.00. The amount cannot be below that.' }],
+              },
+            }),
+        ),
+      );
+      type('#bfAmount', '1500');
+
+      click('Save brought forward');
+
+      expect(element.textContent).toContain('already total 2000.00');
+    });
+
     it('flags text that is not a number and sends nothing', () => {
       type('#bfAmount', 'abc');
 

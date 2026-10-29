@@ -142,6 +142,12 @@ export class ReceiptFormComponent {
 
   }
 
+  /** The link of the order message: switch to the previous-years receipt. */
+  protected usePreviousYears(): void {
+    this.form.controls.receiptType.setValue('PREVIOUS_YEARS');
+    this.typeChanged();
+  }
+
   /** The admin chose the other receipt type: the rows differ, so the typed amounts are cleared. */
   protected typeChanged(): void {
     this.form.controls.registrationPaid.setValue('');
@@ -271,8 +277,11 @@ export class ReceiptFormComponent {
     } else {
       lines.push({ label: "Earlier years' fee", amount: this.amount('feePaid') ?? 0 });
     }
+    const previous = f.receiptType === 'PREVIOUS_YEARS';
     const cheque = f.paymentMode === 'CHEQUE';
     return {
+      typeLabel: previous ? 'Previous years' : 'Current year',
+      yearName: previous ? (ctx.earlierYears.find((year) => String(year.id) === f.previousYearId)?.name ?? null) : null,
       studentName: ctx.student.name,
       grNo: ctx.student.grNo,
       stdDiv: ctx.student.stdDiv,

@@ -17,6 +17,7 @@ const BALANCE: Balance = {
   yearFeeDue: 36500,
   registrationDue: 500,
   earlierYearsPending: 0,
+  previousYearsPaid: 0,
   excessPaid: 0,
   paidUpTo: { state: 'NOTHING', date: null },
 };
@@ -259,6 +260,36 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     expect((input('receipt-type') as HTMLSelectElement).value).toBe('PREVIOUS_YEARS');
     expect(el().querySelector('#previous-year')).not.toBeNull();
     expect(el().querySelector('#registration-paid')).toBeNull();
+  });
+
+  it('shows the order message with a link that switches to the previous-years type, and one amount row without registration', () => {
+    open(
+      context({
+        canPayCurrentYear: false,
+        canPayPreviousYears: true,
+        earlierYears: [{ id: 5, name: '2025-2026' }],
+        balance: { ...BALANCE, earlierYearsPending: 3000 },
+      }),
+    );
+    const select = input('receipt-type') as HTMLSelectElement;
+    select.value = 'CURRENT_YEAR';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    (el().querySelector('[data-testid="use-previous-years"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect((input('receipt-type') as HTMLSelectElement).value).toBe('PREVIOUS_YEARS');
+    expect(text('fee-due')).toContain('3,000.00');
+    expect(el().querySelector('#registration-paid')).toBeNull();
+    expect(el().querySelectorAll('[id="fee-paid"]').length).toBe(1);
+  });
+
+  it('offers the previous-years type only when earlier years have a pending amount', () => {
+    open(context());
+
+    const options = Array.from((input('receipt-type') as HTMLSelectElement).options).map((o) => o.value);
+    expect(options).toEqual(['CURRENT_YEAR']);
   });
 
   it('says "Fee not set" and gives no form when the fee is not set', () => {

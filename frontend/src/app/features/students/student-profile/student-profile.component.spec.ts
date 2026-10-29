@@ -100,6 +100,7 @@ const FEES_SET: StudentFees = {
     yearFeeDue: 18000,
     registrationDue: 0,
     earlierYearsPending: 2500,
+    previousYearsPaid: 0,
     excessPaid: 0,
     paidUpTo: { state: 'DATE', date: '2026-07-09' },
   },

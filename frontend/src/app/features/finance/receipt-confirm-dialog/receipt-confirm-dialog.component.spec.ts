@@ -6,6 +6,8 @@ const DETAILS: ReceiptConfirmDetails = {
   grNo: 'T-1',
   stdDiv: '10 A',
   receiptNo: '3100',
+  typeLabel: 'Current year',
+  yearName: null,
   receiptDate: '2026-10-01',
   lines: [
     { label: 'Registration fee', amount: 500 },

@@ -46,7 +46,14 @@
     }
     @if (!c.canPayCurrentYear && c.canPayPreviousYears) {
       <p class="mb-4 rounded-card bg-warning-bg p-4 text-warning-text" data-testid="earlier-first">
-        Earlier years' pending of {{ money(c.balance.earlierYearsPending) }} must be paid first. Use a previous-years receipt.
+        Earlier years' pending of {{ money(c.balance.earlierYearsPending) }} must be paid first.
+        @if (type() === 'CURRENT_YEAR') {
+          <button type="button" class="link-button font-semibold underline" (click)="usePreviousYears()" data-testid="use-previous-years">
+            Use a previous-years receipt
+          </button>
+        } @else {
+          Use a previous-years receipt.
+        }
       </p>
     }
     @if (note(); as text) {

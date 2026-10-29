@@ -32,6 +32,8 @@ export interface Balance {
   yearFeeDue: number;
   registrationDue: number;
   earlierYearsPending: number;
+  /** What valid previous-years receipts total; the brought-forward amount cannot be set below it (FR-025). */
+  previousYearsPaid: number;
   excessPaid: number;
   paidUpTo: PaidUpTo;
 }
