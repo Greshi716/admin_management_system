@@ -423,6 +423,16 @@ describe('CampusTableComponent (FR-029, FR-030, FR-031, FR-032, FR-033, FR-034, 
     expect(downloader.save).not.toHaveBeenCalled();
     expect((fixture.nativeElement.querySelector('[data-testid="export"]') as HTMLButtonElement).disabled).toBe(false);
   });
+
+  it('emits the request of every page it loads, for a panel that follows the same filters', () => {
+    create();
+    const emitted: unknown[] = [];
+    fixture.componentInstance.requested.subscribe((request) => emitted.push(request));
+
+    loaded();
+
+    expect(emitted).toEqual([{ first: 0, rows: 25, filters: {} }]);
+  });
 });
 
 @Component({

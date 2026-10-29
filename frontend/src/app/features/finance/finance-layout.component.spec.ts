@@ -17,6 +17,14 @@ describe('Finance tab (FR-014)', () => {
     }
   });
 
+  it('shows the two views of Fee collection, Collect fee and Receipts', () => {
+    const fixture = TestBed.createComponent(FinanceLayoutComponent);
+    fixture.detectChanges();
+    const links = Array.from<HTMLAnchorElement>(fixture.nativeElement.querySelectorAll('nav[aria-label="Fee collection views"] a'));
+    expect(links.map((a) => a.textContent?.trim())).toEqual(['Collect fee', 'Receipts']);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/finance/fee-collection', '/finance/receipts']);
+  });
+
   it('adds the Finance tab to the top bar between Students and Setup', () => {
     const shell = TestBed.createComponent(ShellComponent).componentInstance as unknown as { tabs: { label: string; link: string }[] };
     expect(shell.tabs.map((t) => t.label)).toEqual(['Students', 'Finance', 'Setup']);

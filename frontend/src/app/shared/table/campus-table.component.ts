@@ -9,6 +9,7 @@ import {
   inject,
   input,
   OnInit,
+  output,
   signal,
   TemplateRef,
   untracked,
@@ -54,6 +55,8 @@ export class CampusTableComponent implements OnInit {
   readonly extraParams = input<Record<string, unknown>>({});
   /** The hint in the search box, for a list whose search covers particular fields. */
   readonly searchPlaceholder = input('Search');
+  /** Emits the request of every page that loaded, so a panel beside the list can ask for the same filters (the register's day-wise totals). */
+  readonly requested = output<TableRequest>();
   /** Optional per-row buttons: give the table an ng-template named rowActions; it receives the row. */
   protected readonly rowActions = contentChild<TemplateRef<{ $implicit: Record<string, unknown> }>>('rowActions');
 
@@ -135,6 +138,7 @@ export class CampusTableComponent implements OnInit {
         if (page) {
           this.rows.set(page.rows);
           this.total.set(page.total);
+          this.requested.emit(this.request());
         }
         this.loading.set(false);
       });

@@ -18,6 +18,12 @@ export const FINANCE_ROUTES: Routes = [
         loadComponent: () => import('./receipt-form/receipt-form.component').then((m) => m.ReceiptFormComponent),
       },
       {
+        path: 'receipts',
+        pathMatch: 'full',
+        title: 'Receipts',
+        loadComponent: () => import('./receipt-list/receipt-list.component').then((m) => m.ReceiptListComponent),
+      },
+      {
         path: 'receipts/:serialNo',
         title: 'Receipt',
         loadComponent: () => import('./receipt-view/receipt-view.component').then((m) => m.ReceiptViewComponent),

@@ -129,10 +129,10 @@ test.describe('the shell (F1 US4)', () => {
     });
   }
 
-  test('FR-015: the Students list and the profile have no receipt, paid, pending, promote or roll number items', async ({ page }) => {
+  test('F1 FR-015 as changed by F3: the Students list and the profile have no promote, roll number or LC items (they now show fees, F3 FR-014, FR-015)', async ({ page }) => {
     const master = await createStudentMasterData(page);
     const student = await createStudent(page, studentInput(1, master));
-    const absent = ['Paid', 'Pending', 'Receipt', 'Collect fee', 'Prepare LC', 'Promote', 'Left students (LC)', 'Roll'];
+    const absent = ['Prepare LC', 'Promote', 'Left students (LC)', 'Roll'];
 
     for (const path of ['/students', `/students/${student.id}`]) {
       await page.goto(path);

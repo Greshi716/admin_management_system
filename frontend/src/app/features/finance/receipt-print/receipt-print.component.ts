@@ -22,10 +22,10 @@ import { Receipt, ReceiptsService } from '../receipts.service';
     .receipt-sheet {
       max-width: 190mm;
       margin: 0 auto;
-      background: #fff;
-      color: #000;
+      background: white;
+      color: black;
       padding: 12mm;
-      border: 1px solid #999;
+      border: 1px solid gray;
     }
     .receipt-sheet table {
       width: 100%;
@@ -33,7 +33,7 @@ import { Receipt, ReceiptsService } from '../receipts.service';
     }
     .receipt-sheet th,
     .receipt-sheet td {
-      border: 1px solid #000;
+      border: 1px solid black;
       padding: 6px 10px;
       text-align: left;
     }
@@ -108,7 +108,7 @@ import { Receipt, ReceiptsService } from '../receipts.service';
           }
         </p>
         <div class="mt-16 flex justify-end">
-          <div style="border-top: 1px solid #000; min-width: 60mm; text-align: center; padding-top: 4px" data-testid="print-signature">Signature</div>
+          <div style="border-top: 1px solid black; min-width: 60mm; text-align: center; padding-top: 4px" data-testid="print-signature">Signature</div>
         </div>
       </article>
     } @else if (failed()) {
