@@ -72,6 +72,6 @@ The timing tests are tagged `performance` and left out of `verify.sh`; run with 
 | | export with day-wise sheet | 2,374 ms | 30,000 ms |
 | `StudentListPerformanceIT` (Students list with fee columns) | sort by Paid, Pending, Paid up to | 173, 206, 240 ms | 1,500 ms |
 | | filter by Fee status | 679 and 625 ms | 1,500 ms |
-| | export of 10,000 students | 25,395 ms | 30,000 ms |
+| | export of 10,000 students | 4,318 ms (was 25,395 ms before review S4: one cursor query instead of an offset query per chunk) | 30,000 ms |
 
-**Watch item:** the Students export (25.4 s of a 30 s limit, 27.1 s in an earlier run) is the thinnest margin, and the 4 GB school PC will be slower. F11 should measure it there. The spike in `research.md` R2 and R10 compares the per-column and join forms.
+**Watch item (closed by review S4):** the Students export took 25.4 s of 30 s because every 500-row chunk re-worked out the columns of the rows it skipped. `TableQueryService.stream` now reads one cursor query, 4.3 s. F11 still measures it on the 4 GB school PC. The spike in `research.md` R2 and R10 compares the per-column and join forms.
