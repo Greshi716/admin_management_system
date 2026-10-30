@@ -16,3 +16,13 @@ Source: `review-diff-004-fee-collection-2026-10-30-1310.md` (Result: FIX FIRST).
 | M5 | `.link-target` (44px) on the receipt links and the previous-years link. | fix minors |
 | M6 | Spec FR-021 now says the export entry is written right after the file, in its own transaction (as built, as F0 and F1). | fix minors |
 | M9 (part) | The duplicate `## Open items` section of the decision log is not merged here (it was already so on `main`); left for a later docs change. | not fixed |
+
+# Round 2 (review-diff-004-fee-collection-2026-10-30-1421.md, Result: FIX FIRST)
+
+| Id | What changed | Commit |
+|---|---|---|
+| B1 | `ReceiptCreateIT` expects the screen date "1 Oct 3601" in the duplicate-number message (the M7 fix of round 1 had changed the message). | fix round 2 |
+| M1 | The contract and the Javadoc no longer promise that the dialog never opens: a used receipt number is checked only by the save (under the number lock) and is refused beside the field after Confirm; nothing is saved. | fix round 2 |
+| M2 | `docs/design/ui-tokens.md` lists `--color-print-*` and `.link-target`. | fix round 2 |
+| M3 | `FeeBalanceIT` has a case for a missing receipt number with `validate=true`. | fix round 2 |
+| M4 | `JsonMoney` imports are in order. | fix round 2 |

@@ -15,12 +15,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
 import com.admin.management.support.FeeTestData.Setup;
 import com.admin.management.support.IntegrationTest;
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.ReceiptApi;
 import com.admin.management.support.SignedInClient;
 
@@ -107,7 +107,7 @@ class ReceiptCreateIT extends IntegrationTest {
 			.andExpect(jsonPath("$.code").value("DUPLICATE_RECEIPT_NO"))
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("receiptNo"))
 			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("serial no. " + serial)))
-			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString(TODAY)));
+			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("1 Oct 3601")));
 		ReceiptApi.create(client, second.studentId(), ReceiptApi.cash("  d-1 ", TODAY, "100.00"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("DUPLICATE_RECEIPT_NO"));

@@ -16,12 +16,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
 import com.admin.management.support.FeeTestData.Setup;
 import com.admin.management.support.IntegrationTest;
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.SignedInClient;
 
 /**

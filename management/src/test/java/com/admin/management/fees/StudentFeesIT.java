@@ -13,11 +13,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Setup;
 import com.admin.management.support.IntegrationTest;
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.SignedInClient;
 import com.admin.management.support.StudentTestData;
 import com.admin.management.support.StudentTestData.YearSetup;

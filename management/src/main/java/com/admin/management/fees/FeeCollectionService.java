@@ -110,7 +110,7 @@ class FeeCollectionService {
 	 * The receipt as it would be saved, with the balance after it. Nothing is written. The same rules as the save
 	 * (ReceiptRules). With {@code validate} false (the form while it is typed) the receipt number, date, mode and
 	 * cheque details are left out, as they cannot change a number; true (the Save button) checks them too, so the
-	 * confirmation dialog never opens for a receipt the save would refuse.
+	 * confirmation dialog does not open for a receipt that is incomplete or invalid in itself. A receipt number already used is only checked by the save.
 	 */
 	@Transactional(readOnly = true)
 	ReceiptPreviewDto preview(Long studentId, ReceiptInput input, boolean validate) {

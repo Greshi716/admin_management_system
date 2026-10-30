@@ -276,6 +276,9 @@ class FeeBalanceIT extends IntegrationTest {
 		client.post(preview + "?validate=true", complete.replace("\"paymentMode\":\"CASH\"", "\"paymentMode\":\"CHEQUE\""))
 			.andExpect(status().isUnprocessableEntity())
 			.andExpect(jsonPath("$.fieldErrors[?(@.field == 'chequeNo')]").exists());
+		client.post(preview + "?validate=true", complete.replace("\"receiptNo\":\"PV-1\"", "\"receiptNo\":\"\""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[?(@.field == 'receiptNo')]").exists());
 
 		// without validate the same input is only previewed (the form while it is typed)
 		client.post(preview, future).andExpect(status().isOk());

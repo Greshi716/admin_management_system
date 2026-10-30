@@ -36,7 +36,7 @@ paths:
         still due. Unless `validate=true`, the receipt number, date, mode and cheque fields are not checked (they cannot change a number and the
         form is not complete while it is typed), the balance token is not checked, nothing is written and no audit entry is made. Returns the total, the total in words and the student's balance
         after (including the "Paid up to" the student would show). The form shows these numbers (the browser adds no money)
-        and the confirmation dialog repeats these server-checked values. With `validate=true` (the Save button) the receipt number, date, mode, cheque fields and a zero total are checked as in POST /receipts, so the dialog never opens for a receipt the save would refuse (422 beside the field).
+        and the confirmation dialog repeats these server-checked values. With `validate=true` (the Save button) the receipt number, date, mode, cheque fields and a zero total are checked as in POST /receipts, so the dialog does not open for a receipt that is incomplete or invalid in itself (422 beside the field). A receipt number already used is checked only by the save, under the number lock, and is refused beside the field after Confirm; nothing is saved.
       parameters:
         - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
         - { name: validate, in: query, required: false, schema: { type: boolean, default: false } }
