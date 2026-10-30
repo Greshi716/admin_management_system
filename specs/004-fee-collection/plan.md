@@ -181,7 +181,7 @@ Re-checked against [data-model.md](data-model.md), [research.md](research.md) an
 
 Q1 to Q10 were answered by the owner on 2026-10-28 and are built into the plan and the spec (Q1 receipt number stays unique, typed by the admin; Q2 separate mark record, cancel link removed everywhere; Q3 developer void with the number reusable; Q4 "Paid up to" only on the profile and list, the last paid day, `HALF_UP`; Q5 computed balances; Q6 and Q7 balances and columns as planned; Q8 no DUPLICATE mark, no print record; Q9 school name only for now; Q10 receipts dated before the year start are allowed, only future dates are refused). One question is still open and is not assumed answered.
 
-1. **Q11 Very small payments.** A payment so small that it rounds to 0 days paid shows the start date as "Paid up to" (FR-012). Ask whether that is acceptable or whether "Paid up to" should show "Not yet" until a whole day is covered.
+1. **Q11 Very small payments.** A payment so small that it rounds to 0 days paid shows the start date as "Paid up to" (FR-012). Ask whether that is acceptable or whether "Paid up to" should show "Not yet" until a whole day is covered. The default is recorded in `docs/decision-log.md` (2026-10-28) as "proposed, awaiting owner confirmation"; so are the Students-list views, the manual void and the on-screen totals panel. Every other default of this plan is recorded there as "owner answer 2026-10-28, to be confirmed in review".
 
 Two consequences of the owner's answers are written down so they are not a surprise:
 
