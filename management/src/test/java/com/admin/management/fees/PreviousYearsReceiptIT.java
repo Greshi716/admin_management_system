@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -95,20 +96,20 @@ class PreviousYearsReceiptIT extends IntegrationTest {
 
 		save(s, previous("PY-2", "2000.00", earlierYearId)).andExpect(status().isCreated())
 			.andExpect(jsonPath("$.receiptType").value("PREVIOUS_YEARS"))
-			.andExpect(jsonPath("$.registrationPaid").value(0.00))
-			.andExpect(jsonPath("$.feePaid").value(2000.00))
-			.andExpect(jsonPath("$.total").value(2000.00))
+			.andExpect(JsonMoney.at("$.registrationPaid", "0.00"))
+			.andExpect(JsonMoney.at("$.feePaid", "2000.00"))
+			.andExpect(JsonMoney.at("$.total", "2000.00"))
 			.andExpect(jsonPath("$.academicYear").value("PrevEarlier 3930-3931"))
 			.andExpect(jsonPath("$.totalWords").value("Two Thousand Rupees Only"));
 
 		client.get("/api/students/" + s.studentId() + "/fees")
-			.andExpect(jsonPath("$.balance.earlierYearsPending").value(1000.00))
-			.andExpect(jsonPath("$.balance.previousYearsPaid").value(2000.00));
+			.andExpect(JsonMoney.at("$.balance.earlierYearsPending", "1000.00"))
+			.andExpect(JsonMoney.at("$.balance.previousYearsPaid", "2000.00"));
 
 		save(s, previous("PY-3", "1500.00", earlierYearId)).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("OVERPAYMENT"))
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("feePaid"))
-			.andExpect(jsonPath("$.current.due").value(1000.00));
+			.andExpect(JsonMoney.at("$.current.due", "1000.00"));
 		assertThat(jdbc.queryForObject("select count(*) from receipts where receipt_no = 'PY-3'", Long.class)).isZero();
 	}
 
@@ -189,8 +190,8 @@ class PreviousYearsReceiptIT extends IntegrationTest {
 		client.post("/api/students/" + s.studentId() + "/fee-collection/preview", "{\"receiptType\":\"PREVIOUS_YEARS\","
 				+ "\"previousYearId\":" + earlierYearId + ",\"feePaid\":1200.00}")
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.total").value(1200.00))
-			.andExpect(jsonPath("$.balanceAfter.earlierYearsPending").value(1800.00));
+			.andExpect(JsonMoney.at("$.total", "1200.00"))
+			.andExpect(JsonMoney.at("$.balanceAfter.earlierYearsPending", "1800.00"));
 
 		long serial = ReceiptApi.serial(save(s, previous("PY-12", "1200.00", earlierYearId)));
 		List<Map<String, Object>> entries = jdbc.queryForList("select * from audit_log where entity = ?",

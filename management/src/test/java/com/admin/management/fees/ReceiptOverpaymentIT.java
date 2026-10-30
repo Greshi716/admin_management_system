@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -67,14 +68,14 @@ class ReceiptOverpaymentIT extends IntegrationTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("OVERPAYMENT"))
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("feePaid"))
-			.andExpect(jsonPath("$.current.due").value(26500.00))
+			.andExpect(JsonMoney.at("$.current.due", "26500.00"))
 			.andExpect(jsonPath("$.detail").value("Only 26500.00 is still due for the year fee."));
 		ReceiptApi.create(client, s.studentId(), ReceiptApi.cash("O-3", TODAY, "26500.00"))
 			.andExpect(status().isCreated());
 		assertThat(FeeTestData.balance(jdbc, s.enrollmentId()).pendingYearFee()).isEqualByComparingTo("0");
 		ReceiptApi.create(client, s.studentId(), ReceiptApi.cash("O-4", TODAY, "0.01"))
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.current.due").value(0.00));
+			.andExpect(JsonMoney.at("$.current.due", "0.00"));
 	}
 
 	@Test
@@ -87,14 +88,14 @@ class ReceiptOverpaymentIT extends IntegrationTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("OVERPAYMENT"))
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("registrationPaid"))
-			.andExpect(jsonPath("$.current.due").value(500.00));
+			.andExpect(JsonMoney.at("$.current.due", "500.00"));
 		ReceiptApi.create(client, s.studentId(),
 				"\"receiptNo\":\"O-6\",\"receiptDate\":\"" + TODAY + "\",\"registrationPaid\":200.00,\"paymentMode\":\"CASH\"")
 			.andExpect(status().isCreated());
 		ReceiptApi.create(client, s.studentId(),
 				"\"receiptNo\":\"O-7\",\"receiptDate\":\"" + TODAY + "\",\"registrationPaid\":300.01,\"paymentMode\":\"CASH\"")
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.current.due").value(300.00));
+			.andExpect(JsonMoney.at("$.current.due", "300.00"));
 	}
 
 	@Test
@@ -117,7 +118,7 @@ class ReceiptOverpaymentIT extends IntegrationTest {
 		ReceiptApi.create(client, s.studentId(), ReceiptApi.cash("O-9", TODAY, "10.00"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("BROUGHT_FORWARD_PENDING"))
-			.andExpect(jsonPath("$.current.pending").value(3000.00))
+			.andExpect(JsonMoney.at("$.current.pending", "3000.00"))
 			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("3000.00")));
 		assertThat(jdbc.queryForObject("select count(*) from receipts where student_id = ?", Integer.class,
 				s.studentId())).isZero();

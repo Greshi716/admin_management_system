@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -90,7 +91,7 @@ class ReceiptCreateIT extends IntegrationTest {
 		assertThat(row.get("cheque_no")).isNull();
 		client.get("/api/receipts/" + ReceiptApi.serial(saved))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.total").value(10500.00));
+			.andExpect(JsonMoney.at("$.total", "10500.00"));
 		client.get("/api/receipts/-5").andExpect(status().isNotFound());
 	}
 

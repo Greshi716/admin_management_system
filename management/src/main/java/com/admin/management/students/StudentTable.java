@@ -144,7 +144,7 @@ final class StudentTable {
 	 * plan Complexity Tracking); a summary column was not needed (research R9).
 	 */
 	private static ExpressionFactory<Student> totalFee(Long currentYearId) {
-		String sql = "(select a.amount + coalesce(a.registration_fee, 0) from fee_accounts a where a.enrollment_id = "
+		String sql = "(select cast(a.amount + coalesce(a.registration_fee, 0) as numeric(12,2)) from fee_accounts a where a.enrollment_id = "
 				+ SHOWN_RECORD.formatted("id") + ")";
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"),
 				cb.literal(currentYearId));
@@ -168,7 +168,7 @@ final class StudentTable {
 	 * account or no fee amount (FR-015). Reads the view, never the receipts (constitution VII 1.1.0, research R11).
 	 */
 	private static ExpressionFactory<Student> position(Long currentYearId, String figure) {
-		String sql = "(select " + figure + " from v_fee_position p where p.enrollment_id = " + SHOWN_RECORD.formatted("id")
+		String sql = "(select cast(" + figure + " as numeric(12,2)) from v_fee_position p where p.enrollment_id = " + SHOWN_RECORD.formatted("id")
 				+ ")";
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"),
 				cb.literal(currentYearId));
@@ -176,7 +176,7 @@ final class StudentTable {
 
 	/** Brought-forward amount minus the valid previous-years receipts, 0.00 when the student has none (FR-015). */
 	private static ExpressionFactory<Student> earlierPending() {
-		String sql = "coalesce((select greatest(v.pending, 0) from v_earlier_pending v where v.student_id = ?), 0)";
+		String sql = "cast(coalesce((select greatest(v.pending, 0) from v_earlier_pending v where v.student_id = ?), 0) as numeric(12,2))";
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"));
 	}
 

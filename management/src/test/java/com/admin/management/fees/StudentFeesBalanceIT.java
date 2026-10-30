@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -69,15 +70,15 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		Fx s = student();
 		FeeTestData.cashReceipt(jdbc, setup, s, "PB-1", LocalDate.of(3901, 6, 1), "500.00", "10000.00");
 
-		fees(s).andExpect(jsonPath("$.balance.paid").value(10500.00))
-			.andExpect(jsonPath("$.balance.pending").value(26500.00))
-			.andExpect(jsonPath("$.balance.totalFee").value(37000.00))
+		fees(s).andExpect(JsonMoney.at("$.balance.paid", "10500.00"))
+			.andExpect(JsonMoney.at("$.balance.pending", "26500.00"))
+			.andExpect(JsonMoney.at("$.balance.totalFee", "37000.00"))
 			.andExpect(jsonPath("$.balance.paidUpTo.state").value("DATE"))
 			.andExpect(jsonPath("$.balance.paidUpTo.date").value("3901-07-09"))
 			.andExpect(jsonPath("$.receipts.length()").value(1))
 			.andExpect(jsonPath("$.receipts[0].receiptNo").value("PB-1"))
 			.andExpect(jsonPath("$.receipts[0].status").value("VALID"))
-			.andExpect(jsonPath("$.receipts[0].total").value(10500.00))
+			.andExpect(JsonMoney.at("$.receipts[0].total", "10500.00"))
 			.andExpect(content().string(org.hamcrest.Matchers.not(containsString("\"paidUpTo\":\"")) ));
 
 		FeeTestData.cashReceipt(jdbc, setup, s, "PB-2", LocalDate.of(3901, 6, 2), "0", "8250.00");
@@ -92,10 +93,10 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		Fx s = student();
 		FeeTestData.cashReceipt(jdbc, setup, s, "PB-3", LocalDate.of(3901, 6, 1), "500.00", "36500.00");
 
-		fees(s).andExpect(jsonPath("$.balance.pending").value(0.00))
+		fees(s).andExpect(JsonMoney.at("$.balance.pending", "0.00"))
 			.andExpect(jsonPath("$.balance.paidUpTo.state").value("FULL"))
 			.andExpect(jsonPath("$.balance.paidUpTo.date").value("3902-03-31"))
-			.andExpect(jsonPath("$.balance.excessPaid").value(0.00));
+			.andExpect(JsonMoney.at("$.balance.excessPaid", "0.00"));
 	}
 
 	@Test
@@ -103,8 +104,8 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		Fx s = student();
 		FeeTestData.cashReceipt(jdbc, setup, s, "PB-4", LocalDate.of(3901, 6, 1), "500.00", "0");
 
-		fees(s).andExpect(jsonPath("$.balance.paid").value(500.00))
-			.andExpect(jsonPath("$.balance.pending").value(36500.00))
+		fees(s).andExpect(JsonMoney.at("$.balance.paid", "500.00"))
+			.andExpect(JsonMoney.at("$.balance.pending", "36500.00"))
 			.andExpect(jsonPath("$.balance.paidUpTo.state").value("NOTHING"))
 			.andExpect(jsonPath("$.balance.paidUpTo.date").doesNotExist());
 	}
@@ -116,8 +117,8 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		long cheque = FeeTestData.chequeReceipt(jdbc, setup, s, "PB-6", LocalDate.of(3901, 6, 2), "5000.00");
 		FeeTestData.markNotCleared(jdbc, cheque, "Bounced");
 
-		fees(s).andExpect(jsonPath("$.balance.paid").value(10000.00))
-			.andExpect(jsonPath("$.balance.pending").value(27000.00))
+		fees(s).andExpect(JsonMoney.at("$.balance.paid", "10000.00"))
+			.andExpect(JsonMoney.at("$.balance.pending", "27000.00"))
 			.andExpect(jsonPath("$.balance.paidUpTo.date").value("3901-07-09"))
 			.andExpect(jsonPath("$.receipts.length()").value(2))
 			.andExpect(jsonPath("$.receipts[0].receiptNo").value("PB-6"))
@@ -131,13 +132,13 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		jdbc.update("insert into fee_brought_forward (student_id, amount, updated_at) values (?, 3000.00, now())",
 				s.studentId());
 
-		fees(s).andExpect(jsonPath("$.balance.broughtForward").value(3000.00))
-			.andExpect(jsonPath("$.balance.totalFee").value(40000.00))
-			.andExpect(jsonPath("$.balance.earlierYearsPending").value(3000.00))
-			.andExpect(jsonPath("$.balance.pending").value(40000.00))
+		fees(s).andExpect(JsonMoney.at("$.balance.broughtForward", "3000.00"))
+			.andExpect(JsonMoney.at("$.balance.totalFee", "40000.00"))
+			.andExpect(JsonMoney.at("$.balance.earlierYearsPending", "3000.00"))
+			.andExpect(JsonMoney.at("$.balance.pending", "40000.00"))
 			// F2's fields stay as they were
-			.andExpect(jsonPath("$.totalFee").value(37000.00))
-			.andExpect(jsonPath("$.totalDue").value(40000.00));
+			.andExpect(JsonMoney.at("$.totalFee", "37000.00"))
+			.andExpect(JsonMoney.at("$.totalDue", "40000.00"));
 	}
 
 	@Test
@@ -146,8 +147,8 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		FeeTestData.cashReceipt(jdbc, setup, s, "PB-7", LocalDate.of(3901, 6, 1), "0", "10000.00");
 		jdbc.update("update fee_accounts set amount = 6000.00 where enrollment_id = ?", s.enrollmentId());
 
-		var body = fees(s).andExpect(jsonPath("$.balance.yearFeeDue").value(0.00))
-			.andExpect(jsonPath("$.balance.excessPaid").value(4000.00))
+		var body = fees(s).andExpect(JsonMoney.at("$.balance.yearFeeDue", "0.00"))
+			.andExpect(JsonMoney.at("$.balance.excessPaid", "4000.00"))
 			.andExpect(jsonPath("$.balance.paidUpTo.state").value("FULL"))
 			.andReturn().getResponse().getContentAsString();
 		assertThat(body).contains("\"excessPaid\":4000.00");
@@ -159,7 +160,7 @@ class StudentFeesBalanceIT extends IntegrationTest {
 		FeeTestData.cashReceipt(jdbc, setup, s, "PB-8", LocalDate.of(3901, 6, 1), "0", "1000.00");
 		jdbc.update("update students set status = 'Left' where id = ?", s.studentId());
 
-		fees(s).andExpect(jsonPath("$.balance.paid").value(1000.00)).andExpect(jsonPath("$.receipts.length()").value(1));
+		fees(s).andExpect(JsonMoney.at("$.balance.paid", "1000.00")).andExpect(jsonPath("$.receipts.length()").value(1));
 	}
 
 }

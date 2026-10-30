@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -73,9 +74,9 @@ class ReceiptPrintDataIT extends IntegrationTest {
 			.andExpect(jsonPath("$.standardName").isNotEmpty())
 			.andExpect(jsonPath("$.divisionName").value("A"))
 			.andExpect(jsonPath("$.academicYear").isNotEmpty())
-			.andExpect(jsonPath("$.registrationPaid").value(500.00))
-			.andExpect(jsonPath("$.feePaid").value(10000.00))
-			.andExpect(jsonPath("$.total").value(10500.00))
+			.andExpect(JsonMoney.at("$.registrationPaid", "500.00"))
+			.andExpect(JsonMoney.at("$.feePaid", "10000.00"))
+			.andExpect(JsonMoney.at("$.total", "10500.00"))
 			.andExpect(jsonPath("$.totalWords").value("Ten Thousand Five Hundred Rupees Only"))
 			.andExpect(jsonPath("$.paymentMode").value("CHEQUE"))
 			.andExpect(jsonPath("$.chequeNo").value("778899"))

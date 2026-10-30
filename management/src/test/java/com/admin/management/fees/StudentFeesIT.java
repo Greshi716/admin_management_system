@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Setup;
@@ -145,8 +146,8 @@ class StudentFeesIT extends IntegrationTest {
 
 		client.get("/api/students/999999999/fees").andExpect(status().isNotFound());
 		var body = client.get("/api/students/" + student + "/fees").andExpect(status().isOk())
-			.andExpect(jsonPath("$.balance.paid").value(0.00))
-			.andExpect(jsonPath("$.balance.pending").value(1000.00))
+			.andExpect(JsonMoney.at("$.balance.paid", "0.00"))
+			.andExpect(JsonMoney.at("$.balance.pending", "1000.00"))
 			.andExpect(jsonPath("$.balance.paidUpTo.state").value("NOTHING"))
 			.andExpect(jsonPath("$.receipts").isEmpty())
 			.andReturn().getResponse().getContentAsString();

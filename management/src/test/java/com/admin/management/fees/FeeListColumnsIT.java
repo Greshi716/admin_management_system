@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Setup;
@@ -64,11 +65,11 @@ class FeeListColumnsIT extends IntegrationTest {
 		client.post("/api/students/search", search("gr-3771", "\"sortField\":\"totalFee\",\"sortOrder\":1"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.total").value(6))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(30000.00))
-			.andExpect(jsonPath("$.rows[1].totalFee").value(30000.00))
-			.andExpect(jsonPath("$.rows[2].totalFee").value(36500.00))
-			.andExpect(jsonPath("$.rows[3].totalFee").value(36500.00))
-			.andExpect(jsonPath("$.rows[4].totalFee").value(40500.00))
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "30000.00"))
+			.andExpect(JsonMoney.at("$.rows[1].totalFee", "30000.00"))
+			.andExpect(JsonMoney.at("$.rows[2].totalFee", "36500.00"))
+			.andExpect(JsonMoney.at("$.rows[3].totalFee", "36500.00"))
+			.andExpect(JsonMoney.at("$.rows[4].totalFee", "40500.00"))
 			.andExpect(jsonPath("$.rows[5].totalFee").doesNotExist())
 			.andExpect(jsonPath("$.rows[5].feeState").value("Fee not set"));
 		client.post("/api/students/search",
@@ -113,7 +114,7 @@ class FeeListColumnsIT extends IntegrationTest {
 		clock.setDate(LocalDate.of(3773, 10, 1));
 
 		SignedInClient.of(mvc).post("/api/students/search", search("gr-3773", ""))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(0.0))
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "0.00"))
 			.andExpect(jsonPath("$.rows[0].feeState").doesNotExist());
 	}
 
@@ -136,7 +137,7 @@ class FeeListColumnsIT extends IntegrationTest {
 
 		client.post("/api/students/search", search("gr-3774", ""))
 			.andExpect(jsonPath("$.rows", hasSize(1)))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(25000.0));
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "25000.00"));
 		client.get("/api/students/" + student + "/fees")
 			.andExpect(content().string(containsString("\"totalFee\":25000.00")));
 	}
@@ -157,9 +158,9 @@ class FeeListColumnsIT extends IntegrationTest {
 			.andExpect(status().isOk());
 		client.post("/api/students/search", search("gr-3776", ""))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.rows[0].totalFee").value(1000.00))
-			.andExpect(jsonPath("$.rows[0].paid").value(0.00))
-			.andExpect(jsonPath("$.rows[0].pending").value(1000.00))
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "1000.00"))
+			.andExpect(JsonMoney.at("$.rows[0].paid", "0.00"))
+			.andExpect(JsonMoney.at("$.rows[0].pending", "1000.00"))
 			.andExpect(jsonPath("$.rows[0].feeStatus").value("Unpaid"));
 	}
 

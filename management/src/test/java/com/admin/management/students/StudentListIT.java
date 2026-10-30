@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.IntegrationTest;
 import com.admin.management.support.SignedInClient;
@@ -313,7 +314,7 @@ class StudentListIT extends IntegrationTest {
 		giveAccounts();
 
 		api.post("/api/students/search", request("\"sortField\":\"grNo\",\"sortOrder\":1"))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(28500.00))
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "28500.00"))
 			.andExpect(jsonPath("$.rows[0].feeState").doesNotExist())
 			.andExpect(jsonPath("$.rows[1].totalFee").doesNotExist())
 			.andExpect(jsonPath("$.rows[1].feeState").value("Fee not set"))

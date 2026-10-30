@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -69,7 +70,7 @@ class BalanceChangedIT extends IntegrationTest {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("BALANCE_CHANGED"))
 			.andExpect(jsonPath("$.current.balanceVersion").value(ReceiptApi.token(client, s.studentId())))
-			.andExpect(jsonPath("$.current.balance.paid").value(100.00));
+			.andExpect(JsonMoney.at("$.current.balance.paid", "100.00"));
 		assertThat(receipts(s.studentId())).isEqualTo(1);
 
 		String latest = ReceiptApi.token(client, s.studentId());

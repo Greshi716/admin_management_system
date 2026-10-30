@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -96,9 +97,9 @@ class BroughtForwardLimitIT extends IntegrationTest {
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("amount"))
 			.andExpect(jsonPath("$.fieldErrors[0].message").value(org.hamcrest.Matchers.containsString("2000.00")));
 
-		edit(s, "2000.00").andExpect(status().isOk()).andExpect(jsonPath("$.amount").value(2000.00));
+		edit(s, "2000.00").andExpect(status().isOk()).andExpect(JsonMoney.at("$.amount", "2000.00"));
 		client.get("/api/students/" + s.studentId() + "/fees")
-			.andExpect(jsonPath("$.balance.earlierYearsPending").value(0.00));
+			.andExpect(JsonMoney.at("$.balance.earlierYearsPending", "0.00"));
 	}
 
 	@Test

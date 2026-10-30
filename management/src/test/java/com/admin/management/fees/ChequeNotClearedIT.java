@@ -27,6 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
@@ -272,12 +273,12 @@ class ChequeNotClearedIT extends IntegrationTest {
 				""", Long.class, Date.valueOf(PAID), setup.yearId(), s.studentId(), s.grNo(), Date.valueOf(PAID),
 				FeeTestData.adminId(jdbc));
 		client.get("/api/students/" + s.studentId() + "/fees")
-			.andExpect(jsonPath("$.balance.earlierYearsPending").value(2000.00));
+			.andExpect(JsonMoney.at("$.balance.earlierYearsPending", "2000.00"));
 
 		mark(s, cheque, "Bounced").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CHEQUE_NOT_CLEARED"));
 
 		client.get("/api/students/" + s.studentId() + "/fees")
-			.andExpect(jsonPath("$.balance.earlierYearsPending").value(3000.00));
+			.andExpect(JsonMoney.at("$.balance.earlierYearsPending", "3000.00"));
 		assertThat(String.valueOf(entries(cheque).get(0).get("changes"))).contains("\"amountAddedBack\": \"1000.00\"");
 	}
 
