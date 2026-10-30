@@ -28,6 +28,9 @@ final class Money {
 	 * the point), or null when it is. Nothing is rounded (FR-023).
 	 */
 	static String problem(BigDecimal value) {
+		if (value.scale() < 0) {
+			return "Enter the amount in digits, for example 1500.50."; // exponent notation such as 1e3
+		}
 		if (value.signum() < 0) {
 			return "The amount cannot be negative.";
 		}

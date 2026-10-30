@@ -26,3 +26,12 @@ Source: `review-diff-004-fee-collection-2026-10-30-1310.md` (Result: FIX FIRST).
 | M2 | `docs/design/ui-tokens.md` lists `--color-print-*` and `.link-target`. | fix round 2 |
 | M3 | `FeeBalanceIT` has a case for a missing receipt number with `validate=true`. | fix round 2 |
 | M4 | `JsonMoney` imports are in order. | fix round 2 |
+
+# Test stage, round 1 (test-results.md, Result: FAIL)
+
+| Id | What changed | Commit |
+|---|---|---|
+| T1 | `Money.problem` refuses an amount with a negative scale (exponent notation such as `"1e3"`, which was saved as 1000.00). One place covers `registrationPaid` and `feePaid` in the save and the preview; the answer is the usual 422 beside the field. Planned in plan mode and approved. `MoneyTest` added; `ReceiptEdgeCasesIT` tightened to 422 with the field name and extended (JSON number `1E3`, registration, preview). Not changed: the F2 amounts (fee structure, brought-forward) have their own validation; whether they accept exponent text was not checked and is left for the owner. | fix T1 |
+| T2 | verify.sh re-run by the test-executor after the fix. | see test-results.md |
+| T3, T4 | Nothing to fix. | |
+| T5 | Manual quickstart scenarios 15, 16, 19, 21, 22 and the section 5 performance check are for the owner (listed in the final summary). | not a code fix |
