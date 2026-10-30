@@ -107,12 +107,15 @@ class ModuleDependencyTest {
 		assertThat(findCycle(graph)).as("cycle between modules").isEmpty();
 	}
 
+	/** Test-profile seeding endpoints that must write another module's tables to build fixtures. */
+	private static final Set<String> TABLE_SCAN_EXEMPT_FILES = Set.of("fees/FeeTestSupportController.java");
+
 	@Test
 	void aModuleReadsOnlyItsOwnTablesApartFromTheApprovedReads() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path file : javaFiles()) {
 			Path relative = SOURCES.relativize(file);
-			if (relative.getNameCount() < 2 || relative.getFileName().toString().endsWith("TestSupportController.java")) {
+			if (relative.getNameCount() < 2 || TABLE_SCAN_EXEMPT_FILES.contains(relative.toString().replace('\\', '/'))) {
 				continue;
 			}
 			String module = relative.getName(0).toString();
