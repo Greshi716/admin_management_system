@@ -3,7 +3,7 @@ package com.admin.management.fees;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** Money is BigDecimal with exactly two decimals; a value with more decimals is refused, never rounded (FR-011). */
+/** Money is BigDecimal with exactly two decimals; a value with more decimals is refused, never rounded (F2 FR-011, F3 FR-023). */
 final class Money {
 
 	/** NUMERIC(12,2) holds ten digits before the decimal point. */

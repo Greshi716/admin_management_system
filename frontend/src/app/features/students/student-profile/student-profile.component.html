@@ -147,7 +147,7 @@
           <tbody>
             @for (r of f.receipts; track r.serialNo) {
               <tr>
-                <td class="py-1 pr-3"><a [routerLink]="['/finance/receipts', r.serialNo]" data-testid="receipt-link">{{ r.receiptNo }}</a></td>
+                <td class="py-1 pr-3"><a class="link-target" [routerLink]="['/finance/receipts', r.serialNo]" data-testid="receipt-link">{{ r.receiptNo }}</a></td>
                 <td class="py-1 pr-3">{{ formatCell(r.receiptDate, 'date') }}</td>
                 <td class="py-1 pr-3">{{ r.paymentMode === 'CASH' ? 'Cash' : 'Cheque' }}</td>
                 <td class="py-1 pr-3 text-right tabular-nums">{{ money(r.total) }}</td>

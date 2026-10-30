@@ -22,10 +22,10 @@ import { Receipt, ReceiptsService } from '../receipts.service';
     .receipt-sheet {
       max-width: 190mm;
       margin: 0 auto;
-      background: white;
-      color: black;
+      background: var(--color-print-paper);
+      color: var(--color-print-ink);
       padding: 12mm;
-      border: 1px solid gray;
+      border: 1px solid var(--color-print-line);
     }
     .receipt-sheet table {
       width: 100%;
@@ -33,9 +33,15 @@ import { Receipt, ReceiptsService } from '../receipts.service';
     }
     .receipt-sheet th,
     .receipt-sheet td {
-      border: 1px solid black;
+      border: 1px solid var(--color-print-ink);
       padding: 6px 10px;
       text-align: left;
+    }
+    .receipt-sheet .signature-line {
+      border-top: 1px solid var(--color-print-ink);
+      min-width: 60mm;
+      text-align: center;
+      padding-top: 4px;
     }
     .receipt-sheet td.amount,
     .receipt-sheet th.amount {
@@ -108,7 +114,7 @@ import { Receipt, ReceiptsService } from '../receipts.service';
           }
         </p>
         <div class="mt-16 flex justify-end">
-          <div style="border-top: 1px solid black; min-width: 60mm; text-align: center; padding-top: 4px" data-testid="print-signature">Signature</div>
+          <div class="signature-line" data-testid="print-signature">Signature</div>
         </div>
       </article>
     } @else if (failed()) {

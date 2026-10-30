@@ -25,7 +25,7 @@ Replace the date with today's date and keep the file outside the repository. Nev
 ## Steps
 
 1. Find the serial no. of the wrong receipt (the register or the receipt page shows it). The serial no. is not the receipt number from the printed book.
-2. Open `psql` on `admin_management_db` and run the block below. Replace `<serial_no>` with the number, `<reason>` with a short reason (at most 200 characters) and `<developer name>` with your name.
+2. Open `psql` on `admin_management_db` and run the block below. Replace `<serial_no>` with the number, `<reason>` with a short reason (at most 200 characters) (write each single quote in it twice, for example `student''s` for student's, because the reason sits inside SQL quotes) and `<developer name>` with your name.
 
 ```sql
 -- runbook:void

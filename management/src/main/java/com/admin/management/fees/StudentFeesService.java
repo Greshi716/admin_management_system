@@ -1,6 +1,7 @@
 package com.admin.management.fees;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -56,7 +57,7 @@ class StudentFeesService {
 		Optional<ClassRecordRef> record = yearId == null ? enrollments.shownRecord(studentId)
 				: enrollments.byStudentAndYear(studentId, yearId);
 		FeeBalance balance = balances.balance(studentId, record.map(ClassRecordRef::enrollmentId).orElse(null));
-		java.util.List<ReceiptSummaryDto> receipts = summaries.forStudent(studentId);
+		List<ReceiptSummaryDto> receipts = summaries.forStudent(studentId);
 		Long shownYear = record.map(ClassRecordRef::yearId).orElse(yearId);
 		String yearName = shownYear == null ? null : masterData.yearNames().get(shownYear);
 		Optional<FeeAccount> account = record.flatMap(r -> accounts.findById(r.enrollmentId()));

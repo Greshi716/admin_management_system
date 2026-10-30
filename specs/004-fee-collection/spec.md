@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-28
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Feature 004: Fee collection and receipts (roadmap F3; FEE-02, FEE-03 and FEE-04 as changed). The admin records fee payments for a student, prints a receipt, and sees an always-correct paid and pending balance with a 'fees paid up to' date."
 
@@ -199,7 +199,7 @@ Each requirement names the user story and the agreement or decision it comes fro
 
 **Audit and money**
 
-- **FR-021** *(all stories; constitution III, F0 FR-021 to FR-025)*: Every receipt creation, every Cheque not cleared mark and every receipt export MUST write an audit entry in the area Fees in the same transaction (the export entry records the filters and the row count). A receipt entry records the receipt no., serial no., student, type, mode and each amount and the total in full; a mark entry records the receipt, the reason, the amount added back and the student's "Paid up to" before and after (worked out, not stored on the receipt). Money fields in these entries MUST be shown in full, not masked; the rule MUST be recorded in the decision log, closing the open item "Audit masking for money fields" for fee receipts. If the entry cannot be saved, the change MUST NOT be saved.
+- **FR-021** *(all stories; constitution III, F0 FR-021 to FR-025)*: Every receipt creation and every Cheque not cleared mark MUST write an audit entry in the area Fees in the same transaction as the change, and every receipt export MUST write one in the area Fees as soon as the file is produced, in its own transaction as in F0 and F1 (the export entry records the filters and the row count). A receipt entry records the receipt no., serial no., student, type, mode and each amount and the total in full; a mark entry records the receipt, the reason, the amount added back and the student's "Paid up to" before and after (worked out, not stored on the receipt). Money fields in these entries MUST be shown in full, not masked; the rule MUST be recorded in the decision log, closing the open item "Audit masking for money fields" for fee receipts. If the entry cannot be saved, the change MUST NOT be saved.
 - **FR-022** *(US1; decision log 2026-10-28)*: A developer-assisted correction runbook MUST be added at `docs/runbooks/correct-receipt.md`, in the style of the Admin password reset runbook, for a wrong receipt that cannot be fixed in the application: when to use it, who may do it, the backup taken first, the steps, what is recorded, and the check afterwards. The correction is a void, not an edit: the wrong receipt stays on record with the status "Voided by correction", is not counted as paid, its receipt number may be entered again on the corrected receipt, and its serial no. is never reused. An audit entry in the area Fees records the void, the reason and who did it. The runbook MUST NOT remove the audit trail, and the application itself offers no way to void.
 - **FR-023** *(all stories; constitution I)*: Every amount MUST be an exact decimal with two places, shown with two places (for example 10,500.00). An amount with more than two places or a negative amount MUST be refused, not rounded. Any calculation in this feature MUST be exact; where rounding is needed, `HALF_UP` applies.
 

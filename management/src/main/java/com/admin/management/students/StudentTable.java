@@ -1,5 +1,7 @@
 package com.admin.management.students;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -146,7 +148,7 @@ final class StudentTable {
 	private static ExpressionFactory<Student> totalFee(Long currentYearId) {
 		String sql = "(select cast(a.amount + coalesce(a.registration_fee, 0) as numeric(12,2)) from fee_accounts a where a.enrollment_id = "
 				+ SHOWN_RECORD.formatted("id") + ")";
-		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"),
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, BigDecimal.class, root.get("id"),
 				cb.literal(currentYearId));
 	}
 
@@ -170,14 +172,14 @@ final class StudentTable {
 	private static ExpressionFactory<Student> position(Long currentYearId, String figure) {
 		String sql = "(select cast(" + figure + " as numeric(12,2)) from v_fee_position p where p.enrollment_id = " + SHOWN_RECORD.formatted("id")
 				+ ")";
-		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"),
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, BigDecimal.class, root.get("id"),
 				cb.literal(currentYearId));
 	}
 
 	/** Brought-forward amount minus the valid previous-years receipts, 0.00 when the student has none (FR-015). */
 	private static ExpressionFactory<Student> earlierPending() {
 		String sql = "cast(coalesce((select greatest(v.pending, 0) from v_earlier_pending v where v.student_id = ?), 0) as numeric(12,2))";
-		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.math.BigDecimal.class, root.get("id"));
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, BigDecimal.class, root.get("id"));
 	}
 
 	/** Year fully paid (or no year fee): the whole year is paid, so there is no date to count. */
@@ -198,7 +200,7 @@ final class StudentTable {
 				+ " + cast(greatest(round(p.paid_year_fee * (" + end + " - " + start
 				+ " + 1) / p.year_fee), 1) - 1 as integer) end from v_fee_position p where p.enrollment_id = "
 				+ SHOWN_RECORD.formatted("id") + ")";
-		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, java.time.LocalDate.class, root.get("id"),
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(sql, LocalDate.class, root.get("id"),
 				cb.literal(currentYearId));
 	}
 

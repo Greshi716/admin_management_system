@@ -35,6 +35,11 @@
   --color-danger-border: #e5a3a0;
   --color-success: #16a34a;
 
+  /* Print sheet (receipt): black on white whatever the screen theme, so paper looks the same in light and dark. */
+  --color-print-paper: #ffffff;
+  --color-print-ink: #000000;
+  --color-print-line: #808080;
+
   /* Audit log badges (docs/design/ui-tokens.md) */
   --color-badge-blue-bg: #e8eefb;
   --color-badge-blue-text: #2b4a9a;
@@ -171,6 +176,13 @@
   .input[aria-invalid='true'],
   .input.ng-invalid.ng-touched {
     border-color: var(--color-danger);
+  }
+
+  /* A link or link-style button that must be a full-size touch target (44px) in a dense table or message. */
+  .link-target {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--spacing-control);
   }
 
   .link-button {

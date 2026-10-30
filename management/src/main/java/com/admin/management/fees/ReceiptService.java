@@ -2,6 +2,8 @@ package com.admin.management.fees;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -23,6 +25,9 @@ import com.admin.management.students.api.EnrollmentLookup.ClassRecordRef;
  */
 @Service
 class ReceiptService {
+
+	/** The date as every screen shows it, for example 30 Oct 2026. */
+	private static final DateTimeFormatter SCREEN_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
 
 	private final FeeCollectionService collection;
 
@@ -120,7 +125,7 @@ class ReceiptService {
 			Optional<ReceiptMark> mark = marks.findByReceiptSerialNo(existing.getSerialNo());
 			if (mark.isEmpty() || mark.get().getKind() != ReceiptMark.Kind.DEVELOPER_VOID) {
 				throw new CodedConflictException("DUPLICATE_RECEIPT_NO", "receiptNo",
-						"This receipt number is already used by the receipt of " + existing.getReceiptDate()
+						"This receipt number is already used by the receipt of " + existing.getReceiptDate().format(SCREEN_DATE)
 								+ " (serial no. " + existing.getSerialNo() + ").",
 						null);
 			}

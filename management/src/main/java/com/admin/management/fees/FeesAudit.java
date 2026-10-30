@@ -11,7 +11,7 @@ import com.admin.management.audit.AuditService;
 
 /**
  * Writes the audit entries of fee changes in the caller's transaction, so the change and its entry are saved
- * together or not at all (FR-012). The entity column holds {@code FeeRow#id}, {@code FeeStructure#yearId} or
+ * together or not at all (F2 FR-012). The entity column holds {@code FeeRow#id}, {@code FeeStructure#yearId} or
  * {@code BroughtForward#studentId}. Amounts are kept in full as text with two decimals. The text of a
  * brought-forward note is never stored: the entry only says that the note changed.
  */
@@ -134,7 +134,7 @@ class FeesAudit {
 	}
 
 	/**
-	 * A cheque receipt was marked "Cheque not cleared" (FR-011): the status goes from VALID to CHEQUE_NOT_CLEARED,
+	 * A cheque receipt was marked "Cheque not cleared" (FR-013, FR-021): the status goes from VALID to CHEQUE_NOT_CLEARED,
 	 * the amount is added back, and the paid-up-to text before and after is kept (null when there is none).
 	 */
 	void chequeNotCleared(Long serialNo, BigDecimal amountAddedBack, String paidUpToBefore, String paidUpToAfter,
