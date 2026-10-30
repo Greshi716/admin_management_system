@@ -58,6 +58,13 @@ async function saveAndConfirm(page: Page): Promise<void> {
   }
 }
 
+/** Save with input the server refuses: the confirmation dialog must not open (spec US1 scenarios 3, 5, 6; review S3). */
+async function saveRefused(page: Page): Promise<void> {
+  await page.getByTestId('save').click();
+  await expect(page.getByRole('alert').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm and save' })).toHaveCount(0);
+}
+
 test.describe('collect fee', () => {
   let data: Seed;
 
@@ -128,14 +135,14 @@ test.describe('collect fee', () => {
     tomorrow.setDate(today.getDate() + 1);
     await page.getByLabel('Date').fill(iso(tomorrow));
     await page.getByLabel('Year fee').fill('100');
-    await saveAndConfirm(page);
+    await saveRefused(page);
     await expect(page.getByRole('alert').filter({ hasText: /future|today/i }).first()).toBeVisible();
     await page.getByLabel('Date').fill(iso(today));
 
     await page.getByLabel('Registration fee').fill('0');
     await page.getByLabel('Year fee').fill('0');
-    await saveAndConfirm(page);
-    await expect(page.getByRole('alert').first()).toBeVisible();
+    await saveRefused(page);
+    await expect(page.getByRole('alert').filter({ hasText: /above zero/i }).first()).toBeVisible();
 
     await page.getByLabel('Year fee').fill('100.123');
     await expect(page.getByRole('alert').filter({ hasText: /two decimal|decimal/i }).first()).toBeVisible();
@@ -153,8 +160,8 @@ test.describe('collect fee', () => {
 
     await page.getByLabel('Receipt no. (from the book)').fill('3120');
     await page.getByLabel('Year fee').fill('100');
-    await saveAndConfirm(page);
-    await expect(page.getByRole('alert').first()).toBeVisible();
+    await saveRefused(page);
+    await expect(page.getByRole('alert').filter({ hasText: /cheque|bank/i }).first()).toBeVisible();
     expect((await getFeeCollection(page, id(1))).receipts).toHaveLength(0);
 
     await page.getByLabel('Cheque no.').fill('778899');

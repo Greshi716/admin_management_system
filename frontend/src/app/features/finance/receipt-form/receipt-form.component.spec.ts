@@ -119,6 +119,8 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     expect(preview.request.body.feePaid).toBe(10000.5);
     expect(preview.request.body.registrationPaid).toBe(500);
     preview.flush({
+      registration: 500,
+      fee: 10000.5,
       total: 10500.5,
       totalWords: 'Ten Thousand Five Hundred Rupees and Fifty Paise Only',
       balanceAfter: { ...BALANCE, pending: 26499.5, paidUpTo: { state: 'DATE', date: '2026-07-09' } },
@@ -137,10 +139,10 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     type('receipt-no', '3100');
     type('fee-paid', '10000');
     vi.advanceTimersByTime(300);
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 10000, totalWords: 'Ten Thousand Rupees Only', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview').flush({ registration: 0, fee: 10000, total: 10000, totalWords: 'Ten Thousand Rupees Only', balanceAfter: BALANCE });
 
     el().querySelector<HTMLButtonElement>('[data-testid="save"]')!.click();
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 10000, totalWords: 'Ten Thousand Rupees Only', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview?validate=true').flush({ registration: 0, fee: 10000, total: 10000, totalWords: 'Ten Thousand Rupees Only', balanceAfter: BALANCE });
     fixture.detectChanges();
     expect(text('confirm-receipt-no')).toContain('3100');
     expect(text('confirm-total')).toContain('10,000.00');
@@ -152,7 +154,7 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     http.expectNone('/api/receipts');
 
     el().querySelector<HTMLButtonElement>('[data-testid="save"]')!.click();
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 10000, totalWords: 'Ten Thousand Rupees Only', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview?validate=true').flush({ registration: 0, fee: 10000, total: 10000, totalWords: 'Ten Thousand Rupees Only', balanceAfter: BALANCE });
     fixture.detectChanges();
     Array.from(el().querySelectorAll('button')).find((b) => b.textContent?.includes('Confirm and save'))!.click();
     const create = http.expectOne('/api/receipts');
@@ -192,9 +194,9 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     type('receipt-no', '3100');
     type('fee-paid', '100');
     vi.advanceTimersByTime(300);
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 100, totalWords: 'x', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview').flush({ registration: 0, fee: 100, total: 100, totalWords: 'x', balanceAfter: BALANCE });
     el().querySelector<HTMLButtonElement>('[data-testid="save"]')!.click();
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 100, totalWords: 'x', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview?validate=true').flush({ registration: 0, fee: 100, total: 100, totalWords: 'x', balanceAfter: BALANCE });
     fixture.detectChanges();
     Array.from(el().querySelectorAll('button')).find((b) => b.textContent?.includes('Confirm and save'))!.click();
 
@@ -221,9 +223,9 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     type('receipt-no', '3100');
     type('fee-paid', '100');
     vi.advanceTimersByTime(300);
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 100, totalWords: 'x', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview').flush({ registration: 0, fee: 100, total: 100, totalWords: 'x', balanceAfter: BALANCE });
     el().querySelector<HTMLButtonElement>('[data-testid="save"]')!.click();
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 100, totalWords: 'x', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview?validate=true').flush({ registration: 0, fee: 100, total: 100, totalWords: 'x', balanceAfter: BALANCE });
     fixture.detectChanges();
     Array.from(el().querySelectorAll('button')).find((b) => b.textContent?.includes('Confirm and save'))!.click();
 
@@ -238,7 +240,7 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     Array.from(el().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Refresh')!.click();
     vi.advanceTimersByTime(300);
     fixture.detectChanges();
-    http.expectOne('/api/students/7/fee-collection/preview').flush({ total: 100, totalWords: 'x', balanceAfter: BALANCE });
+    http.expectOne('/api/students/7/fee-collection/preview').flush({ registration: 0, fee: 100, total: 100, totalWords: 'x', balanceAfter: BALANCE });
 
     expect(el().querySelector('[data-testid="balance-changed-text"]')).toBeNull();
     expect(text('strip-paid')).toContain('500.00');

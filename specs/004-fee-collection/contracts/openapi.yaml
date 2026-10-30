@@ -33,12 +33,13 @@ paths:
       summary: The receipt as it would be saved, without saving (FR-008, FR-011, FR-012)
       description: |
         Same request body and the same rules as POST /receipts for the fee state, the earlier-years order rule, the amounts and what is
-        still due, but the receipt number, date, mode and cheque fields are not checked (they cannot change a number and the
+        still due. Unless `validate=true`, the receipt number, date, mode and cheque fields are not checked (they cannot change a number and the
         form is not complete while it is typed), the balance token is not checked, nothing is written and no audit entry is made. Returns the total, the total in words and the student's balance
         after (including the "Paid up to" the student would show). The form shows these numbers (the browser adds no money)
-        and the confirmation dialog repeats the receipt's own values.
+        and the confirmation dialog repeats these server-checked values. With `validate=true` (the Save button) the receipt number, date, mode, cheque fields and a zero total are checked as in POST /receipts, so the dialog never opens for a receipt the save would refuse (422 beside the field).
       parameters:
         - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: validate, in: query, required: false, schema: { type: boolean, default: false } }
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReceiptInput' } } } }
       responses:
         '200': { description: The preview, content: { application/json: { schema: { $ref: '#/components/schemas/ReceiptPreview' } } } }
@@ -179,6 +180,8 @@ components:
     ReceiptPreview:
       type: object
       properties:
+        registration: { $ref: '#/components/schemas/Money' }
+        fee: { $ref: '#/components/schemas/Money' }
         total: { $ref: '#/components/schemas/Money' }
         totalWords: { type: string }
         balanceAfter: { $ref: '#/components/schemas/Balance' }

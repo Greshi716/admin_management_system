@@ -19,6 +19,7 @@ import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Fx;
 import com.admin.management.support.FeeTestData.Setup;
 import com.admin.management.support.IntegrationTest;
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.SignedInClient;
 
 /**
@@ -247,6 +248,37 @@ class FeeBalanceIT extends IntegrationTest {
 		SignedInClient.of(mvc)
 			.post("/api/students/-1/fee-collection/preview", "{\"receiptType\":\"CURRENT_YEAR\",\"feePaid\":1}")
 			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void thePreviewReturnsTheCheckedAmountsAndValidateRefusesWhatTheSaveWouldRefuse() throws Exception {
+		Case c = aCase("PreviewValidate", 3551, 920051, "36500.00", "500.00");
+		String preview = "/api/students/" + c.student().studentId() + "/fee-collection/preview";
+		String today = LocalDate.of(3551, 10, 1).toString(); // the clock aCase sets
+		String complete = "{\"receiptType\":\"CURRENT_YEAR\",\"receiptNo\":\"PV-1\",\"receiptDate\":\"" + today
+				+ "\",\"registrationPaid\":500.00,\"feePaid\":1000.50,\"paymentMode\":\"CASH\"}";
+		SignedInClient client = SignedInClient.of(mvc);
+
+		client.post(preview + "?validate=true", complete)
+			.andExpect(status().isOk())
+			.andExpect(JsonMoney.at("$.registration", "500.00"))
+			.andExpect(JsonMoney.at("$.fee", "1000.50"))
+			.andExpect(JsonMoney.at("$.total", "1500.50"));
+
+		String future = complete.replace(today, "3551-10-02");
+		client.post(preview + "?validate=true", future)
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("receiptDate"));
+		client.post(preview + "?validate=true", complete.replace("\"registrationPaid\":500.00,\"feePaid\":1000.50",
+				"\"registrationPaid\":0.00,\"feePaid\":0.00"))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[?(@.field == 'feePaid')]").exists());
+		client.post(preview + "?validate=true", complete.replace("\"paymentMode\":\"CASH\"", "\"paymentMode\":\"CHEQUE\""))
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.fieldErrors[?(@.field == 'chequeNo')]").exists());
+
+		// without validate the same input is only previewed (the form while it is typed)
+		client.post(preview, future).andExpect(status().isOk());
 	}
 
 	@Test

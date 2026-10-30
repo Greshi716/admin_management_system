@@ -48,6 +48,9 @@ describe('ReceiptsService (FR-005, FR-016, FR-019)', () => {
     expect(preview.request.method).toBe('POST');
     expect(preview.request.body.feePaid).toBe(1234.5);
 
+    service.preview(7, input, true).subscribe();
+    expect(controller.expectOne('/api/students/7/fee-collection/preview?validate=true').request.method).toBe('POST');
+
     service.create(input).subscribe();
     const create = controller.expectOne('/api/receipts');
     expect(create.request.method).toBe('POST');

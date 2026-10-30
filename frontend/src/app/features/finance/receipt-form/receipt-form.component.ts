@@ -251,9 +251,9 @@ export class ReceiptFormComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const body = this.previewBody() ?? { ...this.input(ctx) };
+    const body = this.input(ctx);
     this.busy.set(true);
-    this.receipts.preview(ctx.student.id, body).subscribe({
+    this.receipts.preview(ctx.student.id, body, true).subscribe({
       next: (preview) => {
         this.busy.set(false);
         this.preview.set(preview);
@@ -271,11 +271,11 @@ export class ReceiptFormComponent {
     const lines: { label: string; amount: number }[] = [];
     if (f.receiptType === 'CURRENT_YEAR') {
       if (ctx.chargesRegistrationFee) {
-        lines.push({ label: 'Registration fee', amount: this.amount('registrationPaid') ?? 0 });
+        lines.push({ label: 'Registration fee', amount: preview.registration });
       }
-      lines.push({ label: 'Year fee', amount: this.amount('feePaid') ?? 0 });
+      lines.push({ label: 'Year fee', amount: preview.fee });
     } else {
-      lines.push({ label: "Earlier years' fee", amount: this.amount('feePaid') ?? 0 });
+      lines.push({ label: "Earlier years' fee", amount: preview.fee });
     }
     const previous = f.receiptType === 'PREVIOUS_YEARS';
     const cheque = f.paymentMode === 'CHEQUE';

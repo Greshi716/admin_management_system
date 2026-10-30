@@ -107,17 +107,19 @@ class FeeCollectionService {
 	}
 
 	/**
-	 * The receipt as it would be saved, with the balance after it. Nothing is written. The same rules as the save (ReceiptRules), without
-	 * the receipt number, date and mode, which cannot change a number.
+	 * The receipt as it would be saved, with the balance after it. Nothing is written. The same rules as the save
+	 * (ReceiptRules). With {@code validate} false (the form while it is typed) the receipt number, date, mode and
+	 * cheque details are left out, as they cannot change a number; true (the Save button) checks them too, so the
+	 * confirmation dialog never opens for a receipt the save would refuse.
 	 */
 	@Transactional(readOnly = true)
-	ReceiptPreviewDto preview(Long studentId, ReceiptInput input) {
+	ReceiptPreviewDto preview(Long studentId, ReceiptInput input, boolean validate) {
 		Current current = current(studentId);
 		FeeBalance.Position position = balances.position(studentId, current.enrollmentId());
-		ReceiptRules.Amounts amounts = rules.check(current, FeeBalance.of(position), input, LocalDate.now(clock), false);
+		ReceiptRules.Amounts amounts = rules.check(current, FeeBalance.of(position), input, LocalDate.now(clock), validate);
 		BigDecimal total = amounts.total();
 		FeeBalance after = FeeBalance.of(position.withReceipt(input.receiptType(), amounts.registration(), amounts.fee()));
-		return new ReceiptPreviewDto(total, AmountInWords.of(total), after);
+		return new ReceiptPreviewDto(amounts.registration(), amounts.fee(), total, AmountInWords.of(total), after);
 	}
 
 	private FeeCollectionDto.StudentPart studentPart(Current current) {

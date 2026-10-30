@@ -77,6 +77,8 @@ export interface ReceiptInput {
 }
 
 export interface ReceiptPreview {
+  registration: number;
+  fee: number;
   total: number;
   totalWords: string;
   balanceAfter: Balance;
@@ -189,8 +191,10 @@ export class ReceiptsService {
     return this.http.get<FeeCollection>(`/api/students/${studentId}/fee-collection`);
   }
 
-  preview(studentId: number, input: Partial<ReceiptInput>): Observable<ReceiptPreview> {
-    return this.http.post<ReceiptPreview>(`/api/students/${studentId}/fee-collection/preview`, input);
+  /** `validate` true (Save): the server also checks the number, date, mode, cheque details and a zero total. */
+  preview(studentId: number, input: Partial<ReceiptInput>, validate = false): Observable<ReceiptPreview> {
+    const url = `/api/students/${studentId}/fee-collection/preview`;
+    return this.http.post<ReceiptPreview>(validate ? `${url}?validate=true` : url, input);
   }
 
   create(input: ReceiptInput): Observable<Receipt> {
