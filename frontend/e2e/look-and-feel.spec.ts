@@ -13,6 +13,8 @@ const SCREENS = [
   '/master-data/divisions',
   '/master-data/student-categories',
   '/audit-log',
+  '/finance/fee-collection',
+  '/finance/receipts',
 ];
 
 async function signInWithCurrentYear(page: Page): Promise<void> {
