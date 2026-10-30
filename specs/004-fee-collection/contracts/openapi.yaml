@@ -122,7 +122,7 @@ paths:
   /students/{studentId}/brought-forward:
     put:
       summary: CHANGED from F2 (FR-025). An amount below the total of the valid previous-years receipts is refused.
-      description: 422 with a field error on amount whose message shows that total. Takes the student lock, so it waits for a receipt being saved.
+      description: 422 with code BELOW_PREVIOUS_YEARS_PAID and a field error on amount whose message shows that total. Takes the student lock, so it waits for a receipt being saved.
       parameters:
         - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
       responses:
