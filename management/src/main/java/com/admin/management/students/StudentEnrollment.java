@@ -45,6 +45,9 @@ public class StudentEnrollment {
 	@Column(name = "year_status", nullable = false)
 	private String yearStatus = STUDYING;
 
+	@Column(name = "stream")
+	private String stream;
+
 	@Version
 	private Long version;
 
@@ -99,6 +102,18 @@ public class StudentEnrollment {
 		return yearStatus;
 	}
 
+	public String getStream() {
+		return stream;
+	}
+
+	public void setStream(String stream) {
+		this.stream = stream;
+	}
+
+	public void setYearStatus(String yearStatus) {
+		this.yearStatus = yearStatus;
+	}
+
 	public Long getVersion() {
 		return version;
 	}
@@ -111,6 +126,7 @@ public class StudentEnrollment {
 		values.put("divisionId", divisionId);
 		values.put("categoryId", categoryId);
 		values.put("yearStatus", yearStatus);
+		values.put("stream", stream);
 		return values;
 	}
 

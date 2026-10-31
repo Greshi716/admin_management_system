@@ -31,6 +31,9 @@ public class Standard {
 	@Column(nullable = false)
 	private boolean active = true;
 
+	@Column(name = "uses_stream", nullable = false)
+	private boolean usesStream = false;
+
 	@Version
 	private Long version;
 
@@ -59,6 +62,14 @@ public class Standard {
 		return stream;
 	}
 
+	public boolean isUsesStream() {
+		return usesStream;
+	}
+
+	public void setUsesStream(boolean usesStream) {
+		this.usesStream = usesStream;
+	}
+
 	public boolean isActive() {
 		return active;
 	}
@@ -82,6 +93,7 @@ public class Standard {
 		values.put("name", name);
 		values.put("displayOrder", displayOrder);
 		values.put("stream", stream);
+		values.put("usesStream", usesStream);
 		values.put("active", active);
 		return values;
 	}
