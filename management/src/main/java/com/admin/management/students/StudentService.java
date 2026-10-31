@@ -290,7 +290,8 @@ public class StudentService {
 				+ divisionNames.getOrDefault(e.getDivisionId(), "");
 		return new EnrollmentDto(e.getVersion(), e.getAcademicYearId(), yearNames.get(e.getAcademicYearId()),
 				e.getStandardId(), e.getDivisionId(), stdDiv, e.getCategoryId(),
-				categoryNames.get(e.getCategoryId()), e.getYearStatus(), classRecordFees.isLocked(e.getAcademicYearId()));
+				categoryNames.get(e.getCategoryId()), e.getYearStatus(), classRecordFees.isLocked(e.getAcademicYearId()),
+				e.getStream());
 	}
 
 	/** A GR No. any student has or ever had is refused (FR-002), whatever the capitals or the spaces around it. */
