@@ -108,7 +108,57 @@
         </dd>
         <dt class="text-muted">Total due</dt>
         <dd class="m-0 font-semibold" data-testid="fee-total-due">{{ money(f.totalDue) }}</dd>
+        @if (f.balance; as b) {
+          <dt class="text-muted">Paid</dt>
+          <dd class="m-0" data-testid="fee-paid">{{ money(b.paid) }}</dd>
+          <dt class="text-muted">Pending</dt>
+          <dd class="m-0 font-semibold" [class.text-danger-text]="b.pending > 0" data-testid="fee-pending">{{ money(b.pending) }}</dd>
+          @if (b.earlierYearsPending > 0) {
+            <dt class="text-muted">Earlier years pending</dt>
+            <dd class="m-0" data-testid="fee-earlier-pending">{{ money(b.earlierYearsPending) }}</dd>
+          }
+          @if (b.excessPaid > 0) {
+            <dt class="text-muted">Excess paid</dt>
+            <dd class="m-0" data-testid="fee-excess">{{ money(b.excessPaid) }}</dd>
+          }
+          @if (f.state === 'FEE_SET') {
+            <dt class="text-muted">Paid up to</dt>
+            <dd class="m-0" data-testid="fee-paid-up-to">{{ paidUpToText(b.paidUpTo) }}</dd>
+          }
+        }
       </dl>
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <h3 class="m-0 text-base font-bold">Receipts</h3>
+        <a [routerLink]="['/finance/fee-collection']" [queryParams]="{ studentId: student()?.id }" class="btn btn-primary btn-sm" data-testid="collect-fee">Collect fee</a>
+      </div>
+      @if (f.receipts.length === 0) {
+        <p class="mb-0 mt-2 text-sm text-muted" data-testid="receipts-empty">No receipts yet.</p>
+      } @else {
+        <table class="mt-2 w-full text-left text-sm" data-testid="receipts-list">
+          <thead>
+            <tr class="text-muted">
+              <th class="py-1 pr-3 font-semibold">Receipt no.</th>
+              <th class="py-1 pr-3 font-semibold">Date</th>
+              <th class="py-1 pr-3 font-semibold">Mode</th>
+              <th class="py-1 pr-3 text-right font-semibold">Total</th>
+              <th class="py-1 font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of f.receipts; track r.serialNo) {
+              <tr>
+                <td class="py-1 pr-3"><a class="link-target" [routerLink]="['/finance/receipts', r.serialNo]" data-testid="receipt-link">{{ r.receiptNo }}</a></td>
+                <td class="py-1 pr-3">{{ formatCell(r.receiptDate, 'date') }}</td>
+                <td class="py-1 pr-3">{{ r.paymentMode === 'CASH' ? 'Cash' : 'Cheque' }}</td>
+                <td class="py-1 pr-3 text-right tabular-nums">{{ money(r.total) }}</td>
+                <td class="py-1">
+                  <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="receiptStatusClass(r.status)" data-testid="receipt-status">{{ receiptStatusText(r.status) }}</span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
     } @else if (feesFailed()) {
       <p class="m-0 text-sm text-danger" role="alert" data-testid="fees-error">The fees could not be loaded.</p>
     } @else {

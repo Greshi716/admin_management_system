@@ -168,6 +168,51 @@ class ExcelExporterTest {
 	}
 
 	@Test
+	void anExtraSheetIsWrittenAfterTheMainSheetFromTheRowsSeen() throws Exception {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		java.util.List<String> seen = new java.util.ArrayList<>();
+		ExcelExporter.Extra extra = new ExcelExporter.Extra() {
+			@Override
+			public void observe(Map<String, Object> row) {
+				seen.add((String) row.get("name"));
+			}
+
+			@Override
+			public ExcelExporter.ExtraSheet sheet() {
+				return new ExcelExporter.ExtraSheet("Day-wise totals", List.of("Day", "Count", "Amount"),
+						List.of(List.of(LocalDate.of(2026, 4, 1), seen.size(), new BigDecimal("1250.50"))));
+			}
+		};
+
+		long written = exporter.write("Receipts", columns, sink -> {
+			sink.accept(Map.of("name", "a"));
+			sink.accept(Map.of("name", "b"));
+		}, out, extra);
+
+		assertThat(written).isEqualTo(2);
+		assertThat(seen).containsExactly("a", "b");
+		try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(out.toByteArray()))) {
+			assertThat(workbook.getNumberOfSheets()).isEqualTo(2);
+			assertThat(workbook.getSheetName(0)).isEqualTo("Receipts");
+			assertThat(workbook.getSheetName(1)).isEqualTo("Day-wise totals");
+			Sheet second = workbook.getSheetAt(1);
+			assertThat(second.getRow(0).getCell(2).getStringCellValue()).isEqualTo("Amount");
+			assertThat(second.getRow(1).getCell(1).getNumericCellValue()).isEqualTo(2.0);
+			assertThat(second.getRow(1).getCell(2).getNumericCellValue()).isEqualTo(1250.50);
+			assertThat(second.getRow(1).getCell(2).getCellStyle().getDataFormatString()).isEqualTo("0.00");
+		}
+	}
+
+	@Test
+	void withoutAnExtraTheFileHasOneSheet() throws Exception {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		exporter.write("Test", columns, sink -> sink.accept(Map.of("name", "a")), out, null);
+		try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(out.toByteArray()))) {
+			assertThat(workbook.getNumberOfSheets()).isEqualTo(1);
+		}
+	}
+
+	@Test
 	void sheetNameIsCleanedForExcel() throws Exception {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		exporter.write("Audit/log: all the things that happened this year", columns, sink -> {

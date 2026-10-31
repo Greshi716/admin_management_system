@@ -117,6 +117,35 @@ class TableExportIT extends IntegrationTest {
 		assertThat(entry.get("changes").toString()).contains("\"rows\": 10").contains("Std 2");
 	}
 
+	@Test
+	void anExtraSheetIsAddedAndTheExportIsStillAuditedOnce() throws Exception {
+		TableDef<Standard> def = TableDef.of(Standard.class,
+				List.of(ColumnDef.<Standard>text("name", "Name"), ColumnDef.<Standard>number("displayOrder", "Order")));
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		long before = exportEntries();
+		int[] seen = { 0 };
+
+		tables.export("Master data", "Standards with totals", def, new TableRequest(0, 10, "displayOrder", 1, null, null),
+				null, response, new ExcelExporter.Extra() {
+					@Override
+					public void observe(Map<String, Object> row) {
+						seen[0]++;
+					}
+
+					@Override
+					public ExcelExporter.ExtraSheet sheet() {
+						return new ExcelExporter.ExtraSheet("Totals", List.of("Rows"), List.of(List.of(seen[0])));
+					}
+				});
+
+		assertThat(seen[0]).isEqualTo(30);
+		assertThat(exportEntries()).isEqualTo(before + 1);
+		try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()))) {
+			assertThat(workbook.getNumberOfSheets()).isEqualTo(2);
+			assertThat(workbook.getSheetAt(1).getRow(1).getCell(0).getNumericCellValue()).isEqualTo(30.0);
+		}
+	}
+
 	private long exportEntries() {
 		return jdbc.queryForObject("select count(*) from audit_log where action = 'Export'", Long.class);
 	}

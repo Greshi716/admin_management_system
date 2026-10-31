@@ -157,6 +157,7 @@ erDiagram
 - A student has one permanent record and one **yearly class record** per academic year, so promotion and history are simple.
 - Staff have one permanent record and **dated salary details**; an increment adds a row, so old payslips never change.
 - The **fund ledger** is the single audit register for all money; the monthly fund summary and the coverage dashboard are calculated from it.
+- A **receipt row never changes** (F3, decided 28-10-2026). Its status is held in a separate append-only mark record (`receipt_marks`): Valid has no mark, Cheque not cleared and Voided by correction each have one. A student's paid and pending amounts are always calculated from the valid receipts.
 
 ### 4.2 Setup
 
@@ -346,9 +347,9 @@ Every fee receipt, matching the receipt book.
 | Receipt type | `receipt_type` | Choice | Auto | Current year (registration fee row + year fee row) / Previous years' pending (for one earlier academic year) |
 | Registration fee paid (₹) | `registration_paid` | Amount | Optional | Separate row on the receipt; current-year receipts only |
 | Year fee paid (₹) | `fee_paid` | Amount | Optional | Separate row on the receipt |
-| Paid up to | `paid_up_to` | Date | Auto | Date reached by the cumulative year-fee paid, stored on the receipt |
-| Status | `status` | Choice | Auto | Valid / Cheque not cleared |
-| Not-cleared reason | `unclear_reason` | Text | Optional | Required when marked; marked by and on are audited |
+| Paid up to | `paid_up_to` | Date | Auto | **F3 change:** not stored on the receipt and not printed. Calculated from the valid year-fee payments (last paid day, rounded half up) and shown on the student profile and the Students list |
+| Status | `status` | Choice | Auto | **F3 change:** Valid / Cheque not cleared / Voided by correction, held as a mark in `receipt_marks`, never as a change to the receipt |
+| Not-cleared reason | `unclear_reason` | Text | Optional | **F3 change:** held in the mark record; required when marked; marked by and on are audited |
 | Received by | `created_by` | Link | Auto |  |
 
 #### Fee Reminders  `fee_reminders`
@@ -817,7 +818,7 @@ Every list screen has a search box, filters on any column, sorting and export to
 
 | Document | Notes |
 |---|---|
-| Fee receipt | Layout follows the school's receipt book (receipt no. typed by the admin, date, cheque no. and date, received from, standard, division, amount, amount in words). Duplicate copies are marked DUPLICATE. |
+| Fee receipt | Layout follows the school's receipt book (receipt no. typed by the admin, date, cheque no. and date, received from, standard, division, amount, amount in words). F3 change: every print is identical; there is no DUPLICATE mark and prints are not recorded. |
 | Payslip | Month-wise, as in the school's sample, with deductions, net payment and leave balance. |
 | Leaving Certificate | Generated on save, preserved and editable. Reprints are marked duplicate. |
 | Fee reminder notice | Printable letter and WhatsApp / SMS text, grouped per standard. |
@@ -899,3 +900,4 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 26-10-2026 | Fees: a finalised structure can be revised with a warning and confirmation (all students' fees for the year are recalculated, receipts untouched); the registration fee applies to every student in the standards that have it; pending fees of earlier years are entered on the student's profile and counted in the pending amount; division change within a year is allowed. |
 | 26-10-2026 | Fees (F2): table shapes differ from section 4.4 on purpose (brought-forward amount per student, registration fee on the account, a status table per year); see the decision log. |
 | 28-10-2026 | Receipts (F3): the receipt shows the registration fee as its own row; a separate receipt type pays an earlier year's pending; overpayment is refused; the admin types the receipt number and date; no cancellation and no corrections (a confirmation dialog before saving); a cheque counts when received and can be marked "not cleared" with a reason (amount added back, audited). FEE-04 changed from cancellation to cheque-not-cleared. Printed on A4. |
+| 28-10-2026 | Receipts (F3), owner answers: "Paid up to" is not on the receipt but on the profile and the Students list; no DUPLICATE mark and no print record (section 8 changed); receipt status is a separate append-only mark (Valid, Cheque not cleared, Voided by correction); a developer-assisted void frees the receipt number for a corrected receipt. No financial rule of this agreement is otherwise changed. |

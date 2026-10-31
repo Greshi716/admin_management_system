@@ -53,4 +53,10 @@ test.describe('theme conformance', () => {
 
     expect(css.match(/--color-accent:\s*#6d4ae0\s*;/gi)).toHaveLength(1);
   });
+
+  test('FR-009, FR-019: the receipt screens use theme tokens only, never a colour of their own', () => {
+    const finance = files.filter((file) => relative(SRC, file).replaceAll('\\', '/').startsWith('app/features/finance/'));
+    expect(finance.length).toBeGreaterThan(0);
+    expect([...findings(HEX_COLOUR, finance), ...findings(COLOUR_FUNCTION, finance), ...findings(PALETTE_CLASS, finance)]).toEqual([]);
+  });
 });

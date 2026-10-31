@@ -44,6 +44,9 @@ class StudentListPerformanceIT extends IntegrationTest {
 
 	static final long INTERACTIVE_LIMIT_MS = 2_000;
 
+	/** The fee columns and the Fee status filter must stay under this on the dev PC (F3 research R2). */
+	static final long FEE_LIMIT_MS = 1_500;
+
 	static final long EXPORT_LIMIT_MS = 30_000;
 
 	static final List<String> REPORT = new ArrayList<>();
@@ -101,6 +104,14 @@ class StudentListPerformanceIT extends IntegrationTest {
 				insert into fee_accounts (enrollment_id, academic_year_id, amount, registration_fee, due_date, updated_at)
 				select e.id, e.academic_year_id, 20000 + (e.id % 50), 250.00, null, now() from student_enrollments e
 				""");
+		// 10,000 cash receipts of 100.00 on the first 10,000 class records, so the fee columns have receipts to add up (F3 FR-015)
+		jdbc.update("""
+				insert into receipts (receipt_no, receipt_date, academic_year_id, student_id, enrollment_id, student_name,
+				    gr_no, receipt_type, registration_paid, fee_paid, total, total_words, payment_mode, created_by, created_at)
+				select 'PERF-' || e.id, date '2024-06-01', e.academic_year_id, e.student_id, e.id, 'Perf Student',
+				    'GR-PERF', 'CURRENT_YEAR', 0, 100.00, 100.00, 'Perf words', 'CASH', (select min(id) from users), now()
+				from (select id, academic_year_id, student_id from student_enrollments order by id limit 10000) e
+				""");
 		jdbc.execute("analyze");
 		TableDef<Student> def = StudentTable.build(lookup);
 		tables.page(def, TableRequest.firstPage(), StudentTable.statusScope(null)); // warm-up
@@ -123,6 +134,11 @@ class StudentListPerformanceIT extends IntegrationTest {
 			fast("sort by Total fee desc, page 200", () -> tables.page(def, new TableRequest(4975, 25, "totalFee", -1, null, null), active));
 			fast("filter by Total fee", () -> tables.page(def, withFilter("totalFee", new java.math.BigDecimal("20275.00")), active));
 			fast("filter by Total fee and sort by it", () -> tables.page(def, new TableRequest(0, 25, "totalFee", 1, null, Map.of("totalFee", new TableRequest.Filter(new java.math.BigDecimal("20275.00"), "equals"))), active));
+			fee("sort by Paid desc", () -> tables.page(def, new TableRequest(0, 25, "paid", -1, null, null), active));
+			fee("sort by Pending asc", () -> tables.page(def, new TableRequest(0, 25, "pending", 1, null, null), active));
+			fee("sort by Paid up to", () -> tables.page(def, new TableRequest(0, 25, "paidUpTo", 1, null, null), active));
+			fee("filter by Fee status Partly paid", () -> tables.page(def, withFilter("feeStatus", "Partly paid"), active));
+			fee("filter by Fee status Unpaid, page 2", () -> tables.page(def, new TableRequest(25, 25, null, null, null, Map.of("feeStatus", new TableRequest.Filter("Unpaid", "equals"))), active));
 			fast("status All", () -> tables.page(def, TableRequest.firstPage(), StudentTable.statusScope("All")));
 
 			TablePage page = tables.page(def, withFilter("standardId", standardId), active);
@@ -156,6 +172,14 @@ class StudentListPerformanceIT extends IntegrationTest {
 		long ms = (System.nanoTime() - start) / 1_000_000;
 		REPORT.add(what + ": " + ms + " ms (limit " + INTERACTIVE_LIMIT_MS + " ms)");
 		assertThat(ms).as(what + " in ms").isLessThan(INTERACTIVE_LIMIT_MS);
+	}
+
+	private static void fee(String what, Callable<?> call) throws Exception {
+		long start = System.nanoTime();
+		call.call();
+		long ms = (System.nanoTime() - start) / 1_000_000;
+		REPORT.add(what + ": " + ms + " ms (limit " + FEE_LIMIT_MS + " ms)");
+		assertThat(ms).as(what + " in ms").isLessThan(FEE_LIMIT_MS);
 	}
 
 	private static void write() throws IOException {

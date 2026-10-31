@@ -49,7 +49,9 @@ public class ApiExceptionHandler {
 			Map.entry("uq_students_gr_no_lower", new Known("grNo", "This GR No. is already used by a student.")),
 			Map.entry("pk_student_gr_numbers", new Known("grNo", "This GR No. is already used by a student.")),
 			Map.entry("uq_fee_rows_category", new Known("categoryId", FEE_ROW_EXISTS)),
-			Map.entry("uq_fee_rows_no_category", new Known("standardId", FEE_ROW_EXISTS)));
+			Map.entry("uq_fee_rows_no_category", new Known("standardId", FEE_ROW_EXISTS)),
+			Map.entry("uq_receipts_receipt_no",
+					new Known("receiptNo", "This receipt number is already used by another receipt.")));
 
 	private record Known(String field, String message) {
 	}
@@ -66,7 +68,8 @@ public class ApiExceptionHandler {
 
 	@ExceptionHandler(ValidationException.class)
 	ResponseEntity<ApiProblem> invalidRequest(ValidationException ex) {
-		return validation(ex.getFieldErrors());
+		ResponseEntity<ApiProblem> response = validation(ex.getFieldErrors());
+		return ex.getCode() == null ? response : problem(response.getBody().withCode(ex.getCode()));
 	}
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)

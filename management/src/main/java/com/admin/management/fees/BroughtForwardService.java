@@ -28,14 +28,18 @@ class BroughtForwardService {
 
 	private final StudentLookup students;
 
+	private final FeeBalanceService balances;
+
 	private final BroughtForwardRepository repository;
 
 	private final FeesAudit audit;
 
 	private final Clock clock;
 
-	BroughtForwardService(StudentLookup students, BroughtForwardRepository repository, FeesAudit audit, Clock clock) {
+	BroughtForwardService(StudentLookup students, FeeBalanceService balances, BroughtForwardRepository repository,
+			FeesAudit audit, Clock clock) {
 		this.students = students;
+		this.balances = balances;
 		this.repository = repository;
 		this.audit = audit;
 		this.clock = clock;
@@ -49,6 +53,15 @@ class BroughtForwardService {
 		String note = cleanNote(in.note());
 		validate(in.amount(), note);
 		BigDecimal amount = Money.scale2(in.amount());
+
+		// The same lock as a receipt: the limit is read while no receipt of this student can be saved (FR-025).
+		balances.lockStudent(studentId);
+		BigDecimal previousYearsPaid = balances.position(studentId, null).paidPrevious();
+		if (amount.compareTo(previousYearsPaid) < 0) {
+			throw new ValidationException("BELOW_PREVIOUS_YEARS_PAID", List.of(new FieldError("amount",
+					"Receipts for earlier years already total " + previousYearsPaid.toPlainString()
+							+ ". The amount cannot be below that.")));
+		}
 
 		Optional<BroughtForward> existing = repository.findById(studentId);
 		if (existing.isEmpty()) {

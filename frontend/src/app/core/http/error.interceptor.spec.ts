@@ -129,6 +129,16 @@ describe('errorInterceptor (FR-008, FR-039, FR-046)', () => {
     expect(caught.error.current.studentCount).toBe(5);
   });
 
+  it('shows no toast for BALANCE_CHANGED, the Collect fee screen shows its own pop-up (F3 FR-016)', () => {
+    const body = { code: 'BALANCE_CHANGED', detail: 'The balance has changed.', current: { balanceVersion: 'x' } };
+
+    const caught = fail('/api/receipts', body, 409) as { error: typeof body };
+
+    expect(toast.warn).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(caught.error.current.balanceVersion).toBe('x');
+  });
+
   it('does not touch successful calls', () => {
     http.get('/api/standards').subscribe();
     controller.expectOne('/api/standards').flush([]);

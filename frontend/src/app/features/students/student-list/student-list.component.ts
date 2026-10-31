@@ -7,7 +7,8 @@ import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.componen
 import { forkJoin } from 'rxjs';
 import { StudentsService } from '../students.service';
 import { formatMoney } from '../../../shared/ui/money';
-import { feeText, recordYearNote, studentColumns } from './student-columns';
+import { formatDate } from '../../finance/finance-format';
+import { feeStatusClass, feeText, paidUpToCell, recordYearNote, studentColumns } from './student-columns';
 
 type StatusScope = 'Active' | 'Left' | 'All';
 
@@ -51,6 +52,23 @@ export class StudentListComponent implements OnInit {
   protected feeText(row: Record<string, unknown>): string {
     return feeText(row, formatMoney);
   }
+
+  /** An amount of the fee columns with two decimals; a dash when the student has no fee. */
+  protected amount(row: Record<string, unknown>, field: string): string {
+    const value = row[field];
+    return typeof value === 'number' ? formatMoney(value) : '—';
+  }
+
+  protected owing(row: Record<string, unknown>, field: string): boolean {
+    const value = row[field];
+    return typeof value === 'number' && value > 0;
+  }
+
+  protected paidUpTo(row: Record<string, unknown>): string {
+    return paidUpToCell(row, formatDate) || '—';
+  }
+
+  protected feeStatusClass = feeStatusClass;
 
   protected id(row: Record<string, unknown>): number {
     return row['id'] as number;

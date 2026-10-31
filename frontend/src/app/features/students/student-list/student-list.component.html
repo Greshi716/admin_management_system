@@ -34,6 +34,18 @@
         />
       } @else if (column.field === 'totalFee') {
         <span data-testid="total-fee" class="tabular-nums">{{ feeText(row) }}</span>
+      } @else if (column.field === 'paid' || column.field === 'earlierPending') {
+        <span class="tabular-nums" [attr.data-testid]="column.field">{{ amount(row, column.field) }}</span>
+      } @else if (column.field === 'pending') {
+        <span class="tabular-nums" [class.text-danger-text]="owing(row, 'pending')" data-testid="pending">{{ amount(row, 'pending') }}</span>
+      } @else if (column.field === 'paidUpTo') {
+        <span data-testid="paid-up-to">{{ paidUpTo(row) }}</span>
+      } @else if (column.field === 'feeStatus') {
+        @if (text(row, 'feeStatus'); as status) {
+          <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="feeStatusClass(status)" data-testid="fee-status">{{ status }}</span>
+        } @else {
+          —
+        }
       } @else {
         {{ text(row, 'stdDiv') }}
         @if (yearNote(row); as year) {

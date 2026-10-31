@@ -52,7 +52,7 @@ class EnrollmentLookupService implements EnrollmentLookup {
 
 	private static ClassRecordRef ref(StudentEnrollment record) {
 		return new ClassRecordRef(record.getId(), record.getStudentId(), record.getAcademicYearId(),
-				record.getStandardId(), record.getCategoryId());
+				record.getStandardId(), record.getDivisionId(), record.getCategoryId());
 	}
 
 }

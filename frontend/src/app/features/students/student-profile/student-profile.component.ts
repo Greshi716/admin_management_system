@@ -13,14 +13,14 @@ import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.componen
 import { ClassRecordDialogComponent } from '../class-record-dialog/class-record-dialog.component';
 import { FeesService, StudentFees } from '../../fees/fees.service';
 import { formatMoney } from '../../../shared/ui/money';
+import { paidUpToText, receiptStatusClass, receiptStatusText } from '../../finance/finance-format';
 import { Enrollment, HistoryResult, Student, StudentsService } from '../students.service';
 import { historyLines, recordLabel } from './history-lines';
 
 /**
  * The student profile (FR-007, FR-009, FR-019): personal details, contact and admission, the class history and the
- * History block. Aadhaar and religion/caste arrive masked. The Fees block (F2) shows the fee and the amount brought
- * forward, never receipts, paid or pending amounts; there are no roll number items here:
- * receipts belong to a later feature.
+ * History block. Aadhaar and religion/caste arrive masked. The Fees block shows the fee, the amount brought forward
+ * and (F3) paid, pending, "Paid up to" and the receipts with their status, all computed by the server (FR-014).
  */
 @Component({
   selector: 'app-student-profile',
@@ -67,6 +67,9 @@ export class StudentProfileComponent implements OnInit {
 
   protected readonly formatCell = formatCell;
   protected readonly money = formatMoney;
+  protected readonly paidUpToText = paidUpToText;
+  protected readonly receiptStatusClass = receiptStatusClass;
+  protected readonly receiptStatusText = receiptStatusText;
   protected readonly historyLines = historyLines;
   protected readonly recordLabel = recordLabel;
 

@@ -3,7 +3,7 @@ package com.admin.management.fees;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** Money is BigDecimal with exactly two decimals; a value with more decimals is refused, never rounded (FR-011). */
+/** Money is BigDecimal with exactly two decimals; a value with more decimals is refused, never rounded (F2 FR-011, F3 FR-023). */
 final class Money {
 
 	/** NUMERIC(12,2) holds ten digits before the decimal point. */
@@ -21,6 +21,26 @@ final class Money {
 	 */
 	static BigDecimal scale2(BigDecimal amount) {
 		return amount == null ? null : amount.setScale(2, RoundingMode.UNNECESSARY);
+	}
+
+	/**
+	 * Why an amount typed by the admin is not acceptable (negative, more than two decimals, more than ten digits before
+	 * the point), or null when it is. Nothing is rounded (FR-023).
+	 */
+	static String problem(BigDecimal value) {
+		if (value.scale() < 0) {
+			return "Enter the amount in digits, for example 1500.50."; // exponent notation such as 1e3
+		}
+		if (value.signum() < 0) {
+			return "The amount cannot be negative.";
+		}
+		if (value.stripTrailingZeros().scale() > 2) {
+			return "Use at most two decimal places.";
+		}
+		if (value.precision() - value.scale() > MAX_INTEGER_DIGITS) {
+			return TOO_LARGE_MESSAGE;
+		}
+		return null;
 	}
 
 	/** The amount as the plain text kept in the audit log, such as 28000.00; null stays null. */

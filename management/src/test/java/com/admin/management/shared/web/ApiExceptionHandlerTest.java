@@ -159,6 +159,14 @@ class ApiExceptionHandlerTest {
 	}
 
 	@Test
+	void duplicateReceiptNumberBecomes409OnTheReceiptNoField() throws Exception {
+		mvc.perform(get("/t/sql/23505/uq_receipts_receipt_no"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.detail").value("This receipt number is already used by another receipt."))
+			.andExpect(jsonPath("$.fieldErrors[0].field").value("receiptNo"));
+	}
+
+	@Test
 	void constraintNameIsReadFromPostgresMessage() {
 		org.assertj.core.api.Assertions
 			.assertThat(ApiExceptionHandler

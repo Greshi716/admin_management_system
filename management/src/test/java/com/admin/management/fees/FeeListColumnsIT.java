@@ -6,7 +6,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -22,11 +21,12 @@ import com.admin.management.support.Covers;
 import com.admin.management.support.FeeTestData;
 import com.admin.management.support.FeeTestData.Setup;
 import com.admin.management.support.IntegrationTest;
+import com.admin.management.support.JsonMoney;
 import com.admin.management.support.SignedInClient;
 import com.admin.management.support.StudentTestData;
 import com.admin.management.support.StudentTestData.YearSetup;
 
-/** The Total fee and Fee state columns of the Students list: sort, filter, paging, zero fee, shown record (FR-010). */
+/** The Total fee and Fee state columns of the Students list: sort, filter, paging, zero fee, shown record (FR-010); the paid and pending columns of F3 end F2's hiding of them. */
 @Covers("FR-010")
 class FeeListColumnsIT extends IntegrationTest {
 
@@ -65,11 +65,11 @@ class FeeListColumnsIT extends IntegrationTest {
 		client.post("/api/students/search", search("gr-3771", "\"sortField\":\"totalFee\",\"sortOrder\":1"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.total").value(6))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(30000.00))
-			.andExpect(jsonPath("$.rows[1].totalFee").value(30000.00))
-			.andExpect(jsonPath("$.rows[2].totalFee").value(36500.00))
-			.andExpect(jsonPath("$.rows[3].totalFee").value(36500.00))
-			.andExpect(jsonPath("$.rows[4].totalFee").value(40500.00))
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "30000.00"))
+			.andExpect(JsonMoney.at("$.rows[1].totalFee", "30000.00"))
+			.andExpect(JsonMoney.at("$.rows[2].totalFee", "36500.00"))
+			.andExpect(JsonMoney.at("$.rows[3].totalFee", "36500.00"))
+			.andExpect(JsonMoney.at("$.rows[4].totalFee", "40500.00"))
 			.andExpect(jsonPath("$.rows[5].totalFee").doesNotExist())
 			.andExpect(jsonPath("$.rows[5].feeState").value("Fee not set"));
 		client.post("/api/students/search",
@@ -114,7 +114,7 @@ class FeeListColumnsIT extends IntegrationTest {
 		clock.setDate(LocalDate.of(3773, 10, 1));
 
 		SignedInClient.of(mvc).post("/api/students/search", search("gr-3773", ""))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(0.0))
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "0.00"))
 			.andExpect(jsonPath("$.rows[0].feeState").doesNotExist());
 	}
 
@@ -137,13 +137,13 @@ class FeeListColumnsIT extends IntegrationTest {
 
 		client.post("/api/students/search", search("gr-3774", ""))
 			.andExpect(jsonPath("$.rows", hasSize(1)))
-			.andExpect(jsonPath("$.rows[0].totalFee").value(25000.0));
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "25000.00"));
 		client.get("/api/students/" + student + "/fees")
 			.andExpect(content().string(containsString("\"totalFee\":25000.00")));
 	}
 
 	@Test
-	void thereIsNoPaidOrPendingColumnToShowSortOrFilter() throws Exception {
+	void thePaidAndPendingColumnsExistAndAStudentWithNoReceiptsIsUnpaid() throws Exception {
 		Setup setup = FeeTestData.year(jdbc, "ListNoPaid", LocalDate.of(3776, 4, 1), 1);
 		FeeTestData.addRow(jdbc, setup.yearId(), setup.standard(0), null, "1000", null, null);
 		FeeTestData.setStatus(jdbc, setup.yearId(), false);
@@ -153,18 +153,15 @@ class FeeListColumnsIT extends IntegrationTest {
 		SignedInClient client = SignedInClient.of(mvc);
 
 		client.post("/api/students/search", search("gr-3776", "\"sortField\":\"paid\",\"sortOrder\":1"))
-			.andExpect(status().is4xxClientError());
+			.andExpect(status().isOk());
 		client.post("/api/students/search", search("gr-3776", "\"sortField\":\"pending\",\"sortOrder\":1"))
-			.andExpect(status().is4xxClientError());
-		client.post("/api/students/search",
-				search("gr-3776", "\"filters\":{\"pending\":{\"value\":1,\"matchMode\":\"equals\"}}"))
-			.andExpect(status().is4xxClientError());
-		String body = client.post("/api/students/search", search("gr-3776", ""))
+			.andExpect(status().isOk());
+		client.post("/api/students/search", search("gr-3776", ""))
 			.andExpect(status().isOk())
-			.andExpect(content().string(not(containsString("\"paid\""))))
-			.andExpect(content().string(not(containsString("\"pending\""))))
-			.andReturn().getResponse().getContentAsString();
-		assertThat(body).contains("totalFee");
+			.andExpect(JsonMoney.at("$.rows[0].totalFee", "1000.00"))
+			.andExpect(JsonMoney.at("$.rows[0].paid", "0.00"))
+			.andExpect(JsonMoney.at("$.rows[0].pending", "1000.00"))
+			.andExpect(jsonPath("$.rows[0].feeStatus").value("Unpaid"));
 	}
 
 }

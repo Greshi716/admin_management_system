@@ -19,8 +19,13 @@ export function readFirstSheet(path: string): string[][] {
 
 /** The same rows as `readFirstSheet`, each cell with its kind, so a test can check that an amount is a number. */
 export function readFirstSheetTyped(path: string): XlsxCell[][] {
+  return readSheetTyped(path, 1);
+}
+
+/** The same for the n-th sheet of the file (1 is the first), for example the register's Day-wise totals sheet (2). */
+export function readSheetTyped(path: string, sheetNumber: number): XlsxCell[][] {
   const zip = readFileSync(path);
-  const sheet = entryText(zip, 'xl/worksheets/sheet1.xml');
+  const sheet = entryText(zip, `xl/worksheets/sheet${sheetNumber}.xml`);
   const shared = entryTextOrNull(zip, 'xl/sharedStrings.xml');
   const sharedStrings = shared ? [...shared.matchAll(/<si>(.*?)<\/si>/gs)].map((si) => textOf(si[1])) : [];
 

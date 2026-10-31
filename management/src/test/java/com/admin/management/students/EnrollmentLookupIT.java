@@ -140,6 +140,27 @@ class EnrollmentLookupIT extends IntegrationTest {
 		assertThat(studentLookup.exists(null)).isFalse();
 	}
 
+	@Test
+	void aStudentSummaryHasTheNameGrNoAndStatus() {
+		var summary = studentLookup.summary(both).orElseThrow();
+		assertThat(summary.id()).isEqualTo(both);
+		assertThat(summary.fullName()).isNotBlank().isEqualTo(summary.fullName().trim());
+		assertThat(summary.grNo()).isEqualTo(jdbc.queryForObject("select gr_no from students where id = ?", String.class, both));
+		assertThat(summary.status()).isEqualTo("Active");
+		assertThat(studentLookup.summary(left).orElseThrow().status()).isEqualTo("Left");
+		assertThat(studentLookup.summary(-1L)).isEmpty();
+		assertThat(studentLookup.summary(null)).isEmpty();
+	}
+
+	@Test
+	void theClassRecordCarriesItsDivision() {
+		ClassRecordRef record = enrollmentLookup.byStudentAndYear(both, currentYear).orElseThrow();
+		assertThat(record.divisionId()).isEqualTo(jdbc.queryForObject(
+				"select division_id from student_enrollments where student_id = ? and academic_year_id = ?", Long.class, both,
+				currentYear));
+		assertThat(record.divisionId()).isNotNull();
+	}
+
 	private long year(String name, LocalDate from, LocalDate to) {
 		return jdbc.queryForObject(
 				"insert into academic_years (name, start_date, end_date) values (?, ?, ?) returning id", Long.class, name,

@@ -122,6 +122,151 @@ public final class FeeTestData {
 		return jdbc.update(sql, prefix, count, setup.yearId(), setup.yearId(), Date.valueOf(setup.yearStart()));
 	}
 
+	/** A synthetic student with a class record and a fee account (see {@link #studentWithAccount}). */
+	public record Fx(long studentId, long enrollmentId, String grNo) {
+	}
+
+	/**
+	 * Registers student {@code n} (standard and category index 0) and gives the class record a fee account of
+	 * {@code amount} and {@code registrationFee} (null for none). Receipts cannot be deleted, so each test class uses
+	 * student numbers and receipt numbers of its own.
+	 */
+	public static Fx studentWithAccount(JdbcTemplate jdbc, Setup setup, int n, String amount, String registrationFee) {
+		long enrollmentId = student(jdbc, setup, n, 0, 0);
+		long studentId = jdbc.queryForObject("select student_id from student_enrollments where id = ?", Long.class,
+				enrollmentId);
+		jdbc.update("insert into fee_accounts (enrollment_id, academic_year_id, amount, registration_fee, updated_at)"
+				+ " values (?, ?, ?, ?, now())", enrollmentId, setup.yearId(), new BigDecimal(amount),
+				registrationFee == null ? null : new BigDecimal(registrationFee));
+		return new Fx(studentId, enrollmentId, "GR-" + n);
+	}
+
+	/** The id of the first user (the test admin), who is the creator of seeded receipts. */
+	public static long adminId(JdbcTemplate jdbc) {
+		return jdbc.queryForObject("select id from users order by id limit 1", Long.class);
+	}
+
+	/** Inserts a valid current-year cash receipt with a unique synthetic number; returns the serial no. */
+	public static long cashReceipt(JdbcTemplate jdbc, Setup setup, Fx student, String receiptNo, LocalDate date,
+			String registrationPaid, String feePaid) {
+		BigDecimal registration = new BigDecimal(registrationPaid);
+		BigDecimal fee = new BigDecimal(feePaid);
+		return jdbc.queryForObject("""
+				insert into receipts (receipt_no, receipt_date, academic_year_id, student_id, enrollment_id, student_name,
+				    gr_no, receipt_type, registration_paid, fee_paid, total, total_words, payment_mode, created_by,
+				    created_at)
+				values (?, ?, ?, ?, ?, 'Test Student', ?, 'CURRENT_YEAR', ?, ?, ?, 'Test words', 'CASH', ?, now())
+				returning serial_no
+				""", Long.class, receiptNo, Date.valueOf(date), setup.yearId(), student.studentId(),
+				student.enrollmentId(), student.grNo(), registration, fee, registration.add(fee), adminId(jdbc));
+	}
+
+	/** Inserts a valid current-year cheque receipt (year fee only); returns the serial no. */
+	public static long chequeReceipt(JdbcTemplate jdbc, Setup setup, Fx student, String receiptNo, LocalDate date,
+			String feePaid) {
+		BigDecimal fee = new BigDecimal(feePaid);
+		return jdbc.queryForObject("""
+				insert into receipts (receipt_no, receipt_date, academic_year_id, student_id, enrollment_id, student_name,
+				    gr_no, receipt_type, registration_paid, fee_paid, total, total_words, payment_mode, cheque_no,
+				    bank_name, cheque_date, created_by, created_at)
+				values (?, ?, ?, ?, ?, 'Test Student', ?, 'CURRENT_YEAR', 0, ?, ?, 'Test words', 'CHEQUE', ?, 'Test Bank',
+				    ?, ?, now())
+				returning serial_no
+				""", Long.class, receiptNo, Date.valueOf(date), setup.yearId(), student.studentId(),
+				student.enrollmentId(), student.grNo(), fee, fee, "CQ" + receiptNo, Date.valueOf(date), adminId(jdbc));
+	}
+
+	/** Marks a receipt "Cheque not cleared" with plain SQL (the service comes later); returns the mark id. */
+	public static long markNotCleared(JdbcTemplate jdbc, long serialNo, String reason) {
+		return jdbc.queryForObject("""
+				insert into receipt_marks (receipt_serial_no, kind, reason, amount_added_back, marked_by, marked_at)
+				select serial_no, 'CHEQUE_NOT_CLEARED', ?, total, ?, now() from receipts where serial_no = ?
+				returning id
+				""", Long.class, reason, adminId(jdbc), serialNo);
+	}
+
+	/**
+	 * Creates {@code students} synthetic students with a class record and a fee account of 36,500.00 each, then
+	 * {@code receipts} cash receipts of 1.00 spread over them (the receipts do not check what is due). Two thousand
+	 * students and ten thousand receipts take a few seconds.
+	 */
+	public static void bulkStudentsAndReceipts(JdbcTemplate jdbc, Setup setup, String prefix, int students,
+			int receipts) {
+		seedClassRecords(jdbc, setup, prefix, students);
+		jdbc.update("""
+				insert into fee_accounts (enrollment_id, academic_year_id, amount, updated_at)
+				select e.id, e.academic_year_id, 36500.00, now() from student_enrollments e
+				join students s on s.id = e.student_id
+				where e.academic_year_id = ? and s.gr_no like ?
+				""", setup.yearId(), prefix + "-%");
+		jdbc.update("""
+				insert into receipts (receipt_no, receipt_date, academic_year_id, student_id, enrollment_id, student_name,
+				    gr_no, standard_id, division_id, category_id, receipt_type, registration_paid, fee_paid, total,
+				    total_words, payment_mode, created_by, created_at)
+				select ? || '-R' || g.n, date '2026-10-01', e.academic_year_id, e.student_id, e.id,
+				    s.surname || ' ' || s.first_name, s.gr_no, e.standard_id, e.division_id, e.category_id,
+				    'CURRENT_YEAR', 0, 1.00, 1.00, 'Seed receipt', 'CASH', ?, now()
+				from generate_series(1, ?) as g(n)
+				join (select r.*, row_number() over (order by r.id) as rn, count(*) over () as cnt
+				      from student_enrollments r join students st on st.id = r.student_id
+				      where r.academic_year_id = ? and st.gr_no like ?) e on e.rn = ((g.n - 1) % e.cnt) + 1
+				join students s on s.id = e.student_id
+				""", prefix, adminId(jdbc), receipts, setup.yearId(), prefix + "-%");
+	}
+
+	/**
+	 * Inserts a receipt for the register tests with the class kept on the receipt (standard 1 / division A named
+	 * "Reg Std 1"). {@code type} is CURRENT_YEAR or PREVIOUS_YEARS; a previous-years receipt has no class record.
+	 * A CHEQUE receipt gets a cheque number, bank and date. Returns the serial no.
+	 */
+	public static long registerReceipt(JdbcTemplate jdbc, Setup setup, Fx student, String receiptNo, LocalDate date,
+			String mode, String type, String registrationPaid, String feePaid) {
+		BigDecimal registration = new BigDecimal(registrationPaid);
+		BigDecimal fee = new BigDecimal(feePaid);
+		boolean cheque = "CHEQUE".equals(mode);
+		boolean current = "CURRENT_YEAR".equals(type);
+		return jdbc.queryForObject("""
+				insert into receipts (receipt_no, receipt_date, academic_year_id, student_id, enrollment_id, student_name,
+				    gr_no, standard_id, standard_name, division_name, receipt_type, registration_paid, fee_paid, total,
+				    total_words, payment_mode, cheque_no, bank_name, cheque_date, created_by, created_at)
+				values (?, ?, ?, ?, ?, 'Register Student', ?, ?, 'Reg Std 1', 'A', ?, ?, ?, ?, 'Test words', ?, ?, ?, ?, ?,
+				    now())
+				returning serial_no
+				""", Long.class, receiptNo, Date.valueOf(date), setup.yearId(), student.studentId(),
+				current ? student.enrollmentId() : null, student.grNo(), setup.standard(0), type, registration, fee,
+				registration.add(fee), mode, cheque ? "CQ" + receiptNo : null, cheque ? "Test Bank" : null,
+				cheque ? Date.valueOf(date) : null, adminId(jdbc));
+	}
+
+	/** Paid amounts of a class record, worked out in plain Java from the receipts and marks (not from the views). */
+	public record Balance(BigDecimal paidYearFee, BigDecimal paidRegistration, BigDecimal pendingYearFee,
+			BigDecimal pendingRegistration) {
+	}
+
+	/**
+	 * The independent check of the balance (SC-002): sums the valid current-year receipts of the class record in Java
+	 * and subtracts them from the account. A receipt with a mark does not count. Pending is never below zero.
+	 */
+	public static Balance balance(JdbcTemplate jdbc, long enrollmentId) {
+		BigDecimal fee = BigDecimal.ZERO;
+		BigDecimal registration = BigDecimal.ZERO;
+		for (Map<String, Object> row : jdbc.queryForList("""
+				select r.fee_paid, r.registration_paid from receipts r
+				where r.enrollment_id = ? and r.receipt_type = 'CURRENT_YEAR'
+				  and not exists (select 1 from receipt_marks m where m.receipt_serial_no = r.serial_no)
+				""", enrollmentId)) {
+			fee = fee.add((BigDecimal) row.get("fee_paid"));
+			registration = registration.add((BigDecimal) row.get("registration_paid"));
+		}
+		Map<String, Object> account = jdbc.queryForMap(
+				"select amount, registration_fee from fee_accounts where enrollment_id = ?", enrollmentId);
+		BigDecimal due = account.get("amount") == null ? BigDecimal.ZERO : (BigDecimal) account.get("amount");
+		BigDecimal registrationDue = account.get("registration_fee") == null ? BigDecimal.ZERO
+				: (BigDecimal) account.get("registration_fee");
+		return new Balance(fee, registration, due.subtract(fee).max(BigDecimal.ZERO),
+				registrationDue.subtract(registration).max(BigDecimal.ZERO));
+	}
+
 	/** {@code case g.<column> when 0 then id0 when 1 then id1 ... end}: ids are our own numbers, never user input. */
 	private static String caseOf(String column, List<Long> ids) {
 		StringBuilder sql = new StringBuilder("case g.").append(column);

@@ -7,17 +7,29 @@ public class ValidationException extends RuntimeException {
 
 	private final transient List<ApiProblem.FieldError> fieldErrors;
 
+	/** A machine-readable reason the screen can act on, or null for an ordinary field error. */
+	private final String code;
+
 	public ValidationException(List<ApiProblem.FieldError> fieldErrors) {
+		this(null, fieldErrors);
+	}
+
+	public ValidationException(String code, List<ApiProblem.FieldError> fieldErrors) {
 		super("Validation failed");
+		this.code = code;
 		this.fieldErrors = List.copyOf(fieldErrors);
 	}
 
 	public ValidationException(String field, String message) {
-		this(List.of(new ApiProblem.FieldError(field, message)));
+		this(null, List.of(new ApiProblem.FieldError(field, message)));
 	}
 
 	public List<ApiProblem.FieldError> getFieldErrors() {
 		return fieldErrors;
+	}
+
+	public String getCode() {
+		return code;
 	}
 
 }

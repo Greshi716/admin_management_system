@@ -34,3 +34,8 @@ Alternative accents offered in the mockup: `#7C3AED`, `#4F46E5`, `#0F766E`. The 
 - **No current year (blocking)**: when today's date is in no academic year, sign-in lands on Academic years with a prominent amber panel "No academic year covers today. Create one to continue." and the create form open. Other sidebar items are greyed out and not clickable; Change password and Log out stay available. The panel disappears once a year covering today is saved.
 - **List page (Academic years)**: title and one line of help, primary "Add academic year", card with search box, row count, Export to Excel, header with sortable columns, a filter row, rows with Edit and Delete (Delete is refused with an "in use" message when the year is referenced) and a "Current" tag on the year that contains today's date; academic years have no Make current action and no inactive status (standards, divisions and categories do have Mark inactive), footer with rows per page and paging.
 - **Audit log**: same table; filters for From, To, Today / This month / This year, Area and Action; columns Date and time, User, Area, Action, Record, What changed.
+
+## Print sheet and touch targets (F3)
+
+- `--color-print-paper`, `--color-print-ink`, `--color-print-line`: the receipt print sheet is black on white in every theme, so a printed receipt looks the same from light and dark. Used only by the receipt print component.
+- `.link-target`: a link or link-style button in a dense table or message that must still be a full 44px touch target (`--spacing-control`). Add it to the link, not the cell.

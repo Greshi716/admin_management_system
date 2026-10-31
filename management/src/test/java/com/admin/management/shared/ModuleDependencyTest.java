@@ -29,6 +29,7 @@ import com.admin.management.support.Covers;
  */
 @Covers("FR-016")
 @Covers("FR-014")
+@Covers("FR-015")
 class ModuleDependencyTest {
 
 	private static final String BASE = "com.admin.management.";
@@ -60,14 +61,17 @@ class ModuleDependencyTest {
 			Map.entry("student_gr_numbers", "students"), Map.entry("student_photos", "students"),
 			Map.entry("users", "security"), Map.entry("audit_log", "audit"), Map.entry("academic_years", "masterdata"),
 			Map.entry("standards", "masterdata"), Map.entry("divisions", "masterdata"),
-			Map.entry("student_categories", "masterdata"));
+			Map.entry("student_categories", "masterdata"), Map.entry("receipts", "fees"),
+			Map.entry("receipt_marks", "fees"), Map.entry("v_valid_receipts", "fees"), Map.entry("v_fee_position", "fees"),
+			Map.entry("v_earlier_pending", "fees"));
 
 	/**
 	 * Reads of another module's table that were approved, as "module:table": the audit log shows the user's name, and
 	 * the Students list shows the Total fee of the shown class record (constitution VII 1.1.0, F2 plan Complexity
 	 * Tracking). Adding to this list is a decision for the project owner.
 	 */
-	private static final Set<String> ALLOWED_TABLE_READS = Set.of("audit:users", "students:fee_accounts");
+	private static final Set<String> ALLOWED_TABLE_READS = Set.of("audit:users", "students:fee_accounts",
+			"students:v_fee_position", "students:v_earlier_pending");
 
 	private static final Pattern SQL_USE = Pattern.compile("(?i:\\b(?:from|join|into|update|truncate|table))\\s+\"?("
 			+ String.join("|", TABLE_OWNER.keySet().stream().sorted(Comparator.reverseOrder()).toList())
@@ -103,12 +107,15 @@ class ModuleDependencyTest {
 		assertThat(findCycle(graph)).as("cycle between modules").isEmpty();
 	}
 
+	/** Test-profile seeding endpoints that must write another module's tables to build fixtures. */
+	private static final Set<String> TABLE_SCAN_EXEMPT_FILES = Set.of("fees/FeeTestSupportController.java");
+
 	@Test
 	void aModuleReadsOnlyItsOwnTablesApartFromTheApprovedReads() throws IOException {
 		List<String> violations = new ArrayList<>();
 		for (Path file : javaFiles()) {
 			Path relative = SOURCES.relativize(file);
-			if (relative.getNameCount() < 2) {
+			if (relative.getNameCount() < 2 || TABLE_SCAN_EXEMPT_FILES.contains(relative.toString().replace('\\', '/'))) {
 				continue;
 			}
 			String module = relative.getName(0).toString();
@@ -134,6 +141,19 @@ class ModuleDependencyTest {
 		assertThat(foreignTables("students", "String m = \"These students need an update from the office\";")).isEmpty();
 		assertThat(foreignTables("masterdata", "\"from student_categories sc join standards s\"")).isEmpty();
 		assertThat(foreignTables("security", "\"insert into users\" + \"select 1 from students_view\"")).isEmpty();
+	}
+
+	@Test
+	void theStudentsListMayReadOnlyTheFeeAccountAndTheTwoFeeViews() {
+		assertThat(ALLOWED_TABLE_READS).containsExactlyInAnyOrder("audit:users", "students:fee_accounts",
+				"students:v_fee_position", "students:v_earlier_pending");
+		for (String table : new String[] { "receipts", "receipt_marks", "fee_brought_forward", "v_valid_receipts" }) {
+			assertThat(ALLOWED_TABLE_READS).doesNotContain("students:" + table);
+			assertThat(foreignTables("students", "String s = \"select * from " + table + "\";")).containsExactly(table);
+		}
+		assertThat(foreignTables("students", "\"select 1 from v_fee_position f join v_earlier_pending p on 1=1\""))
+			.containsExactlyInAnyOrder("v_fee_position", "v_earlier_pending");
+		assertThat(foreignTables("fees", "\"select 1 from receipts r join receipt_marks m on 1=1\"")).isEmpty();
 	}
 
 	@Test

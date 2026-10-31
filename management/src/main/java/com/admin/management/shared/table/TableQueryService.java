@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import com.admin.management.shared.web.ValidationException;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
+import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Expression;
@@ -71,24 +73,24 @@ public class TableQueryService {
 	}
 
 	/**
-	 * Reads every row that matches the request (ignoring its page) in chunks and hands each to {@code sink}, in
-	 * the requested order. Returns the number of rows read. All chunks read one snapshot, so a row written while
-	 * the export runs cannot shift a chunk boundary and repeat or skip a row (SC-007).
+	 * Reads every row that matches the request (ignoring its page) and hands each to {@code sink}, in the
+	 * requested order. Returns the number of rows read. It is one query read through a cursor in chunks of
+	 * {@link #EXPORT_CHUNK} rows, so each row's columns are worked out once (a page query per chunk would work
+	 * out the skipped rows again, which made a long list's export about ten times slower) and a row written while
+	 * the export runs cannot shift a boundary and repeat or skip a row (SC-007).
 	 */
 	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public <T> long stream(TableDef<T> def, TableRequest request, Scope<T> scope, Consumer<Map<String, Object>> sink) {
 		request.validate();
-		long read = 0;
-		int offset = 0;
-		while (true) {
-			List<Map<String, Object>> chunk = fetch(def, request, scope, offset, EXPORT_CHUNK);
-			chunk.forEach(sink);
-			read += chunk.size();
-			if (chunk.size() < EXPORT_CHUNK) {
-				return read;
-			}
-			offset += EXPORT_CHUNK;
+		long[] read = { 0 };
+		try (Stream<Tuple> tuples = query(def, request, scope).setHint("org.hibernate.fetchSize", EXPORT_CHUNK)
+			.getResultStream()) {
+			tuples.forEach(tuple -> {
+				sink.accept(toRow(def, tuple));
+				read[0]++;
+			});
 		}
+		return read[0];
 	}
 
 	private <T> long count(TableDef<T> def, TableRequest request, Scope<T> scope) {
@@ -105,6 +107,15 @@ public class TableQueryService {
 
 	private <T> List<Map<String, Object>> fetch(TableDef<T> def, TableRequest request, Scope<T> scope, int first,
 			int max) {
+		return query(def, request, scope).setFirstResult(first)
+			.setMaxResults(max)
+			.getResultList()
+			.stream()
+			.map(tuple -> toRow(def, tuple))
+			.toList();
+	}
+
+	private <T> TypedQuery<Tuple> query(TableDef<T> def, TableRequest request, Scope<T> scope) {
 		CriteriaBuilder cb = entityManager.getCriteriaBuilder();
 		CriteriaQuery<Tuple> query = cb.createTupleQuery();
 		Root<T> root = query.from(def.entity());
@@ -118,13 +129,7 @@ public class TableQueryService {
 			query.where(where);
 		}
 		query.orderBy(orders(def, request, root, cb));
-		return entityManager.createQuery(query)
-			.setFirstResult(first)
-			.setMaxResults(max)
-			.getResultList()
-			.stream()
-			.map(tuple -> toRow(def, tuple))
-			.toList();
+		return entityManager.createQuery(query);
 	}
 
 	private <T> Map<String, Object> toRow(TableDef<T> def, Tuple tuple) {

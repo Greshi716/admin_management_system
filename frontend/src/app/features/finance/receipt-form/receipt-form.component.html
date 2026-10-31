@@ -1,0 +1,186 @@
+<h1 class="mb-4 text-2xl font-bold">Collect fee</h1>
+
+<section class="mb-6 rounded-card border border-border bg-surface p-5 shadow-sm" aria-label="Find the student">
+  <label for="student-search" class="mb-1 block text-sm font-semibold">Student (name or GR No.)</label>
+  <input
+    id="student-search"
+    class="input w-full max-w-md"
+    [formControl]="search"
+    autocomplete="off"
+    placeholder="Type at least two letters"
+    data-testid="student-search"
+  />
+  @if (hits().length > 0) {
+    <ul class="m-0 mt-2 max-w-md list-none rounded-card border border-border p-1" data-testid="student-results">
+      @for (hit of hits(); track hit.id) {
+        <li>
+          <button type="button" class="link-button block w-full rounded-control px-3 py-2 text-left hover:bg-accent-soft" style="min-height: 44px" (click)="pick(hit)">
+            {{ hit.name }} — GR {{ hit.grNo }}, {{ hit.stdDiv }}
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</section>
+
+@if (loading()) {
+  <app-page-skeleton />
+} @else if (failed()) {
+  <p class="rounded-card border border-border bg-surface p-5 text-error-text" role="alert">This student could not be opened.</p>
+} @else if (ctx(); as c) {
+  <section class="rounded-card border border-border bg-surface p-5 shadow-sm" aria-labelledby="student-heading">
+    <h2 id="student-heading" class="mb-1 text-xl font-bold" data-testid="student-name">{{ c.student.name }}</h2>
+    <p class="mb-4 text-muted">GR {{ c.student.grNo }} · {{ c.student.stdDiv }}@if (c.student.status !== 'Active') { · {{ c.student.status }} }</p>
+
+    @if (strip(); as s) {
+      <dl class="mb-5 grid grid-cols-2 gap-3 rounded-card bg-accent-soft p-4 sm:grid-cols-4" data-testid="strip">
+        <div><dt class="text-sm text-muted">Net payable (year fee)</dt><dd class="font-bold tabular-nums" data-testid="strip-net">{{ money(s.yearFee) }}</dd></div>
+        <div><dt class="text-sm text-muted">Paid so far</dt><dd class="font-bold tabular-nums" data-testid="strip-paid">{{ money(s.paid) }}</dd></div>
+        <div><dt class="text-sm text-muted">Pending</dt><dd class="font-bold tabular-nums" data-testid="strip-pending">{{ money(s.pending) }}</dd></div>
+        <div><dt class="text-sm text-muted">Due date</dt><dd class="font-bold" data-testid="strip-due">{{ date(s.dueDate) }}</dd></div>
+      </dl>
+    }
+
+    @if (stateText(); as text) {
+      <p class="mb-4 rounded-card bg-warning-bg p-4 text-warning-text" role="alert" data-testid="fee-state">{{ text }}</p>
+    }
+    @if (!c.canPayCurrentYear && c.canPayPreviousYears) {
+      <p class="mb-4 rounded-card bg-warning-bg p-4 text-warning-text" data-testid="earlier-first">
+        Earlier years' pending of {{ money(c.balance.earlierYearsPending) }} must be paid first.
+        @if (type() === 'CURRENT_YEAR') {
+          <button type="button" class="link-button link-target font-semibold underline" (click)="usePreviousYears()" data-testid="use-previous-years">
+            Use a previous-years receipt
+          </button>
+        } @else {
+          Use a previous-years receipt.
+        }
+      </p>
+    }
+    @if (note(); as text) {
+      <p class="mb-4 rounded-card bg-error-bg p-4 text-error-text" role="alert" data-testid="form-note">{{ text }}</p>
+    }
+
+    @if (c.canPayCurrentYear || c.canPayPreviousYears) {
+      <form [formGroup]="form" (ngSubmit)="save()" novalidate class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="receipt-type" class="mb-1 block text-sm font-semibold">Receipt type</label>
+          <select id="receipt-type" class="input w-full" formControlName="receiptType" (change)="typeChanged()">
+            @if (c.canPayPreviousYears) {
+              <option value="PREVIOUS_YEARS">Previous years</option>
+            }
+            <option value="CURRENT_YEAR" [disabled]="!c.canPayCurrentYear">Current year</option>
+          </select>
+        </div>
+
+        @if (type() === 'PREVIOUS_YEARS') {
+          <div>
+            <label for="previous-year" class="mb-1 block text-sm font-semibold">Earlier academic year</label>
+            <select id="previous-year" class="input w-full" formControlName="previousYearId">
+              @for (year of c.earlierYears; track year.id) {
+                <option [value]="year.id">{{ year.name }}</option>
+              }
+            </select>
+          </div>
+        }
+
+        <div>
+          <label for="receipt-no" class="mb-1 block text-sm font-semibold">Receipt no. (from the book)</label>
+          <input id="receipt-no" class="input w-full" formControlName="receiptNo" autocomplete="off" maxlength="20" [attr.aria-invalid]="serverMessage(form.controls.receiptNo) ? 'true' : null" />
+          @if (serverMessage(form.controls.receiptNo); as message) {
+            <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+          }
+        </div>
+
+        <div>
+          <label for="receipt-date" class="mb-1 block text-sm font-semibold">Date</label>
+          <input id="receipt-date" type="date" class="input w-full" formControlName="receiptDate" [attr.aria-invalid]="serverMessage(form.controls.receiptDate) ? 'true' : null" />
+          @if (serverMessage(form.controls.receiptDate); as message) {
+            <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+          }
+        </div>
+
+        @if (type() === 'CURRENT_YEAR') {
+          @if (c.chargesRegistrationFee) {
+            <div>
+              <label for="registration-paid" class="mb-1 block text-sm font-semibold">Registration fee</label>
+              <input id="registration-paid" class="input w-full text-right" inputmode="decimal" formControlName="registrationPaid" autocomplete="off" [attr.aria-invalid]="amountProblem('registrationPaid') ? 'true' : null" />
+              <p class="mb-0 mt-1 text-sm text-muted" data-testid="registration-due">Still due {{ money(c.balance.registrationDue) }}</p>
+              @if (amountProblem('registrationPaid'); as message) {
+                <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+              }
+            </div>
+          }
+          <div>
+            <label for="fee-paid" class="mb-1 block text-sm font-semibold">Year fee</label>
+            <input id="fee-paid" class="input w-full text-right" inputmode="decimal" formControlName="feePaid" autocomplete="off" [attr.aria-invalid]="amountProblem('feePaid') ? 'true' : null" />
+            <p class="mb-0 mt-1 text-sm text-muted" data-testid="fee-due">Still due {{ money(c.balance.yearFeeDue) }}</p>
+            @if (amountProblem('feePaid'); as message) {
+              <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+            }
+          </div>
+        } @else {
+          <div>
+            <label for="fee-paid" class="mb-1 block text-sm font-semibold">Earlier years' fee</label>
+            <input id="fee-paid" class="input w-full text-right" inputmode="decimal" formControlName="feePaid" autocomplete="off" [attr.aria-invalid]="amountProblem('feePaid') ? 'true' : null" />
+            <p class="mb-0 mt-1 text-sm text-muted" data-testid="fee-due">Still due {{ money(c.balance.earlierYearsPending) }}</p>
+            @if (amountProblem('feePaid'); as message) {
+              <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+            }
+          </div>
+        }
+
+        <div>
+          <label for="payment-mode" class="mb-1 block text-sm font-semibold">Payment mode</label>
+          <select id="payment-mode" class="input w-full" formControlName="paymentMode">
+            <option value="CASH">Cash</option>
+            <option value="CHEQUE">Cheque</option>
+          </select>
+        </div>
+
+        @if (mode() === 'CHEQUE') {
+          <div>
+            <label for="cheque-no" class="mb-1 block text-sm font-semibold">Cheque no.</label>
+            <input id="cheque-no" class="input w-full" formControlName="chequeNo" autocomplete="off" />
+            @if (serverMessage(form.controls.chequeNo); as message) {
+              <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+            }
+          </div>
+          <div>
+            <label for="cheque-date" class="mb-1 block text-sm font-semibold">Cheque date</label>
+            <input id="cheque-date" type="date" class="input w-full" formControlName="chequeDate" />
+            @if (serverMessage(form.controls.chequeDate); as message) {
+              <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+            }
+          </div>
+          <div>
+            <label for="bank-name" class="mb-1 block text-sm font-semibold">Bank name</label>
+            <input id="bank-name" class="input w-full" formControlName="bankName" autocomplete="off" />
+            @if (serverMessage(form.controls.bankName); as message) {
+              <p class="mb-0 mt-1 text-sm text-error-text" role="alert">{{ message }}</p>
+            }
+          </div>
+        }
+
+        <div class="rounded-card bg-accent-soft p-4 sm:col-span-2" data-testid="live-summary" aria-live="polite">
+          @if (preview(); as p) {
+            <p class="m-0 text-lg font-bold">Total <span data-testid="live-total" class="tabular-nums">{{ money(p.total) }}</span></p>
+            <p class="m-0 text-muted" data-testid="live-words">{{ p.totalWords }}</p>
+            <p class="m-0 mt-2" data-testid="balance-after">
+              Balance after: pending <span class="tabular-nums">{{ money(p.balanceAfter.pending) }}</span> · Paid up to
+              {{ paidUpTo(p.balanceAfter.paidUpTo) }}
+            </p>
+          } @else {
+            <p class="m-0 text-muted">Enter an amount to see the total and the balance after.</p>
+          }
+        </div>
+
+        <div class="sm:col-span-2">
+          <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()" data-testid="save">Save</button>
+        </div>
+      </form>
+    }
+  </section>
+}
+
+<app-receipt-confirm-dialog [details]="confirming()" [busy]="busy()" (confirmed)="confirm()" (cancelled)="cancelConfirm()" />
+<app-balance-changed-dialog [latest]="stale()" (refresh)="refresh()" />
