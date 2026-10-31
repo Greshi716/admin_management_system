@@ -113,6 +113,22 @@ class FeesAudit {
 		audit.record(AREA, "Edit", entity, changes, null);
 	}
 
+	/**
+	 * Unpaid year fee of an old enrollment carried forward to the student's brought-forward dues (FR-024).
+	 */
+	void carryForwardRecorded(Long studentId, Long oldYearId, Long newYearId, BigDecimal oldAmount,
+			BigDecimal carriedAmount, BigDecimal newAmount) {
+		String entity = BROUGHT_FORWARD + "#" + studentId;
+		Map<String, Object> changes = new LinkedHashMap<>();
+		changes.put("studentId", studentId);
+		changes.put("oldYearId", oldYearId);
+		changes.put("newYearId", newYearId);
+		changes.put("oldAmount", oldAmount != null ? Money.text(oldAmount) : null);
+		changes.put("carriedAmount", Money.text(carriedAmount));
+		changes.put("newAmount", Money.text(newAmount));
+		audit.record(AREA, "Edit", entity, changes, null);
+	}
+
 	/** A receipt was saved (FR-021): every amount in full, the cheque details only for a Cheque receipt. */
 	void receiptCreated(Receipt receipt) {
 		Map<String, Object> values = new LinkedHashMap<>();
