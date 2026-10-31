@@ -9,6 +9,11 @@ import java.util.List;
 public interface ClassRecordPromotion {
 
 	/**
+	 * Locks the old year's Studying enrollments for the given standard FOR UPDATE.
+	 */
+	void lockStandardStudying(long academicYearId, long standardId);
+
+	/**
 	 * Reads active students in {@code standardId} who are still 'Studying' in {@code fromYearId}
 	 * and do not have an enrollment record in {@code toYearId}.
 	 */
