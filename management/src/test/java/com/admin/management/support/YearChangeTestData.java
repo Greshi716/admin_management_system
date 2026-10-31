@@ -33,6 +33,7 @@ public final class YearChangeTestData {
 	 * The old year has fee rows and is marked Finalised.
 	 */
 	public static TwoYears twoConsecutiveYears(JdbcTemplate jdbc, String prefix, LocalDate oldStart, int standardsCount) {
+		jdbc.update("update standards set active = false");
 		LocalDate oldEnd = oldStart.plusYears(1).minusDays(1);
 		LocalDate newStart = oldStart.plusYears(1);
 		LocalDate newEnd = newStart.plusYears(1).minusDays(1);
