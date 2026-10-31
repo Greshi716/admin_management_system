@@ -1,0 +1,216 @@
+openapi: 3.0.3
+info:
+  title: CampusFlow F4 Year change and admissions
+  version: 0.1.0
+  description: New endpoints only. All need a signed-in session and the CSRF header, like F0 to F3. Errors use the existing problem format (ApiProblem) with a code.
+paths:
+  /api/academic-years:
+    post:
+      summary: Create a year (existing call), now with an optional copy of the last year
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AcademicYearInput'
+                - type: object
+                  properties:
+                    copyFromLast: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Created; the body also has the copied counts when copyFromLast is true
+          content: { application/json: { schema: { $ref: '#/components/schemas/YearCopyResult' } } }
+        '409': { description: Overlapping dates (existing) }
+  /api/year-change/status:
+    get:
+      summary: Standards still to promote (drives the warning and the button)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/YearChangeStatus' } } } }
+  /api/year-change/standards/{standardId}/students:
+    get:
+      summary: The promote screen data for one standard
+      parameters: [ { name: standardId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses:
+        '200': { description: Students still Studying with no record in the new year, with defaults and pick lists, content: { application/json: { schema: { $ref: '#/components/schemas/PromoteScreen' } } } }
+        '409': { description: 'NO_NEW_YEAR_YET or FEE_STRUCTURE_NOT_FINALISED' }
+  /api/year-change/standards/{standardId}/promote:
+    post:
+      summary: Save the promotion of one standard (all or nothing)
+      parameters: [ { name: standardId, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PromoteInput' } } }
+      responses:
+        '200': { description: Saved, content: { application/json: { schema: { $ref: '#/components/schemas/PromoteResult' } } } }
+        '409': { description: 'ALREADY_PROCESSED, FEE_STRUCTURE_NOT_FINALISED, FEE_NOT_SET' }
+        '422': { description: Field errors per student (missing division or stream, division not of the target standard) }
+  /api/admissions/upload:
+    post:
+      summary: Upload the responses file (.xlsx or .csv, up to 5 MB, 2000 rows)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { file: { type: string, format: binary } } }
+      responses:
+        '200': { description: Result, content: { application/json: { schema: { $ref: '#/components/schemas/ImportResult' } } } }
+        '422': { description: 'Wrong type, too large, or MISSING_COLUMNS (names listed); nothing imported' }
+  /api/admissions:
+    get:
+      summary: The waiting list (server-paged like other lists; filter by status and duplicate)
+      responses: { '200': { description: A page of admission rows } }
+  /api/admissions/pending-count:
+    get:
+      summary: Number of Pending entries (Approvals tab badge)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { pending: { type: integer } } } } } }
+  /api/admissions/{id}:
+    get:
+      summary: One entry with its form data (Aadhaar and religion/caste masked) and what it duplicates
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AdmissionDetail' } } } }
+  /api/admissions/{id}/approve:
+    post:
+      summary: Correct, then approve (creates student, class record and fee account)
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApproveInput' } } } }
+      responses:
+        '200': { description: Approved; the body has the student id }
+        '409': { description: 'GR_NO_IN_USE, STALE_VERSION, ALREADY_REVIEWED' }
+        '422': { description: Field errors }
+  /api/admissions/{id}/reject:
+    post:
+      summary: Reject with a remark
+      parameters: [ { name: id, in: path, required: true, schema: { type: integer, format: int64 } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [remarks, version]
+              properties:
+                remarks: { type: string, maxLength: 500 }
+                version: { type: integer, format: int64 }
+      responses:
+        '200': { description: Rejected }
+        '409': { description: ALREADY_REVIEWED or STALE_VERSION }
+  /api/students:
+    get:
+      summary: Existing students list; adds the columns yearStatus and lastYearResult and the tag notPromotedYet
+      responses: { '200': { description: OK } }
+  /api/receipts:
+    post:
+      summary: Existing F3 receipt; one new refusal
+      responses:
+        '422': { description: 'REGISTRATION_PART_PAYMENT when the registration amount is above zero but below the registration fee still due; the message shows the amount due' }
+components:
+  schemas:
+    AcademicYearInput:
+      type: object
+      required: [name, startDate, endDate]
+      properties:
+        name: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    YearCopyResult:
+      type: object
+      properties:
+        id: { type: integer }
+        copiedFromYearId: { type: integer }
+        divisionsCopied: { type: integer }
+        feeRowsCopied: { type: integer }
+    YearChangeStatus:
+      type: object
+      properties:
+        active: { type: boolean }
+        newYear: { type: string }
+        oldYear: { type: string }
+        standards:
+          type: array
+          items:
+            type: object
+            properties:
+              standardId: { type: integer }
+              name: { type: string }
+              pending: { type: integer }
+    PromoteScreen:
+      type: object
+      properties:
+        fromYear: { type: string }
+        toYear: { type: string }
+        nextStandard: { type: object, nullable: true, description: 'null for the last standard (no promote tick)' }
+        streamChoices: { type: array, items: { type: string, enum: [Science, Commerce] } }
+        divisions: { type: array, items: { type: object } }
+        categories: { type: array, items: { type: object } }
+        students:
+          type: array
+          items:
+            type: object
+            properties:
+              studentId: { type: integer }
+              enrollmentId: { type: integer }
+              grNo: { type: string }
+              name: { type: string }
+              division: { type: string }
+              category: { type: string }
+              unpaidYearFee: { type: string, description: 'decimal as text, 2 places' }
+    PromoteInput:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          items:
+            type: object
+            required: [enrollmentId, outcome]
+            properties:
+              enrollmentId: { type: integer }
+              outcome: { type: string, enum: [PROMOTED, DETAINED, LEFT] }
+              divisionId: { type: integer, description: 'new division; defaults to the same letter' }
+              categoryId: { type: integer }
+              stream: { type: string, enum: [Science, Commerce], description: 'required when promoting into a stream standard' }
+              version: { type: integer }
+    PromoteResult:
+      type: object
+      properties:
+        runId: { type: integer }
+        promoted: { type: integer }
+        detained: { type: integer }
+        left: { type: integer }
+        carriedTotal: { type: string }
+    ImportResult:
+      type: object
+      properties:
+        batchId: { type: integer }
+        total: { type: integer }
+        added: { type: integer }
+        skipped: { type: integer }
+        duplicates: { type: integer }
+        invalid:
+          type: array
+          items:
+            type: object
+            properties:
+              row: { type: integer }
+              reason: { type: string }
+    AdmissionDetail:
+      type: object
+      properties:
+        id: { type: integer }
+        status: { type: string }
+        duplicateFlag: { type: boolean }
+        duplicateOf: { type: object }
+        form: { type: object }
+        version: { type: integer }
+    ApproveInput:
+      type: object
+      required: [grNo, academicYearId, divisionId, version]
+      properties:
+        grNo: { type: string }
+        academicYearId: { type: integer }
+        divisionId: { type: integer }
+        categoryId: { type: integer }
+        admissionDate: { type: string, format: date }
+        form: { type: object, description: 'corrected values of the form fields' }
+        version: { type: integer }
