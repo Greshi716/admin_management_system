@@ -38,10 +38,13 @@ class AcademicYearController {
 
 	private final Clock clock;
 
-	AcademicYearController(AcademicYearService service, TableEndpoints tables, Clock clock) {
+	private final java.util.Optional<com.admin.management.masterdata.api.YearCopyHandler> yearCopyHandler;
+
+	AcademicYearController(AcademicYearService service, TableEndpoints tables, Clock clock, java.util.Optional<com.admin.management.masterdata.api.YearCopyHandler> yearCopyHandler) {
 		this.service = service;
 		this.tables = tables;
 		this.clock = clock;
+		this.yearCopyHandler = yearCopyHandler;
 	}
 
 	/** Declared per request because the "Current" column depends on today's date. */
@@ -69,7 +72,11 @@ class AcademicYearController {
 	}
 
 	@PostMapping
-	ResponseEntity<AcademicYearDto> create(@Valid @RequestBody AcademicYearDto body) {
+	ResponseEntity<?> create(@Valid @RequestBody AcademicYearDto body) {
+		if (Boolean.TRUE.equals(body.copyFromLast()) && yearCopyHandler.isPresent()) {
+			var result = yearCopyHandler.get().createWithCopy(body.name(), body.startDate(), body.endDate());
+			return ResponseEntity.status(HttpStatus.CREATED).body(result);
+		}
 		return ResponseEntity.status(HttpStatus.CREATED).body(service.create(body));
 	}
 

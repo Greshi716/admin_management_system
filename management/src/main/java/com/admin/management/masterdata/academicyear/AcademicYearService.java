@@ -21,7 +21,7 @@ import com.admin.management.shared.web.ValidationException;
  * year is the one containing today's date in the school's time zone; nothing stores it and there is no fallback.
  */
 @Service
-public class AcademicYearService implements CurrentAcademicYearProvider {
+public class AcademicYearService implements CurrentAcademicYearProvider, com.admin.management.masterdata.api.AcademicYearCreator {
 
 	static final String TYPE = "AcademicYear";
 
@@ -50,7 +50,16 @@ public class AcademicYearService implements CurrentAcademicYearProvider {
 		return AcademicYearDto.of(find(id), LocalDate.now(clock));
 	}
 
+	@Override
 	@Transactional
+	public long createYear(String name, LocalDate startDate, LocalDate endDate) {
+		String trimmed = name.trim();
+		checkDates(startDate, endDate, -1);
+		AcademicYear year = years.saveAndFlush(new AcademicYear(trimmed, startDate, endDate));
+		audit.created(TYPE, year.getId(), year.snapshot());
+		return year.getId();
+	}
+
 	public AcademicYearDto create(AcademicYearDto input) {
 		String name = input.name().trim();
 		checkDates(input.startDate(), input.endDate(), -1);
