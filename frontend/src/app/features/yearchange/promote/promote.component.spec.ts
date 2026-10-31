@@ -62,7 +62,7 @@ const MOCK_STD12_SCREEN: PromoteScreen = {
 describe('PromoteComponent (FR-006, FR-007, FR-008, FR-009, FR-010, FR-011, FR-012, FR-019)', () => {
   let fixture: ComponentFixture<PromoteComponent>;
   let component: PromoteComponent;
-  let yearChangeService: Record<'getPromoteScreen' | 'promote', ReturnType<typeof vi.fn>>;
+  let yearChangeService: Record<'getPromoteScreen' | 'promote' | 'refreshStatus', ReturnType<typeof vi.fn>>;
   let toast: Record<'success' | 'info' | 'error', ReturnType<typeof vi.fn>>;
 
   function setup(screen: PromoteScreen = MOCK_SCREEN, standardId = 1): void {
@@ -77,6 +77,7 @@ describe('PromoteComponent (FR-006, FR-007, FR-008, FR-009, FR-010, FR-011, FR-0
           carriedTotal: '3000.00',
         }),
       ),
+      refreshStatus: vi.fn().mockReturnValue(of(null)),
     };
 
     toast = {

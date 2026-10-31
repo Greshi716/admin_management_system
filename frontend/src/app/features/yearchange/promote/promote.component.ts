@@ -225,6 +225,7 @@ export class PromoteComponent implements OnInit {
         this.busy.set(false);
         this.confirming.set(false);
         this.result.set(res);
+        this.yearChangeService.refreshStatus().subscribe({ error: () => {} });
         this.toast.success('Promotion saved successfully.');
       },
       error: (err) => {

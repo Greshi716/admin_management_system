@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { inject, Injectable, signal } from '@angular/core';
+import { Observable, tap } from 'rxjs';
 
 export interface PendingStandard {
   standardId: number;
@@ -81,8 +81,14 @@ export interface PromoteResult {
 export class YearChangeService {
   private readonly http = inject(HttpClient);
 
+  readonly status = signal<YearChangeStatus | null>(null);
+
   getStatus(): Observable<YearChangeStatus> {
     return this.http.get<YearChangeStatus>('/api/year-change/status');
+  }
+
+  refreshStatus(): Observable<YearChangeStatus> {
+    return this.getStatus().pipe(tap((s) => this.status.set(s)));
   }
 
   getPromoteScreen(standardId: number): Observable<PromoteScreen> {

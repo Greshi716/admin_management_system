@@ -6,6 +6,7 @@ import { SIGN_IN_ROUTE } from '../auth/auth.guard';
 import { AuthStore } from '../auth/auth.store';
 import { NoCurrentYearNoticeComponent } from './no-current-year.notice';
 import { PasswordPopupComponent } from './password-popup.component';
+import { PromoteWarningComponent } from './promote-warning.component';
 
 interface Tab {
   label: string;
@@ -30,6 +31,7 @@ interface Tab {
     ChangePasswordDialogComponent,
     PasswordPopupComponent,
     NoCurrentYearNoticeComponent,
+    PromoteWarningComponent,
     PageSkeletonComponent,
   ],
   templateUrl: './shell.component.html',
