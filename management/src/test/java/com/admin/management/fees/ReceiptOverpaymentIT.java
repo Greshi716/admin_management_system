@@ -89,12 +89,14 @@ class ReceiptOverpaymentIT extends IntegrationTest {
 			.andExpect(jsonPath("$.code").value("OVERPAYMENT"))
 			.andExpect(jsonPath("$.fieldErrors[0].field").value("registrationPaid"))
 			.andExpect(JsonMoney.at("$.current.due", "500.00"));
-		ReceiptApi.create(client, s.studentId(),
-				"\"receiptNo\":\"O-6\",\"receiptDate\":\"" + TODAY + "\",\"registrationPaid\":200.00,\"paymentMode\":\"CASH\"")
-			.andExpect(status().isCreated());
+
+		// Seed an existing part payment from before the all-at-once rule
+		FeeTestData.cashReceipt(jdbc, setup, s, "OLD-O6", LocalDate.parse(TODAY).minusDays(5), "200.00", "0.00");
+
 		ReceiptApi.create(client, s.studentId(),
 				"\"receiptNo\":\"O-7\",\"receiptDate\":\"" + TODAY + "\",\"registrationPaid\":300.01,\"paymentMode\":\"CASH\"")
 			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("OVERPAYMENT"))
 			.andExpect(JsonMoney.at("$.current.due", "300.00"));
 	}
 
