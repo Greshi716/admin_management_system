@@ -1,0 +1,296 @@
+<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+  @if (loading()) {
+    <app-page-skeleton />
+  } @else if (error()) {
+    <div class="rounded-card border border-border bg-surface p-6 shadow-sm">
+      <div class="rounded-card bg-error-bg p-4 text-error-text mb-4" role="alert" data-testid="promote-error">
+        {{ error() }}
+      </div>
+      <a routerLink="/students" class="btn btn-secondary min-h-[44px] inline-flex items-center">
+        Back to students
+      </a>
+    </div>
+  } @else if (result(); as res) {
+    <!-- Promotion Result Summary -->
+    <div class="rounded-card border border-border bg-surface p-8 shadow-sm space-y-6" data-testid="promote-result-summary">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent text-xl">
+          ✓
+        </span>
+        <div>
+          <h2 class="m-0 text-2xl font-bold text-ink">Promotion Complete</h2>
+          <p class="m-0 text-sm text-muted">
+            Standard records and carry-forward fees have been updated for {{ screen()?.fromYear }} → {{ screen()?.toYear }}.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-4 rounded-card border border-border bg-page p-6 text-center">
+        <div>
+          <p class="m-0 text-xs text-muted uppercase font-bold tracking-wider">Promoted</p>
+          <p class="m-0 text-2xl font-bold text-ink" data-testid="result-promoted">{{ res.promoted }}</p>
+        </div>
+        <div>
+          <p class="m-0 text-xs text-muted uppercase font-bold tracking-wider">Stayed (Detained)</p>
+          <p class="m-0 text-2xl font-bold text-ink" data-testid="result-detained">{{ res.detained }}</p>
+        </div>
+        <div>
+          <p class="m-0 text-xs text-muted uppercase font-bold tracking-wider">Marked Left</p>
+          <p class="m-0 text-2xl font-bold text-ink" data-testid="result-left">{{ res.left }}</p>
+        </div>
+        <div>
+          <p class="m-0 text-xs text-muted uppercase font-bold tracking-wider">Total Carried</p>
+          <p class="m-0 text-2xl font-bold text-accent-text" data-testid="result-carried">₹ {{ res.carriedTotal }}</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <a routerLink="/students" class="btn btn-primary min-h-[44px] inline-flex items-center" data-testid="back-to-students">
+          Back to students
+        </a>
+      </div>
+    </div>
+  } @else if (screen(); as scr) {
+    <!-- Main Promote Screen -->
+    <div class="space-y-6">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="m-0 text-2xl font-bold text-ink" data-testid="promote-title">
+              Promote Students
+            </h1>
+            <span class="rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-text">
+              {{ scr.fromYear }} → {{ scr.toYear }}
+            </span>
+          </div>
+          <p class="mb-0 mt-1 text-sm text-muted">
+            @if (isStd12()) {
+              Standard 12: Students can only be marked Left or stay back (Detained). There is no promotion to a higher standard.
+            } @else {
+              Promoting into <span class="font-semibold text-ink">{{ scr.nextStandard?.name }}</span> in the new academic year.
+            }
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          @if (!isStd12()) {
+            <button
+              type="button"
+              class="btn btn-secondary btn-outlined min-h-[44px]"
+              data-testid="select-all"
+              (click)="selectAll()"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary btn-outlined min-h-[44px]"
+              data-testid="untick-all"
+              (click)="untickAll()"
+            >
+              Untick all
+            </button>
+          }
+          <button
+            type="button"
+            class="btn btn-primary min-h-[44px]"
+            data-testid="save-promote"
+            [disabled]="rows().length === 0 || busy()"
+            (click)="openConfirm()"
+          >
+            Save promotion
+          </button>
+        </div>
+      </div>
+
+      <!-- Bulk Stream Section for Std 10 to 11 -->
+      @if (targetUsesStream() && !isStd12()) {
+        <div class="flex flex-wrap items-center gap-3 rounded-card border border-border bg-page p-4 text-sm" data-testid="bulk-stream-bar">
+          <span class="font-semibold text-ink">Stream for {{ scr.nextStandard?.name }}:</span>
+          <select
+            [(ngModel)]="bulkStream"
+            class="min-h-[44px] rounded-[10px] border border-input-border bg-surface px-3 py-1 text-ink"
+            data-testid="bulk-stream"
+          >
+            @for (choice of scr.streamChoices; track choice) {
+              <option [value]="choice">{{ choice }}</option>
+            }
+          </select>
+          <button
+            type="button"
+            class="btn btn-secondary min-h-[44px]"
+            data-testid="apply-bulk-stream"
+            (click)="applyBulkStream()"
+          >
+            Apply to promoted students
+          </button>
+          <span class="text-xs text-muted">
+            Applies stream to all ticked students. You can also change the stream per student below.
+          </span>
+        </div>
+      }
+
+      <!-- Students Table -->
+      <div class="overflow-x-auto rounded-card border border-border bg-surface shadow-sm">
+        <table class="w-full text-left text-sm" data-testid="promote-table">
+          <thead class="border-b border-border bg-page text-xs uppercase font-bold text-muted">
+            <tr>
+              <th scope="col" class="px-4 py-3 w-12 text-center">
+                @if (!isStd12()) {
+                  <span>Promote</span>
+                } @else {
+                  <span>Status</span>
+                }
+              </th>
+              <th scope="col" class="px-4 py-3">GR No</th>
+              <th scope="col" class="px-4 py-3">Student Name</th>
+              <th scope="col" class="px-4 py-3">Unpaid Fee</th>
+              <th scope="col" class="px-4 py-3">Division</th>
+              <th scope="col" class="px-4 py-3">Category</th>
+              @if (targetUsesStream()) {
+                <th scope="col" class="px-4 py-3">Stream</th>
+              }
+              <th scope="col" class="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            @for (row of rows(); track row.student.enrollmentId; let i = $index) {
+              <tr
+                class="transition-colors hover:bg-page/50"
+                [class.bg-error-bg/20]="row.isLeft"
+                [class.bg-warning-bg/20]="!row.isLeft && !row.ticked"
+                data-testid="student-row"
+              >
+                <!-- Promote Checkbox / Status -->
+                <td class="px-4 py-3 text-center">
+                  @if (!isStd12()) {
+                    <input
+                      type="checkbox"
+                      class="h-5 w-5 rounded border-input-border text-accent focus:ring-accent"
+                      [checked]="!row.isLeft && row.ticked"
+                      [disabled]="row.isLeft"
+                      (change)="toggleTick(i)"
+                      data-testid="promote-tick"
+                    />
+                  } @else {
+                    <span
+                      class="inline-block rounded-full px-2 py-0.5 text-xs font-semibold"
+                      [class.bg-error-bg]="row.isLeft"
+                      [class.text-error-text]="row.isLeft"
+                      [class.bg-warning-bg]="!row.isLeft"
+                      [class.text-warning-text]="!row.isLeft"
+                      data-testid="row-status-badge"
+                    >
+                      {{ row.isLeft ? 'Left' : 'Detained' }}
+                    </span>
+                  }
+                </td>
+
+                <!-- GR No -->
+                <td class="px-4 py-3 font-medium text-ink" data-testid="gr-no">
+                  {{ row.student.grNo }}
+                </td>
+
+                <!-- Student Name -->
+                <td class="px-4 py-3 text-ink font-semibold">
+                  {{ row.student.name }}
+                  @if (row.isLeft) {
+                    <span class="ml-2 text-xs font-normal text-error-text">(Marked Left)</span>
+                  } @else if (!row.ticked && !isStd12()) {
+                    <span class="ml-2 text-xs font-normal text-warning-text">(Stay back / Detained)</span>
+                  }
+                </td>
+
+                <!-- Unpaid Fee -->
+                <td class="px-4 py-3 text-muted" data-testid="unpaid-fee">
+                  {{ row.student.unpaidYearFee }}
+                </td>
+
+                <!-- Division Select -->
+                <td class="px-4 py-3">
+                  @if (!row.isLeft) {
+                    <select
+                      [(ngModel)]="row.divisionId"
+                      class="min-h-[44px] rounded-[10px] border border-input-border bg-surface px-3 py-1 text-ink text-sm"
+                      data-testid="division-select"
+                    >
+                      @for (div of divisionsFor(row); track div.id) {
+                        <option [ngValue]="div.id">{{ div.name }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <span class="text-xs text-muted">—</span>
+                  }
+                </td>
+
+                <!-- Category Select -->
+                <td class="px-4 py-3">
+                  @if (!row.isLeft) {
+                    <select
+                      [(ngModel)]="row.categoryId"
+                      class="min-h-[44px] rounded-[10px] border border-input-border bg-surface px-3 py-1 text-ink text-sm"
+                      data-testid="category-select"
+                    >
+                      @for (cat of scr.categories; track cat.id) {
+                        <option [ngValue]="cat.id">{{ cat.name }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <span class="text-xs text-muted">—</span>
+                  }
+                </td>
+
+                <!-- Stream Select (if applicable) -->
+                @if (targetUsesStream()) {
+                  <td class="px-4 py-3">
+                    @if (!row.isLeft && row.ticked) {
+                      <select
+                        [(ngModel)]="row.stream"
+                        class="min-h-[44px] rounded-[10px] border border-input-border bg-surface px-3 py-1 text-ink text-sm"
+                        data-testid="stream-select"
+                      >
+                        @for (choice of scr.streamChoices; track choice) {
+                          <option [value]="choice">{{ choice }}</option>
+                        }
+                      </select>
+                    } @else {
+                      <span class="text-xs text-muted">—</span>
+                    }
+                  </td>
+                }
+
+                <!-- Actions -->
+                <td class="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-outlined min-h-[44px] text-xs py-1 px-3"
+                    [class.border-danger-border]="row.isLeft"
+                    [class.text-danger-text]="row.isLeft"
+                    data-testid="mark-left-btn"
+                    (click)="toggleLeft(i)"
+                  >
+                    {{ row.isLeft ? 'Undo Left' : 'Mark Left' }}
+                  </button>
+                  <!-- F5 LC link hidden until F5 -->
+                  <a href="#" *ngIf="false" class="hidden" data-testid="lc-link">Prepare LC</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Confirm Promotion Dialog -->
+    <app-promote-confirm-dialog
+      [visible]="confirming()"
+      [busy]="busy()"
+      [promotedCount]="promotedCount()"
+      [detainedCount]="detainedCount()"
+      [leftCount]="leftCount()"
+      [carriedTotal]="carriedTotal()"
+      (confirmed)="confirmAndPromote()"
+      (cancelled)="closeConfirm()"
+    />
+  }
+</div>

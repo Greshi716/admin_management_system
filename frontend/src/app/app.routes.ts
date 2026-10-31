@@ -26,6 +26,10 @@ export const routes: Routes = [
         loadChildren: () => import('./features/students/students.routes').then((m) => m.STUDENTS_ROUTES),
       },
       {
+        path: 'yearchange',
+        loadChildren: () => import('./features/yearchange/yearchange.routes').then((m) => m.YEAR_CHANGE_ROUTES),
+      },
+      {
         path: 'finance',
         loadChildren: () => import('./features/finance/finance.routes').then((m) => m.FINANCE_ROUTES),
       },
