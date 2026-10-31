@@ -16,7 +16,7 @@
         >
         <span>GR No. {{ s.grNo }}</span>
         @if (current(); as c) {
-          <span data-testid="heading-class">{{ c.stdDiv }} · {{ c.categoryName }} · {{ c.academicYearName }}</span>
+          <span data-testid="heading-class">{{ c.stdDiv }}{{ c.stream ? ' (' + c.stream + ')' : '' }} · {{ c.categoryName }} · {{ c.academicYearName }}</span>
         }
       </p>
     </div>
@@ -183,7 +183,7 @@
           @for (record of s.classHistory; track record.academicYearId) {
             <tr>
               <td class="border-t border-border px-3 py-2">{{ record.academicYearName }}</td>
-              <td class="border-t border-border px-3 py-2">{{ record.stdDiv }}</td>
+              <td class="border-t border-border px-3 py-2">{{ record.stdDiv }}{{ record.stream ? ' (' + record.stream + ')' : '' }}</td>
               <td class="border-t border-border px-3 py-2">{{ record.categoryName }}</td>
               <td class="border-t border-border px-3 py-2">{{ record.yearStatus }}</td>
               <td class="border-t border-border px-3 py-2 text-right">

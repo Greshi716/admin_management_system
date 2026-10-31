@@ -91,6 +91,8 @@ final class StudentTable {
 					.searchable(false),
 				ColumnDef.<Student>bool("notPromotedYet", "Not promoted yet").expression(notPromotedYet(currentYearId))
 					.searchable(false),
+				ColumnDef.<Student>text("stream", "Stream").expression(recordString("stream", currentYearId))
+					.searchable(false).asInternal(),
 				ColumnDef.<Student>number("totalFee", "Total fee").expression(totalFee(currentYearId)),
 				ColumnDef.<Student>text("feeState", "Fee state").expression(feeState(currentYearId))
 					.searchable(false).asHidden(),

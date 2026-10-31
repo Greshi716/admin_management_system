@@ -37,6 +37,7 @@ export interface Enrollment {
   standardId: number;
   divisionId: number;
   stdDiv: string;
+  stream?: string | null;
   categoryId: number;
   categoryName: string;
   yearStatus: 'Studying' | 'Promoted' | 'Detained' | 'Left';
@@ -49,6 +50,7 @@ export interface EnrollmentInput {
   standardId: number;
   divisionId: number;
   categoryId: number;
+  stream?: string | null;
 }
 
 /** A student as the profile shows it: Aadhaar and religion/caste are masked. */
@@ -57,6 +59,7 @@ export interface Student {
   version: number;
   grNo: string;
   srNo: number;
+  stream?: string | null;
   surname: string;
   firstName: string;
   middleName: string | null;

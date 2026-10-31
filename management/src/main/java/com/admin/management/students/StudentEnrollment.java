@@ -65,9 +65,14 @@ public class StudentEnrollment {
 	}
 
 	public void change(Long newStandardId, Long newDivisionId, Long newCategoryId) {
+		change(newStandardId, newDivisionId, newCategoryId, this.stream);
+	}
+
+	public void change(Long newStandardId, Long newDivisionId, Long newCategoryId, String stream) {
 		this.standardId = newStandardId;
 		this.divisionId = newDivisionId;
 		this.categoryId = newCategoryId;
+		this.stream = stream;
 	}
 
 	public Long getId() {

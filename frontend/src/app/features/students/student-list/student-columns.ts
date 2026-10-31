@@ -7,6 +7,12 @@ const LEFT_BADGE = 'bg-page text-muted border border-border';
 /** The values of the Fee status filter, as the server writes them. */
 export const FEE_STATUSES = ['Paid', 'Partly paid', 'Unpaid'] as const;
 
+/** The values of the Year status filter (FR-013). */
+export const YEAR_STATUSES = ['Studying', 'Promoted', 'Detained', 'Left'] as const;
+
+/** The values of the Last year result filter (FR-013). */
+export const LAST_YEAR_RESULTS = ['Promoted', 'Detained'] as const;
+
 const FEE_STATUS_BADGE: Record<string, string> = {
   Paid: 'bg-badge-violet-bg text-badge-violet-text',
   'Partly paid': 'bg-badge-amber-bg text-badge-amber-text',
@@ -81,6 +87,32 @@ export function studentColumns(options: FilterOptions | null): CampusColumn[] {
         { field: 'feeStatus', label: 'Fee status', options: FEE_STATUSES.map((status) => ({ value: status, label: status })) },
       ],
     },
+    {
+      field: 'yearStatus',
+      header: 'Year status',
+      custom: true,
+      dropdowns: [
+        {
+          field: 'yearStatus',
+          label: 'Year status',
+          options: YEAR_STATUSES.map((status) => ({ value: status, label: status })),
+        },
+      ],
+    },
+    {
+      field: 'lastYearResult',
+      header: 'Last year result',
+      custom: true,
+      dropdowns: [
+        {
+          field: 'lastYearResult',
+          label: 'Last year result',
+          options: LAST_YEAR_RESULTS.map((res) => ({ value: res, label: res })),
+        },
+      ],
+    },
+    { field: 'notPromotedYet', header: 'Not promoted yet', hidden: true },
+    { field: 'stream', header: 'Stream', hidden: true },
     { field: 'status', header: 'Status', filterable: false, badgeClass: (value) => (value === 'Left' ? LEFT_BADGE : ACTIVE_BADGE) },
   ];
 }

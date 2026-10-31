@@ -16,7 +16,7 @@ const LISTS: FilterOptions = {
 describe('studentColumns (FR-008, FR-010)', () => {
   const visible = (columns = studentColumns(LISTS)) => columns.filter((column) => !column.hidden);
 
-  it('shows photo, GR No., name, Std / Div, category, the fee columns and status', () => {
+  it('shows photo, GR No., name, Std / Div, category, the fee columns, year status, last year result and status', () => {
     expect(visible().map((column) => column.header)).toEqual([
       'Photo',
       'GR No.',
@@ -29,6 +29,8 @@ describe('studentColumns (FR-008, FR-010)', () => {
       'Earlier years pending',
       'Paid up to',
       'Fee status',
+      'Year status',
+      'Last year result',
       'Status',
     ]);
   });
@@ -71,7 +73,7 @@ describe('studentColumns (FR-008, FR-010)', () => {
   });
 
   it('still builds the columns when the pick-lists could not be loaded', () => {
-    expect(visible(studentColumns(null))).toHaveLength(12);
+    expect(visible(studentColumns(null))).toHaveLength(14);
   });
 
   it('badges Left differently from Active', () => {

@@ -84,9 +84,27 @@
         } @else {
           —
         }
+      } @else if (column.field === 'yearStatus') {
+        <span data-testid="year-status">{{ text(row, 'yearStatus') || '—' }}</span>
+      } @else if (column.field === 'lastYearResult') {
+        <span data-testid="last-year-result">{{ text(row, 'lastYearResult') || '—' }}</span>
       } @else {
         {{ text(row, 'stdDiv') }}
-        @if (yearNote(row); as year) {
+        @if (text(row, 'stream'); as str) {
+          @if (str) {
+            <span class="ml-1 text-xs text-muted" data-testid="student-stream">({{ str }})</span>
+          }
+        }
+        @if (row['notPromotedYet']) {
+          <span
+            class="block mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold bg-warning-bg text-warning-text"
+            data-testid="not-promoted-yet-tag"
+            title="promote this student to move them into the new year"
+          >
+            Not promoted yet
+          </span>
+          <small class="block text-xs text-muted">promote this student to move them into the new year</small>
+        } @else if (yearNote(row); as year) {
           <small class="block text-xs text-muted" data-testid="record-year">{{ year }}</small>
         }
       }

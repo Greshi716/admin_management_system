@@ -161,7 +161,8 @@ public class StudentService {
 		validator.enrollmentChoice(in, record, errors);
 		StudentValidator.throwIfAny(errors);
 		Map<String, Object> before = record.snapshot();
-		record.change(in.standardId(), in.divisionId(), in.categoryId());
+		record.change(in.standardId(), in.divisionId(), in.categoryId(),
+				in.stream() != null ? in.stream() : record.getStream());
 		StudentEnrollment saved = enrollments.saveAndFlush(record);
 		audit.edited(StudentAudit.ENROLLMENT, saved.getId(), before, saved.snapshot());
 		return toDto(saved);
