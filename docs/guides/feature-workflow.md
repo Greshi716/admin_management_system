@@ -103,10 +103,10 @@ Proposed order (agreement IDs in brackets). "Ready" means every needed answer is
 |---|---|---|---|---|---|
 | F0 | Foundation: sign-in, academic years, standards, divisions, categories, audit log, table framework, app shell | ADM-01, ADM-04, FND-05 | none | Built; finish with fixes, self-review, T101, push, PR | done |
 | F1 | Students and class records: registration, GR No. and serial no., yearly class record, student list with View profile, photo, duplicate-name warning, Active/Left | STU-01, STU-03, STU-04 | F0 | Built (tasks T001 to T024, 26-10-2026; manual timing and quickstart runs T025/T026 are recorded in `specs/002-students/quickstart-results.md`). Scope included: sensitive columns not searchable (M3), fast entry "Save and add next", and one task to restyle the app shell to the prototype (top bar tabs, current purple tokens) | done |
-| F1b | Google Form admissions: we create the form; admin uploads the downloaded responses; review page, approve/reject, duplicate flag | STU-02 | F1 | Needs the form field list agreed; adds the "Excel import" menu item (Setup, System) and the "Upload responses file" button | normal |
+| F1b | Merged into F4 on 2026-10-31 (Google Form admissions, STU-02) | STU-02 | - | See F4 | - |
 | F2 | Fee structure and fee accounts: amount per standard and category per year, due dates, each student's assessed fee | ADM-02, FEE-01, FEE-05 | F1 | Built on branch 003-fees (tasks T001 to T029, 28-10-2026; the timed owner check T030 is still to do). No late fee, no concessions | money |
 | F3 | Fee collection: receipts (admin types receipt no., system adds serial), partial payments, cash/cheque, cheque not cleared, paid and pending balance | FEE-02, FEE-03, FEE-04 | F2 | Built on branch 004-fee-collection (tasks T001 to T032, 30-10-2026); owner answers of 28-10-2026 are in the decision log, to be confirmed in review | money (plan mode, extra tests) |
-| F4 | Year change: set up new year by copying, promotion wizard, carry forward pending fees | YR-01..YR-03 | F2, F3 | Ready after F3; detained/left rules | money |
+| F4 | Year change and admissions: set up new year by copying, promotion wizard (per standard, stream on Std 10 to 11, warning until done), carry forward pending year fee, Google Form responses upload with review page, approve/reject, duplicate flag | YR-01..YR-03, STU-02 | F2, F3 | Owner answers of 2026-10-31 are in the decision log; open items: Std 12, students not yet promoted, registration fee all at once in F3, form upload details | money |
 | F5 | Leaving certificate: issue LC, left register, duplicate LC, warning on pending fees | LC-01..LC-03 | F1, F3 | Blocked: questions 16 and 17 (LC format, numbering) | normal |
 | F6 | Staff: entry, salary breakdown, leaving register, facility charges, salary statement for a period | STF-01..STF-05 | F0 | Blocked: questions 1 to 8, 21 (EPF, P.T., gratuity, deductions) | money |
 | F7 | Leave: types, allowance, entries, unpaid days, encashment | LEV-01..LEV-04 | F6 | Blocked: questions 9 to 11 | normal |
@@ -117,7 +117,7 @@ Proposed order (agreement IDs in brackets). "Ready" means every needed answer is
 
 Dropped: Excel import at go-live (ADM-06), because the school has no Excel files and will register students in the app. The old decision-log lines mentioning "F5/F8" for money masking should be read as "when F3 and F8 start".
 
-Suggested next steps in order: finish F0, then F1, F1b, F2, F3, F4. While those are being built, get the school's answers for the blocked questions so F5 to F9 can start without waiting.
+Suggested next steps in order: finish F0, then F1, F2, F3, F4 (F4 includes the Google Form admissions, formerly F1b). While those are being built, get the school's answers for the blocked questions so F5 to F9 can start without waiting.
 
 ## 6. Quick checks before every feature
 
