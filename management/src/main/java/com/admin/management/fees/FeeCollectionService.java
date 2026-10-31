@@ -92,9 +92,11 @@ class FeeCollectionService {
 		boolean charges = feeSet && balance.registrationFee().signum() > 0;
 		boolean canPrevious = balance.earlierYearsPending().signum() > 0;
 		boolean canCurrent = feeSet && !canPrevious;
+		String message = FeeCollectionDto.NO_CLASS_RECORD.equals(state)
+				? "Not promoted yet: promote the student first" : null;
 		FeeCollectionDto.YearPart yearPart = current.year()
 			.map(y -> masterData.yearDates(y.id()).orElseThrow())
-			.map(d -> new FeeCollectionDto.YearPart(d.id(), d.name(), d.startDate(), d.endDate(), state))
+			.map(d -> new FeeCollectionDto.YearPart(d.id(), d.name(), d.startDate(), d.endDate(), state, message))
 			.orElse(null);
 		List<FeeCollectionDto.YearOption> earlier = current.year()
 			.map(y -> masterData.earlierYears(y.startDate())
@@ -103,7 +105,8 @@ class FeeCollectionService {
 				.toList())
 			.orElse(List.of());
 		return new FeeCollectionDto(studentPart(current), yearPart, canCurrent, canPrevious, charges, earlier, balance,
-				balances.token(studentId, current.enrollmentId()), summaries.forStudent(studentId));
+				balances.token(studentId, current.enrollmentId()), summaries.forStudent(studentId), message,
+				"brought forward");
 	}
 
 	/**

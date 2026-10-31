@@ -12,7 +12,15 @@ import java.time.LocalDate;
  */
 public record StudentFeesDto(Long yearId, String yearName, String state, BigDecimal yearFee,
 		BigDecimal registrationFee, BigDecimal totalFee, LocalDate dueDate, BroughtForwardDto broughtForward,
-		BigDecimal totalDue, FeeBalance balance, java.util.List<ReceiptSummaryDto> receipts) {
+		BigDecimal totalDue, FeeBalance balance, java.util.List<ReceiptSummaryDto> receipts,
+		String broughtForwardMarker) {
+
+	public StudentFeesDto(Long yearId, String yearName, String state, BigDecimal yearFee,
+			BigDecimal registrationFee, BigDecimal totalFee, LocalDate dueDate, BroughtForwardDto broughtForward,
+			BigDecimal totalDue, FeeBalance balance, java.util.List<ReceiptSummaryDto> receipts) {
+		this(yearId, yearName, state, yearFee, registrationFee, totalFee, dueDate, broughtForward, totalDue, balance,
+				receipts, "brought forward");
+	}
 
 	static final String FEE_SET = "FEE_SET";
 
@@ -21,7 +29,10 @@ public record StudentFeesDto(Long yearId, String yearName, String state, BigDeci
 	static final String NOT_FINALISED = "NOT_FINALISED";
 
 	/** {@code version} is null while the student has no brought-forward amount; the amount is then 0.00. */
-	public record BroughtForwardDto(Long version, BigDecimal amount, String note) {
+	public record BroughtForwardDto(Long version, BigDecimal amount, String note, String marker) {
+		public BroughtForwardDto(Long version, BigDecimal amount, String note) {
+			this(version, amount, note, "brought forward");
+		}
 	}
 
 }
