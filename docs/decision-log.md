@@ -56,6 +56,13 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 | 2026-10-31 | New year setup (YR-01): standards, divisions and fee amounts are copied from the last year, then edited. Due dates are shifted by one year. Status: **owner answer 2026-10-31**. | F4 |
 | 2026-10-31 | No "close old year" step: academic years have no inactive status, and the old year simply stops being current on the new year's start date. Status: **owner answer 2026-10-31**. | F4 |
 | 2026-10-31 | A wrong promotion or carry-forward is corrected by a developer-run correction with a reversing entry and an audit entry, as for the receipt void; money records are never deleted. Status: **owner answer 2026-10-31**. | F4 |
+| 2026-10-31 | Stream flag on standards (FR-012): a flag `standards.uses_stream` set by the admin for Std 11 and 12 is used instead of hard-coding Std 11 and 12 in code. Status: **proposed, awaiting owner confirmation**. | F4 |
+| 2026-10-31 | Stream fee equality (FR-012): the fee is the same for Science and Commerce (F2 fee structure has no stream column). Status: **proposed, awaiting owner confirmation**. | F4 |
+| 2026-10-31 | Registration fee all at once (FR-027): in `ReceiptRules`, registration amount entered above 0 must equal the registration fee still due (refusing part-payment with `REGISTRATION_PART_PAYMENT`), so an unpaid part does not vanish at year change. Registration 0 with a year fee stays allowed. Status: **proposed, awaiting owner confirmation**. | F4, F3 |
+| 2026-10-31 | Standard 12 promotion outcomes (FR-008): Std 12 has no promote outcome (only Left or Detained); marking Left in the promote screen sets the student's status to Left (past-students record is F5). Status: **proposed, awaiting owner confirmation**. | F4, F5 |
+| 2026-10-31 | Carry-forward adds to existing amount (FR-020): carry-forward of unpaid year fee adds to any existing `fee_brought_forward.amount` (`new_amount = existing + unpaid_year_fee`), audited with before and after amounts. Status: **proposed, awaiting owner confirmation**. | F4 |
+| 2026-10-31 | Developer correction function `correct_promotion` (FR-025): PostgreSQL function `correct_promotion(item_id, reason, done_by)` run via `psql` by developer to reverse a promotion item and lower `fee_brought_forward` with audit entry; never called by application. Status: **proposed, awaiting owner confirmation**. | F4 |
+| 2026-10-31 | Stream on class record (FR-012): `student_enrollments.stream` stores 'Science' or 'Commerce' on the yearly class record for Std 11 and 12 (one standard row each). Status: **proposed, awaiting owner confirmation**. | F4 |
 
 ## Open items
 
