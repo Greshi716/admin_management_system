@@ -1,6 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { problemOf, STALE_VERSION } from '../../../core/http/api-problem';
 import { ToastService } from '../../../core/toast/toast.service';
@@ -16,11 +17,11 @@ import { DialogComponent } from '../../../shared/ui/dialog.component';
  */
 @Component({
   selector: 'app-academic-years',
-  imports: [ReactiveFormsModule, DialogComponent, CampusTableComponent, StaleVersionDialogComponent],
+  imports: [ReactiveFormsModule, RouterLink, DialogComponent, CampusTableComponent, StaleVersionDialogComponent],
   templateUrl: './academic-years.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AcademicYearsComponent {
+export class AcademicYearsComponent implements OnInit {
   protected readonly endpoint = '/api/academic-years';
   protected readonly columns: CampusColumn[] = [
     { field: 'id', header: 'Id', type: 'number', hidden: true },
@@ -45,6 +46,8 @@ export class AcademicYearsComponent {
   protected readonly busy = signal(false);
   protected readonly stale = signal<Record<string, unknown> | null>(null);
   protected readonly deleting = signal<Record<string, unknown> | null>(null);
+  protected readonly hasPreviousYears = signal(false);
+  protected readonly copyResult = signal<{ divisionsCopied: number; feeRowsCopied: number } | null>(null);
   protected readonly serverMessage = serverMessage;
 
   /** Id and version of the year being edited; null while adding. */
@@ -54,6 +57,7 @@ export class AcademicYearsComponent {
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     startDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     endDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    copyFromLast: new FormControl(false, { nonNullable: true }),
   });
 
   constructor() {
@@ -63,13 +67,18 @@ export class AcademicYearsComponent {
     }
   }
 
+  ngOnInit(): void {
+    this.refreshPreviousYears();
+  }
+
   protected get isEdit(): boolean {
     return this.editing !== null;
   }
 
   protected add(): void {
     this.editing = null;
-    this.form.reset();
+    this.form.reset({ name: '', startDate: '', endDate: '', copyFromLast: false });
+    this.refreshPreviousYears();
     this.formOpen.set(true);
   }
 
@@ -79,6 +88,7 @@ export class AcademicYearsComponent {
       name: row['name'] as string,
       startDate: row['startDate'] as string,
       endDate: row['endDate'] as string,
+      copyFromLast: false,
     });
     this.formOpen.set(true);
   }
@@ -100,14 +110,29 @@ export class AcademicYearsComponent {
     const editing = this.editing;
     this.busy.set(true);
     const request = editing
-      ? this.http.put(`${this.endpoint}/${editing.id}`, { ...values, version: editing.version })
-      : this.http.post(this.endpoint, values);
+      ? this.http.put(`${this.endpoint}/${editing.id}`, {
+          name: values.name,
+          startDate: values.startDate,
+          endDate: values.endDate,
+          version: editing.version,
+        })
+      : this.http.post<Record<string, unknown>>(this.endpoint, values);
     request.subscribe({
-      next: () => {
+      next: (res) => {
         this.busy.set(false);
         this.toast.success(editing ? 'The academic year was changed.' : 'The academic year was added.');
+        const body = res as Record<string, unknown> | null;
+        if (!editing && body && 'divisionsCopied' in body) {
+          this.copyResult.set({
+            divisionsCopied: Number(body['divisionsCopied']),
+            feeRowsCopied: Number(body['feeRowsCopied']),
+          });
+        } else {
+          this.copyResult.set(null);
+        }
         this.closeForm();
         this.table().reload();
+        this.refreshPreviousYears();
         this.store.refresh().subscribe(); // the current year may have changed, which lifts or restores the block
       },
       error: (error: unknown) => {
@@ -126,6 +151,7 @@ export class AcademicYearsComponent {
         name: latest['name'] as string,
         startDate: latest['startDate'] as string,
         endDate: latest['endDate'] as string,
+        copyFromLast: false,
       });
     }
     this.stale.set(null);
@@ -147,6 +173,7 @@ export class AcademicYearsComponent {
         this.deleting.set(null);
         this.toast.success('The academic year was deleted.', 'Deleted');
         this.table().reload();
+        this.refreshPreviousYears();
         this.store.refresh().subscribe();
       },
       error: () => {
@@ -154,6 +181,13 @@ export class AcademicYearsComponent {
         this.busy.set(false);
         this.deleting.set(null);
       },
+    });
+  }
+
+  private refreshPreviousYears(): void {
+    this.http.get<unknown[]>(this.endpoint).subscribe({
+      next: (years) => this.hasPreviousYears.set(years.length > 0),
+      error: () => this.hasPreviousYears.set(false),
     });
   }
 

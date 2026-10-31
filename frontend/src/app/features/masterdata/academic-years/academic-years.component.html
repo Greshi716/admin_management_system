@@ -1,3 +1,14 @@
+@if (copyResult(); as result) {
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-surface p-4 shadow-sm" role="status" data-testid="copy-result">
+    <div>
+      <span class="font-semibold">Copied {{ result.divisionsCopied }} {{ result.divisionsCopied === 1 ? 'division' : 'divisions' }} and {{ result.feeRowsCopied }} {{ result.feeRowsCopied === 1 ? 'fee amount' : 'fee amounts' }}.</span>
+      <span class="ml-1 text-muted">Review and edit them before finalising:</span>
+      <a routerLink="/setup/fees" class="ml-2 font-semibold text-accent underline">Fee structure</a>
+    </div>
+    <button type="button" (click)="copyResult.set(null)" class="btn btn-secondary btn-outlined btn-sm" aria-label="Dismiss">Dismiss</button>
+  </div>
+}
+
 <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
   <div>
     <h1 class="m-0 text-3xl font-bold tracking-tight">Academic years</h1>
@@ -48,6 +59,13 @@
       <p class="mb-3 text-sm text-error-text">Enter the end date.</p>
     } @else {
       <div class="mb-3"></div>
+    }
+
+    @if (!isEdit && hasPreviousYears()) {
+      <div class="mb-4 flex items-center gap-2">
+        <input id="copyFromLast" type="checkbox" formControlName="copyFromLast" class="h-4 w-4 rounded border-gray-300" />
+        <label class="text-sm font-semibold cursor-pointer select-none" for="copyFromLast">Copy from last year</label>
+      </div>
     }
 
     <div class="flex justify-end gap-2">

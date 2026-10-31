@@ -60,6 +60,7 @@ public class AcademicYearService implements CurrentAcademicYearProvider, com.adm
 		return year.getId();
 	}
 
+	@Transactional
 	public AcademicYearDto create(AcademicYearDto input) {
 		String name = input.name().trim();
 		checkDates(input.startDate(), input.endDate(), -1);
