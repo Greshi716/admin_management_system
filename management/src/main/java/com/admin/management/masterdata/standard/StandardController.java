@@ -37,7 +37,9 @@ class StandardController {
 						ColumnDef.<Standard>number("version", "Version").asInternal(),
 						ColumnDef.<Standard>text("name", "Name"),
 						ColumnDef.<Standard>number("displayOrder", "Display order"),
-						ColumnDef.<Standard>text("stream", "Stream"), ColumnDef.<Standard>bool("active", "Active")))
+						ColumnDef.<Standard>text("stream", "Stream"),
+						ColumnDef.<Standard>bool("usesStream", "Uses stream"),
+						ColumnDef.<Standard>bool("active", "Active")))
 		.sortedBy("displayOrder", 1);
 
 	private final StandardService service;
