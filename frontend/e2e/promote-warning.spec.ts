@@ -65,11 +65,13 @@ test.describe('promotion warning bar and promote button', () => {
       })
     ).body;
 
-    await callApi(page, 'POST', '/api/divisions', {
-      academicYearId: newYear.id,
-      standardId: std1.id,
-      name: 'A',
-    });
+    const div1New = (
+      await callApi(page, 'POST', '/api/divisions', {
+        academicYearId: newYear.id,
+        standardId: std1.id,
+        name: 'A',
+      })
+    ).body;
 
     await callApi(page, 'POST', '/api/divisions', {
       academicYearId: newYear.id,
@@ -109,12 +111,18 @@ test.describe('promotion warning bar and promote button', () => {
 
     // Add a student in old year Std 1
     const master = {
-      yearId: oldYear.id,
+      yearId: newYear.id,
       standardId: std1.id,
-      divisionId: div1Old.id,
+      divisionId: div1New.id,
       categoryId: categories[0].id,
     };
-    await callApi(page, 'POST', '/api/students', studentInput(601, master));
+    const student = (await callApi(page, 'POST', '/api/students', studentInput(601, master))).body;
+    expect(student?.id).toBeTruthy();
+    await callApi(
+      page,
+      'POST',
+      `/api/test-support/students/${student.id}/move-record?academicYearId=${oldYear.id}&divisionId=${div1Old.id}&yearStartDate=${oldYear.startDate}`,
+    );
 
     // 3. Reload Students screen -> Warning bar MUST now appear
     await page.goto('/students');

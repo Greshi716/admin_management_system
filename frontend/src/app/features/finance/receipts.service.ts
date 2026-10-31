@@ -138,6 +138,16 @@ export class DuplicateReceiptNo {
   constructor(readonly message: string) {}
 }
 
+export const REGISTRATION_PART_PAYMENT = 'REGISTRATION_PART_PAYMENT';
+
+/** The registration fee must be paid in full (FR-027). */
+export class RegistrationPartPayment {
+  constructor(
+    readonly amountDue: number,
+    readonly message: string,
+  ) {}
+}
+
 /** Any other refusal that depends on the data (FEE_NOT_SET, NOT_A_CHEQUE, ALREADY_MARKED, ...). */
 export class ReceiptRefusal {
   constructor(
@@ -146,7 +156,13 @@ export class ReceiptRefusal {
   ) {}
 }
 
-export type ReceiptConflict = BalanceChanged | Overpayment | BroughtForwardPending | DuplicateReceiptNo | ReceiptRefusal;
+export type ReceiptConflict =
+  | BalanceChanged
+  | Overpayment
+  | BroughtForwardPending
+  | DuplicateReceiptNo
+  | RegistrationPartPayment
+  | ReceiptRefusal;
 
 /** The typed meaning of a failed receipt call; null when it is not a 409 (for example a 422 with field errors). */
 export function receiptConflictOf(error: unknown): ReceiptConflict | null {
@@ -169,6 +185,11 @@ export function receiptConflictOf(error: unknown): ReceiptConflict | null {
       return new BroughtForwardPending(typeof current?.['pending'] === 'number' ? current['pending'] : 0, message);
     case DUPLICATE_RECEIPT_NO:
       return new DuplicateReceiptNo(message);
+    case REGISTRATION_PART_PAYMENT:
+      return new RegistrationPartPayment(
+        typeof current?.['amountDue'] === 'number' ? current['amountDue'] : 0,
+        message,
+      );
     case undefined:
       // Two saves of one number at the same moment are refused by the database constraint: no code, the field only.
       return problem?.fieldErrors?.[0]?.field === 'receiptNo' ? new DuplicateReceiptNo(message) : null;

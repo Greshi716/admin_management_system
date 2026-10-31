@@ -34,6 +34,15 @@
 
     @if (strip(); as s) {
       <dl class="mb-5 grid grid-cols-2 gap-3 rounded-card bg-accent-soft p-4 sm:grid-cols-4" data-testid="strip">
+        @if (s.broughtForward > 0) {
+          <div data-testid="strip-brought-forward">
+            <dt class="text-sm text-muted">
+              Brought forward
+              <span class="ml-1 inline-block rounded px-1.5 py-0.5 text-xs font-semibold bg-warning-bg text-warning-text" data-testid="brought-forward-badge">brought forward</span>
+            </dt>
+            <dd class="font-bold tabular-nums" data-testid="strip-brought-forward-amount">{{ money(s.broughtForward) }}</dd>
+          </div>
+        }
         <div><dt class="text-sm text-muted">Net payable (year fee)</dt><dd class="font-bold tabular-nums" data-testid="strip-net">{{ money(s.yearFee) }}</dd></div>
         <div><dt class="text-sm text-muted">Paid so far</dt><dd class="font-bold tabular-nums" data-testid="strip-paid">{{ money(s.paid) }}</dd></div>
         <div><dt class="text-sm text-muted">Pending</dt><dd class="font-bold tabular-nums" data-testid="strip-pending">{{ money(s.pending) }}</dd></div>
@@ -46,7 +55,9 @@
     }
     @if (!c.canPayCurrentYear && c.canPayPreviousYears) {
       <p class="mb-4 rounded-card bg-warning-bg p-4 text-warning-text" data-testid="earlier-first">
-        Earlier years' pending of {{ money(c.balance.earlierYearsPending) }} must be paid first.
+        Earlier years' pending of {{ money(c.balance.earlierYearsPending) }}
+        <span class="ml-1 inline-block rounded px-1.5 py-0.5 text-xs font-semibold bg-warning-bg text-warning-text border border-warning-text/30" data-testid="brought-forward-badge">brought forward</span>
+        must be paid first.
         @if (type() === 'CURRENT_YEAR') {
           <button type="button" class="link-button link-target font-semibold underline" (click)="usePreviousYears()" data-testid="use-previous-years">
             Use a previous-years receipt
@@ -120,7 +131,10 @@
           </div>
         } @else {
           <div>
-            <label for="fee-paid" class="mb-1 block text-sm font-semibold">Earlier years' fee</label>
+            <label for="fee-paid" class="mb-1 block text-sm font-semibold">
+              Earlier years' fee
+              <span class="ml-1 inline-block rounded px-1.5 py-0.5 text-xs font-semibold bg-warning-bg text-warning-text" data-testid="brought-forward-badge">brought forward</span>
+            </label>
             <input id="fee-paid" class="input w-full text-right" inputmode="decimal" formControlName="feePaid" autocomplete="off" [attr.aria-invalid]="amountProblem('feePaid') ? 'true' : null" />
             <p class="mb-0 mt-1 text-sm text-muted" data-testid="fee-due">Still due {{ money(c.balance.earlierYearsPending) }}</p>
             @if (amountProblem('feePaid'); as message) {

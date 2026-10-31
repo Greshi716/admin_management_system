@@ -118,6 +118,16 @@ export class PromoteComponent implements OnInit {
     });
   }
 
+  private defaultDivisionFor(row: StudentRowModel, ticked: boolean): number | null {
+    const scr = this.screen();
+    if (!scr) return null;
+    const targetStdId = (!this.isStd12() && ticked && scr.nextStandard) ? scr.nextStandard.id : this.standardId();
+    const candidateDivs = scr.divisions.filter((d) => d.standardId === targetStdId);
+    if (candidateDivs.length === 0) return null;
+    const sameName = candidateDivs.find((d) => d.name.toLowerCase() === row.student.division?.toLowerCase());
+    return sameName ? sameName.id : candidateDivs[0].id;
+  }
+
   selectAll(): void {
     if (this.isStd12()) return;
     this.rows.update((list) =>
@@ -125,6 +135,7 @@ export class PromoteComponent implements OnInit {
         ...r,
         ticked: true,
         isLeft: false,
+        divisionId: this.defaultDivisionFor(r, true),
       })),
     );
   }
@@ -134,6 +145,7 @@ export class PromoteComponent implements OnInit {
       list.map((r) => ({
         ...r,
         ticked: false,
+        divisionId: this.defaultDivisionFor(r, false),
       })),
     );
   }
@@ -143,7 +155,13 @@ export class PromoteComponent implements OnInit {
     this.rows.update((list) => {
       const copy = [...list];
       const cur = copy[index];
-      copy[index] = { ...cur, ticked: !cur.ticked, isLeft: false };
+      const newTicked = !cur.ticked;
+      copy[index] = {
+        ...cur,
+        ticked: newTicked,
+        isLeft: false,
+        divisionId: this.defaultDivisionFor(cur, newTicked),
+      };
       return copy;
     });
   }
@@ -153,10 +171,12 @@ export class PromoteComponent implements OnInit {
       const copy = [...list];
       const cur = copy[index];
       const newLeft = !cur.isLeft;
+      const newTicked = newLeft ? false : !this.isStd12();
       copy[index] = {
         ...cur,
         isLeft: newLeft,
-        ticked: newLeft ? false : !this.isStd12(),
+        ticked: newTicked,
+        divisionId: newLeft ? null : this.defaultDivisionFor(cur, newTicked),
       };
       return copy;
     });
@@ -209,12 +229,22 @@ export class PromoteComponent implements OnInit {
           outcome = 'DETAINED';
         }
 
+        let stream: string | null = null;
+        if (!r.isLeft) {
+          if (outcome === 'PROMOTED') {
+            stream = this.targetUsesStream() ? r.stream : null;
+          } else {
+            // DETAINED: only students in standards with streams (Std 11/12) can have stream
+            stream = (this.isStd12() || r.student.defaultStream) ? (r.stream ?? r.student.defaultStream ?? null) : null;
+          }
+        }
+
         return {
           enrollmentId: r.student.enrollmentId,
           outcome,
           divisionId: r.isLeft ? null : r.divisionId,
           categoryId: r.isLeft ? null : r.categoryId,
-          stream: !r.isLeft && this.targetUsesStream() ? r.stream : r.student.defaultStream ?? null,
+          stream,
           version: r.student.version,
         };
       }),

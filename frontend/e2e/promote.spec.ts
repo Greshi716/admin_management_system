@@ -49,6 +49,7 @@ test.describe('promote students page', () => {
       await callApi(page, 'POST', '/api/standards', {
         name: 'Standard 11',
         displayOrder: 11,
+        usesStream: true,
       })
     ).body;
 
@@ -56,6 +57,7 @@ test.describe('promote students page', () => {
       await callApi(page, 'POST', '/api/standards', {
         name: 'Standard 12',
         displayOrder: 12,
+        usesStream: true,
       })
     ).body;
 
@@ -68,11 +70,13 @@ test.describe('promote students page', () => {
       })
     ).body;
 
-    await callApi(page, 'POST', '/api/divisions', {
-      academicYearId: newYear.id,
-      standardId: std10.id,
-      name: 'A',
-    });
+    const newDiv10A = (
+      await callApi(page, 'POST', '/api/divisions', {
+        academicYearId: newYear.id,
+        standardId: std10.id,
+        name: 'A',
+      })
+    ).body;
 
     const newDiv11A = (
       await callApi(page, 'POST', '/api/divisions', {
@@ -88,17 +92,21 @@ test.describe('promote students page', () => {
       name: 'B',
     });
 
-    await callApi(page, 'POST', '/api/divisions', {
-      academicYearId: oldYear.id,
-      standardId: std12.id,
-      name: 'A',
-    });
+    const oldDiv12A = (
+      await callApi(page, 'POST', '/api/divisions', {
+        academicYearId: oldYear.id,
+        standardId: std12.id,
+        name: 'A',
+      })
+    ).body;
 
-    await callApi(page, 'POST', '/api/divisions', {
-      academicYearId: newYear.id,
-      standardId: std12.id,
-      name: 'A',
-    });
+    const newDiv12A = (
+      await callApi(page, 'POST', '/api/divisions', {
+        academicYearId: newYear.id,
+        standardId: std12.id,
+        name: 'A',
+      })
+    ).body;
 
     const categories = (
       await callApi(page, 'POST', '/api/student-categories/search', {
@@ -113,7 +121,7 @@ test.describe('promote students page', () => {
     const newStructure = (await callApi(page, 'GET', `/api/fee-structures/${newYear.id}`)).body;
     await callApi(page, 'POST', `/api/fee-structures/${newYear.id}/rows`, {
       standardId: std10.id,
-      amount: 15000,
+      amount: 12000,
       registrationFee: null,
       dueDate: '2026-07-15',
       structureVersion: newStructure.version,
@@ -155,27 +163,39 @@ test.describe('promote students page', () => {
 
     // Create 3 students in old year Std 10
     const master = {
-      yearId: oldYear.id,
+      yearId: newYear.id,
       standardId: std10.id,
-      divisionId: oldDiv10A.id,
+      divisionId: newDiv10A.id,
       categoryId: catGeneral.id,
     };
 
     const s1 = (await callApi(page, 'POST', '/api/students', studentInput(501, master))).body;
-    const s2Obj = (await callApi(page, 'POST', '/api/students', studentInput(502, master))).body;
-    const s3Obj = (await callApi(page, 'POST', '/api/students', studentInput(503, master))).body;
+    await callApi(
+      page,
+      'POST',
+      `/api/test-support/students/${s1.id}/move-record?academicYearId=${oldYear.id}&divisionId=${oldDiv10A.id}&yearStartDate=${oldYear.startDate}`,
+    );
 
-    // Create part receipt for s1 (paid 9000 out of 12000 -> 3000 unpaid)
-    const token = (await callApi(page, 'GET', `/api/students/${s1.id}/fee-collection`)).body.balanceVersion;
-    await callApi(page, 'POST', '/api/receipts', {
-      studentId: s1.id,
-      balanceVersion: token,
-      receiptType: 'CURRENT_YEAR',
-      receiptNo: 'E2E-R501',
-      receiptDate: '2025-06-01',
-      feePaid: 9000,
-      paymentMode: 'CASH',
-    });
+    // Seed receipt for s1: paid 9000 out of 12000 -> 3000 unpaid
+    await callApi(
+      page,
+      'POST',
+      `/api/test-support/seed-receipts?academicYearId=${oldYear.id}&count=1&receiptDate=2025-06-01&feePaid=9000.00&prefix=E2E-R501`,
+    );
+
+    const s2Obj = (await callApi(page, 'POST', '/api/students', studentInput(502, master))).body;
+    await callApi(
+      page,
+      'POST',
+      `/api/test-support/students/${s2Obj.id}/move-record?academicYearId=${oldYear.id}&divisionId=${oldDiv10A.id}&yearStartDate=${oldYear.startDate}`,
+    );
+
+    const s3Obj = (await callApi(page, 'POST', '/api/students', studentInput(503, master))).body;
+    await callApi(
+      page,
+      'POST',
+      `/api/test-support/students/${s3Obj.id}/move-record?academicYearId=${oldYear.id}&divisionId=${oldDiv10A.id}&yearStartDate=${oldYear.startDate}`,
+    );
 
     // 2. Open promote screen for Std 10
     await page.goto(`/yearchange/promote/${std10.id}`);
@@ -222,11 +242,11 @@ test.describe('promote students page', () => {
     // 6. Save promotion & Confirmation dialog
     await page.getByTestId('save-promote').click();
 
-    // Confirm dialog shows counts: 1 Promoted, 1 Stayed (Detained), 1 Left, carried total 3000.00
+    // Confirm dialog shows counts: 1 Promoted, 1 Stayed (Detained), 1 Left, carried total 15000.00
     await expect(page.getByTestId('promote-count')).toHaveText('1');
     await expect(page.getByTestId('detained-count')).toHaveText('1');
     await expect(page.getByTestId('left-count')).toHaveText('1');
-    await expect(page.getByTestId('carried-total')).toContainText('3,000.00');
+    await expect(page.getByTestId('carried-total')).toContainText('15,000.00');
 
     // Confirm
     await page.getByTestId('confirm-promote').click();
@@ -236,26 +256,21 @@ test.describe('promote students page', () => {
     await expect(page.getByTestId('result-promoted')).toHaveText('1');
     await expect(page.getByTestId('result-detained')).toHaveText('1');
     await expect(page.getByTestId('result-left')).toHaveText('1');
-    await expect(page.getByTestId('result-carried')).toContainText('3000.00');
+    await expect(page.getByTestId('result-carried')).toContainText('15000.00');
 
     // 8. Std 12 promote screen: create 1 student in Std 12 old year
     const s12Master = {
-      yearId: oldYear.id,
+      yearId: newYear.id,
       standardId: std12.id,
-      divisionId: (await callApi(page, 'GET', `/api/academic-years/${oldYear.id}/divisions`)).body[0]?.id || 1,
+      divisionId: newDiv12A.id,
       categoryId: catGeneral.id,
     };
-    // Fetch divisions of std12 in old year
-    const div12Old = (
-      await callApi(page, 'POST', '/api/divisions', {
-        academicYearId: oldYear.id,
-        standardId: std12.id,
-        name: 'B',
-      })
-    ).body;
-    s12Master.divisionId = div12Old.id;
-
-    await callApi(page, 'POST', '/api/students', studentInput(512, s12Master));
+    const s12 = (await callApi(page, 'POST', '/api/students', studentInput(512, s12Master))).body;
+    await callApi(
+      page,
+      'POST',
+      `/api/test-support/students/${s12.id}/move-record?academicYearId=${oldYear.id}&divisionId=${oldDiv12A.id}&yearStartDate=${oldYear.startDate}`,
+    );
 
     await page.goto(`/yearchange/promote/${std12.id}`);
     await expect(page.getByTestId('promote-title')).toBeVisible();

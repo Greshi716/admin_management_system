@@ -188,6 +188,47 @@ describe('ReceiptFormComponent (FR-001, FR-002, FR-003, FR-005, FR-007, FR-008, 
     expect(el().querySelector('[data-testid="live-total"]')).toBeNull();
   });
 
+  it('shows the REGISTRATION_PART_PAYMENT message with the amount due beside the field and in the note (FR-027)', () => {
+    vi.useFakeTimers();
+    open();
+    type('registration-paid', '200');
+    vi.advanceTimersByTime(300);
+
+    http.expectOne('/api/students/7/fee-collection/preview').flush(
+      {
+        status: 409,
+        code: 'REGISTRATION_PART_PAYMENT',
+        detail: 'The registration fee of 500.00 must be paid in full.',
+        fieldErrors: [{ field: 'registrationPaid', message: 'The registration fee of 500.00 must be paid in full.' }],
+        current: { amountDue: 500 },
+      },
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+
+    expect(el().textContent).toContain('The registration fee of 500.00 must be paid in full.');
+    expect(el().querySelector('[data-testid="form-note"]')?.textContent).toContain(
+      'The registration fee of 500.00 must be paid in full.',
+    );
+  });
+
+  it('shows the brought-forward badge in the strip and banner when brought-forward amount is positive (FR-020, FR-023)', () => {
+    open(
+      context({
+        canPayCurrentYear: false,
+        canPayPreviousYears: true,
+        earlierYears: [{ id: 99, name: '2025-26' }],
+        balance: { ...BALANCE, broughtForward: 3000, earlierYearsPending: 3000 },
+      }),
+    );
+    fixture.detectChanges();
+
+    const badges = Array.from(el().querySelectorAll('[data-testid="brought-forward-badge"]'));
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+    expect(badges[0].textContent).toContain('brought forward');
+    expect(el().querySelector('[data-testid="strip-brought-forward-amount"]')?.textContent).toContain('3,000.00');
+  });
+
   it('a refused number or date shows beside its field after Confirm, and nothing is lost', () => {
     vi.useFakeTimers();
     open();
