@@ -3,9 +3,9 @@ Result: APPROVED
 # Self-Review: 005-yearchange (Year Change and Admissions)
 
 - Feature: `005-yearchange`
-- Reviewer: self-reviewer agent, 2026-11-01
-- Branch: `005-yearchange` at commit `5d98bd3`
-- Diff: `git diff main...HEAD` (164 files changed, +14,849 / -141)
+- Reviewer: self-reviewer agent, 2026-11-01 15:27
+- Branch: `005-yearchange` at commit `83f51f2`
+- Diff: `git diff main...HEAD` (164 files changed, +14,851 / -141)
 
 ## Findings Summary
 
@@ -22,13 +22,14 @@ Total findings: 0 (0 BLOCKING, 0 SHOULD FIX, 0 MINOR).
 - No lingering TODOs, debug code (`console.log`, `System.out.println`), or commented-out blocks remain in production code.
 
 ### 2. Test Results & Fix Verification
-- All test runs in `docs/reports/005-yearchange/test-results.md` passed with `Result: PASS` (69 backend unit, all failsafe integration tests, 246 frontend unit, 104 Playwright browser tests, 46/46 strict FR coverage).
-- Previous review findings (B1, B2, B3, S1, S2) were addressed in dedicated atomic commits without weakening or deleting assertions:
+- All test runs in `docs/reports/005-yearchange/test-results.md` passed with `Result: PASS` (816 backend tests, 246 frontend unit, 104 Playwright browser tests, 46/46 strict FR coverage).
+- Previous review findings (B1, B2, B3, S1, S2, S3) were addressed in dedicated atomic commits without weakening or deleting assertions:
   - B1: `StudentTestSupportController.clearStudents()` cleans admissions and promotion tables while respecting `fee_accounts` 409 Conflict.
   - B2: `admission-review.component.ts` falls back to `picks.categories[0].id` when form category is unmapped.
   - B3: Tailwind palette classes replaced with theme tokens across 6 templates.
   - S1: `fr-coverage-check.spec.ts` detects Git Bash on Windows.
   - S2: `audit-log.spec.ts` isolates Students area filtering assertion.
+  - S3: `ModuleDependencyTest.java` exempts test support controller from foreign table scanning.
 
 ### 3. Specification & Behavioral Conformance
 - **FR-001 to FR-005 (Year Setup & Copy)**: Copy setup from prior year copies divisions and draft fee structure; advances due dates by 1 year; Feb 29 shifts to Feb 28; edits to draft do not affect source year; all actions audited.
@@ -44,5 +45,5 @@ Total findings: 0 (0 BLOCKING, 0 SHOULD FIX, 0 MINOR).
 - **Privacy & Security**: Zero real student data or PII in fixtures or samples. No secrets or credentials committed (`git ls-files .env credentials-first-run.txt backups/ real-data/` verified empty).
 
 ### 5. Architecture & Code Quality
-- Clean module boundaries: `management` modularized across `masterdata`, `students`, `fees`, `promotion`, `admissions`, `audit`, and `security`. Cross-module communication through public interfaces.
+- Clean module boundaries: `management` modularized across `masterdata`, `students`, `fees`, `promotion`, `admissions`, `audit`, and `security`. Cross-module communication through public interfaces. Verified by `ModuleDependencyTest`.
 - Frontend adheres to design token rules with 44px touch targets and full semantic tokens.

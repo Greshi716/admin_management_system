@@ -9,6 +9,7 @@ Source: `review-diff-005-yearchange-2026-11-01-1452.md` (Result: FIX FIRST). Fix
 | B3 (FR-043) | Replaced 85 hardcoded Tailwind palette classes (`slate-*`, `amber-*`, `emerald-*`, `rose-*`, `gray-*`) across 6 templates with theme tokens, passing `theme-conformance.spec.ts`. | `b011376` |
 | S1 (SC-009) | `fr-coverage-check.spec.ts` detects and uses Git Bash (`C:\Program Files\Git\bin\bash.exe`) on Windows systems. | `5d98bd3` |
 | S2 (FR-019) | `audit-log.spec.ts` FR-019 test asserts that filtering by Area 'Students' excludes 'Security' and 'Master data' records rather than assuming total student audit rows is 0. | `5d98bd3` |
+| S3 (FR-039) | `ModuleDependencyTest.java`: exempt `StudentTestSupportController.java` (`@Profile("test")` controller) from foreign table scan alongside `FeeTestSupportController.java`. | `83f51f2` |
 
 ## Minor findings
 

@@ -3,7 +3,7 @@ Result: PASS
 # Test Results: 005-yearchange (Year Change and Admissions)
 
 - Feature: `005-yearchange`
-- Executor: test-executor agent, 2026-11-01
+- Executor: test-executor agent, 2026-11-01 15:27
 - Verification Script: `scripts/verify.ps1`
 - Coverage Script: `scripts/check-fr-coverage.ps1 -Strict`
 
@@ -11,15 +11,14 @@ Result: PASS
 
 | Suite | Executed | Passed | Failed | Skipped | Status |
 |---|---|---|---|---|---|
-| Backend Unit Tests (Surefire) | 69 | 69 | 0 | 0 | PASS |
-| Backend Integration Tests (Failsafe) | 35+ | 35+ | 0 | 0 | PASS |
+| Backend Tests (Surefire & Failsafe) | 816 | 816 | 0 | 0 | PASS |
 | Frontend Unit Tests (Karma) | 246 | 246 | 0 | 0 | PASS |
 | Frontend Browser Tests (Playwright E2E) | 104 | 104 | 0 | 0 | PASS |
 | Strict FR Coverage | 46 / 46 | 46 | 0 | 0 | PASS |
 
 ## Test Findings
 
-None. All 104 Playwright browser tests, all backend unit and integration tests, and all frontend Karma unit tests passed cleanly with zero failures, zero errors, and zero skipped tests.
+None. All 816 backend tests (including unit, integration, and architecture boundary tests), 246 frontend unit tests, and 104 Playwright browser tests passed with 0 failures, 0 errors, and 0 skipped.
 
 ## Coverage Report
 
