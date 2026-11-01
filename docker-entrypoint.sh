@@ -6,9 +6,9 @@ if [ -n "$PORT" ]; then
     export SERVER_PORT="$PORT"
 fi
 
-# Convert Render DATABASE_URL (postgres://user:password@host:port/database) to Spring Boot JDBC
+# Convert Render/Neon DATABASE_URL to Spring Boot JDBC format
 if [ -n "$DATABASE_URL" ]; then
-    # Strip protocol prefix
+    # Strip protocol prefix (postgres:// or postgresql://)
     PROTO="$(echo "$DATABASE_URL" | grep :// | sed -e 's,^\(.*://\).*,\1,g')"
     URL_WITHOUT_PROTO="${DATABASE_URL#$PROTO}"
 
@@ -25,15 +25,9 @@ if [ -n "$DATABASE_URL" ]; then
 
     HOSTPORT="$(echo "$HOSTPORTDB" | cut -d/ -f1)"
     DBNAME="$(echo "$HOSTPORTDB" | cut -d/ -f2 | cut -d? -f1)"
-    PARAMS="$(echo "$HOSTPORTDB" | grep '\?' | cut -d? -f2- || true)"
 
-    JDBC_URL="jdbc:postgresql://${HOSTPORT}/${DBNAME}"
-    if [ -n "$PARAMS" ]; then
-        JDBC_URL="${JDBC_URL}?${PARAMS}"
-    else
-        JDBC_URL="${JDBC_URL}?sslmode=require"
-    fi
-    export SPRING_DATASOURCE_URL="$JDBC_URL"
+    # Construct clean JDBC URL with sslmode=require
+    export SPRING_DATASOURCE_URL="jdbc:postgresql://${HOSTPORT}/${DBNAME}?sslmode=require"
 fi
 
 # In the background, monitor for credentials-first-run.txt and print to container logs

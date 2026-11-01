@@ -1,27 +1,20 @@
 # Render Blueprint for CampusFlow
-# Deploys both a Free PostgreSQL Database and the unified Spring Boot + Angular application.
+# Connects to your Neon PostgreSQL database (Singapore region) and runs the unified web app.
 # Docs: https://render.com/docs/blueprint-spec
 
 version: "1"
-
-databases:
-  - name: campusflow-db
-    databaseName: admin_management_db
-    user: postgres
-    plan: free
 
 services:
   - type: web
     name: campusflow
     runtime: docker
     plan: free
+    region: singapore
     dockerfilePath: ./Dockerfile
     healthCheckPath: /
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: campusflow-db
-          property: connectionString
+        sync: false # Render will prompt you to paste your Neon DATABASE_URL during setup
       - key: CAMPUSFLOW_DATA_DIR
         value: /app/data
       - key: JAVA_TOOL_OPTIONS

@@ -19,3 +19,5 @@ data/
 # Claude Code hook marker
 .claude/.last-verified
 .claude/settings.local.json
+.neon
+.env.local
