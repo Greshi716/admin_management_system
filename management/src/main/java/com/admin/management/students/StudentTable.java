@@ -45,6 +45,10 @@ final class StudentTable {
 	/** The list definition for one request. {@code currentYearId} is null when no academic year covers today. */
 	static TableDef<Student> build(MasterDataLookup lookup) {
 		Long currentYearId = lookup.currentYear().map(MasterDataLookup.YearRef::id).orElse(-1L);
+		Long previousYearId = lookup.currentYear()
+				.flatMap(cy -> lookup.earlierYears(cy.startDate()).stream().findFirst())
+				.map(MasterDataLookup.YearDates::id)
+				.orElse(-1L);
 		Map<Long, String> standardNames = lookup.standardNames();
 		Map<Long, Integer> standardOrders = lookup.standardDisplayOrders();
 		Map<Long, String> divisionNames = lookup.divisionNames();
@@ -81,6 +85,14 @@ final class StudentTable {
 				ColumnDef.<Student>text("category", "Category").expression(nameOf(categoryId, categoryNames)::build)
 					.searchable(false),
 				ColumnDef.<Student>text("status", "Status").searchable(false),
+				ColumnDef.<Student>text("yearStatus", "Year status").expression(recordString("year_status", currentYearId))
+					.searchable(false),
+				ColumnDef.<Student>text("lastYearResult", "Last year result").expression(lastYearResult(previousYearId))
+					.searchable(false),
+				ColumnDef.<Student>bool("notPromotedYet", "Not promoted yet").expression(notPromotedYet(currentYearId))
+					.searchable(false),
+				ColumnDef.<Student>text("stream", "Stream").expression(recordString("stream", currentYearId))
+					.searchable(false).asInternal(),
 				ColumnDef.<Student>number("totalFee", "Total fee").expression(totalFee(currentYearId)),
 				ColumnDef.<Student>text("feeState", "Fee state").expression(feeState(currentYearId))
 					.searchable(false).asHidden(),
@@ -138,6 +150,29 @@ final class StudentTable {
 	private static ExpressionFactory<Student> record(String column, Long currentYearId) {
 		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(SHOWN_RECORD.formatted(column), Long.class,
 				root.get("id"), cb.literal(currentYearId));
+	}
+
+	private static ExpressionFactory<Student> recordString(String column, Long currentYearId) {
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(SHOWN_RECORD.formatted(column), String.class,
+				root.get("id"), cb.literal(currentYearId));
+	}
+
+	private static ExpressionFactory<Student> lastYearResult(Long previousYearId) {
+		long prevId = previousYearId != null ? previousYearId : -1L;
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(
+				"coalesce((select e.year_status from student_enrollments e where e.student_id = ? and e.academic_year_id = ?), '')",
+				String.class, root.get("id"), cb.literal(prevId));
+	}
+
+	private static ExpressionFactory<Student> notPromotedYet(Long currentYearId) {
+		if (currentYearId == null || currentYearId <= 0) {
+			return (root, cb) -> cb.literal(false);
+		}
+		return (root, cb) -> ((HibernateCriteriaBuilder) cb).sql(
+				"coalesce((select case when e.academic_year_id != ? and e.year_status = 'Studying' then true else false end "
+						+ "from student_enrollments e where e.student_id = ? "
+						+ "order by (e.academic_year_id = ?) desc, e.year_start_date desc limit 1), false)",
+				Boolean.class, cb.literal(currentYearId), root.get("id"), cb.literal(currentYearId));
 	}
 
 	/**

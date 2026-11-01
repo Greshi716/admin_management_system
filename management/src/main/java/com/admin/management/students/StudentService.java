@@ -161,7 +161,8 @@ public class StudentService {
 		validator.enrollmentChoice(in, record, errors);
 		StudentValidator.throwIfAny(errors);
 		Map<String, Object> before = record.snapshot();
-		record.change(in.standardId(), in.divisionId(), in.categoryId());
+		record.change(in.standardId(), in.divisionId(), in.categoryId(),
+				in.stream() != null ? in.stream() : record.getStream());
 		StudentEnrollment saved = enrollments.saveAndFlush(record);
 		audit.edited(StudentAudit.ENROLLMENT, saved.getId(), before, saved.snapshot());
 		return toDto(saved);
@@ -290,7 +291,8 @@ public class StudentService {
 				+ divisionNames.getOrDefault(e.getDivisionId(), "");
 		return new EnrollmentDto(e.getVersion(), e.getAcademicYearId(), yearNames.get(e.getAcademicYearId()),
 				e.getStandardId(), e.getDivisionId(), stdDiv, e.getCategoryId(),
-				categoryNames.get(e.getCategoryId()), e.getYearStatus(), classRecordFees.isLocked(e.getAcademicYearId()));
+				categoryNames.get(e.getCategoryId()), e.getYearStatus(), classRecordFees.isLocked(e.getAcademicYearId()),
+				e.getStream());
 	}
 
 	/** A GR No. any student has or ever had is refused (FR-002), whatever the capitals or the spaces around it. */

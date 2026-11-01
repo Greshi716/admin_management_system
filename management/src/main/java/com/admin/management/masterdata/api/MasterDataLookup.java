@@ -74,7 +74,7 @@ public interface MasterDataLookup {
 	record YearDates(Long id, String name, LocalDate startDate, LocalDate endDate) {
 	}
 
-	record StandardOption(Long id, String name, int displayOrder, String stream, boolean active) {
+	record StandardOption(Long id, String name, int displayOrder, String stream, boolean usesStream, boolean active) {
 	}
 
 	record DivisionOption(Long id, String name, Long standardId, boolean active) {

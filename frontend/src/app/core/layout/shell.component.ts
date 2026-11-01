@@ -1,17 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AdmissionsService } from '../../features/admissions/admissions.service';
 import { ChangePasswordDialogComponent } from '../../features/auth/change-password/change-password-dialog.component';
 import { PageSkeletonComponent } from '../../shared/ui/page-skeleton.component';
 import { SIGN_IN_ROUTE } from '../auth/auth.guard';
 import { AuthStore } from '../auth/auth.store';
 import { NoCurrentYearNoticeComponent } from './no-current-year.notice';
 import { PasswordPopupComponent } from './password-popup.component';
+import { PromoteWarningComponent } from './promote-warning.component';
 
 interface Tab {
   label: string;
   link: string;
   /** Stays open while today falls in no academic year (FR-013). */
   alwaysOpen?: boolean;
+  count?: () => number;
 }
 
 /**
@@ -30,6 +33,7 @@ interface Tab {
     ChangePasswordDialogComponent,
     PasswordPopupComponent,
     NoCurrentYearNoticeComponent,
+    PromoteWarningComponent,
     PageSkeletonComponent,
   ],
   templateUrl: './shell.component.html',
@@ -38,8 +42,10 @@ interface Tab {
 export class ShellComponent {
   protected readonly store = inject(AuthStore);
   private readonly router = inject(Router);
+  private readonly admissions = inject(AdmissionsService);
 
   protected readonly tabs: Tab[] = [
+    { label: 'Approvals', link: '/admissions', count: () => this.admissions.pendingCount() },
     { label: 'Students', link: '/students' },
     { label: 'Finance', link: '/finance' },
     { label: 'Setup', link: '/setup', alwaysOpen: true },

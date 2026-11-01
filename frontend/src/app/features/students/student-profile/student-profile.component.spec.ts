@@ -290,6 +290,15 @@ describe('StudentProfileComponent (FR-007, FR-009, FR-015, FR-019)', () => {
       expect(text('fee-total-due')).toBe('31,000.00');
     });
 
+    it('shows the brought-forward badge and lists brought forward first (FR-020, FR-023)', () => {
+      create();
+
+      const dl = element.querySelector('[data-testid="fees-block"] dl');
+      const firstDt = dl?.querySelector('dt');
+      expect(firstDt?.textContent?.trim()).toBe('Brought forward');
+      expect(element.querySelector('[data-testid="brought-forward-badge"]')?.textContent?.trim()).toBe('brought forward');
+    });
+
     it('leaves out the registration fee when there is none', () => {
       create(HISTORY, of(STUDENT), null, { ...FEES_SET, registrationFee: null, totalFee: 28000, totalDue: 30500 });
 

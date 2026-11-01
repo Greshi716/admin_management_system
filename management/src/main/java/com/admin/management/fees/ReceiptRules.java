@@ -81,8 +81,15 @@ class ReceiptRules {
 		if (!errors.isEmpty()) {
 			throw new ValidationException(errors);
 		}
-		if (registration.compareTo(balance.registrationDue()) > 0) {
-			throw overpayment("registrationPaid", "registration fee", balance.registrationDue());
+		if (registration.signum() > 0) {
+			if (registration.compareTo(balance.registrationDue()) > 0) {
+				throw overpayment("registrationPaid", "registration fee", balance.registrationDue());
+			}
+			if (registration.compareTo(balance.registrationDue()) < 0) {
+				throw new CodedConflictException("REGISTRATION_PART_PAYMENT", "registrationPaid",
+						"The registration fee of " + balance.registrationDue().toPlainString() + " must be paid in full.",
+						Map.of("amountDue", balance.registrationDue()));
+			}
 		}
 		if (fee.compareTo(balance.yearFeeDue()) > 0) {
 			throw overpayment("feePaid", "year fee", balance.yearFeeDue());

@@ -15,12 +15,17 @@ import jakarta.validation.constraints.NotNull;
 public record AcademicYearDto(Long id, @NotBlank(message = "Enter the academic year name.") @Size(max = 100, message = "The name can have at most 100 characters.") String name,
 		@NotNull(message = "Enter the start date.") LocalDate startDate,
 		@NotNull(message = "Enter the end date.") LocalDate endDate, Long version,
-		@JsonProperty(access = JsonProperty.Access.READ_ONLY) Boolean current) {
+		@JsonProperty(access = JsonProperty.Access.READ_ONLY) Boolean current,
+		Boolean copyFromLast) {
+
+	public AcademicYearDto(Long id, String name, LocalDate startDate, LocalDate endDate, Long version, Boolean current) {
+		this(id, name, startDate, endDate, version, current, false);
+	}
 
 	static AcademicYearDto of(AcademicYear year, LocalDate today) {
 		boolean current = !today.isBefore(year.getStartDate()) && !today.isAfter(year.getEndDate());
 		return new AcademicYearDto(year.getId(), year.getName(), year.getStartDate(), year.getEndDate(),
-				year.getVersion(), current);
+				year.getVersion(), current, false);
 	}
 
 }

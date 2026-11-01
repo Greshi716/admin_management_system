@@ -20,6 +20,7 @@ import {
   ReceiptRefusal,
   receiptConflictOf,
   ReceiptsService,
+  RegistrationPartPayment,
 } from '../receipts.service';
 
 interface StudentHit {
@@ -330,7 +331,11 @@ export class ReceiptFormComponent {
       return;
     }
     const unmatched = applyFieldErrors(this.form, error);
-    if (conflict instanceof BroughtForwardPending || conflict instanceof ReceiptRefusal) {
+    if (
+      conflict instanceof BroughtForwardPending ||
+      conflict instanceof RegistrationPartPayment ||
+      conflict instanceof ReceiptRefusal
+    ) {
       this.note.set(conflict.message);
     } else if (unmatched.length > 0) {
       this.note.set(unmatched.map((m) => m.message).join(' '));

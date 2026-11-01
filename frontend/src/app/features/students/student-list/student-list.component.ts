@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CampusTableComponent } from '../../../shared/table/campus-table.component';
 import { CampusColumn } from '../../../shared/table/table-types';
@@ -6,6 +6,7 @@ import { AvatarComponent } from '../../../shared/ui/avatar.component';
 import { PageSkeletonComponent } from '../../../shared/ui/page-skeleton.component';
 import { forkJoin } from 'rxjs';
 import { StudentsService } from '../students.service';
+import { YearChangeService } from '../../yearchange/yearchange.service';
 import { formatMoney } from '../../../shared/ui/money';
 import { formatDate } from '../../finance/finance-format';
 import { feeStatusClass, feeText, paidUpToCell, recordYearNote, studentColumns } from './student-columns';
@@ -24,18 +25,47 @@ type StatusScope = 'Active' | 'Left' | 'All';
 })
 export class StudentListComponent implements OnInit {
   private readonly students = inject(StudentsService);
+  private readonly yearChangeService = inject(YearChangeService);
 
   protected readonly endpoint = '/api/students';
   protected readonly statuses: StatusScope[] = ['Active', 'Left', 'All'];
   protected readonly status = signal<StatusScope>('Active');
   protected readonly columns = signal<CampusColumn[] | null>(null);
+  protected readonly standardsList = signal<{ id: number; name: string }[]>([]);
+  protected readonly selectedStandardId = signal<number | null>(null);
+  protected readonly yearChangeStatus = this.yearChangeService.status;
   private currentYearId: number | null = null;
+
+  protected readonly canPromoteSelected = computed(() => {
+    const stdId = this.selectedStandardId();
+    if (!stdId) return false;
+    const pendingList = this.yearChangeStatus()?.standards ?? [];
+    const item = pendingList.find((s) => s.standardId === stdId);
+    return item ? item.pending > 0 : false;
+  });
+
+  protected readonly promoteButtonReason = computed(() => {
+    const stdId = this.selectedStandardId();
+    if (!stdId) return 'Pick a standard to promote';
+    if (this.canPromoteSelected()) return 'Promote students of this standard';
+    return 'Done';
+  });
+
+  protected readonly tableExtraParams = computed(() => {
+    const params: Record<string, unknown> = { status: this.status() };
+    if (this.selectedStandardId()) {
+      params['standardId'] = this.selectedStandardId();
+    }
+    return params;
+  });
 
   ngOnInit(): void {
     forkJoin({ lists: this.students.pickLists(), options: this.students.filterOptions() }).subscribe({
       next: ({ lists, options }) => {
         this.currentYearId = lists.currentYear?.id ?? null;
+        this.standardsList.set(options.standards ?? []);
         this.columns.set(studentColumns(options));
+        this.yearChangeService.refreshStatus().subscribe({ error: () => {} });
       },
       error: () => this.columns.set(studentColumns(null)), // the error interceptor has shown the reason
     });
@@ -43,6 +73,11 @@ export class StudentListComponent implements OnInit {
 
   protected chooseStatus(event: Event): void {
     this.status.set((event.target as HTMLSelectElement).value as StatusScope);
+  }
+
+  protected chooseStandard(event: Event): void {
+    const val = (event.target as HTMLSelectElement).value;
+    this.selectedStandardId.set(val ? Number(val) : null);
   }
 
   protected yearNote(row: Record<string, unknown>): string | null {

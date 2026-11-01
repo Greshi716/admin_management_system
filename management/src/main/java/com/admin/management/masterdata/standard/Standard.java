@@ -31,6 +31,9 @@ public class Standard {
 	@Column(nullable = false)
 	private boolean active = true;
 
+	@Column(name = "uses_stream", nullable = false)
+	private boolean usesStream = false;
+
 	@Version
 	private Long version;
 
@@ -38,9 +41,14 @@ public class Standard {
 	}
 
 	public Standard(String name, int displayOrder, String stream) {
+		this(name, displayOrder, stream, false);
+	}
+
+	public Standard(String name, int displayOrder, String stream, boolean usesStream) {
 		this.name = name;
 		this.displayOrder = displayOrder;
 		this.stream = stream;
+		this.usesStream = usesStream;
 	}
 
 	public Long getId() {
@@ -59,6 +67,14 @@ public class Standard {
 		return stream;
 	}
 
+	public boolean isUsesStream() {
+		return usesStream;
+	}
+
+	public void setUsesStream(boolean usesStream) {
+		this.usesStream = usesStream;
+	}
+
 	public boolean isActive() {
 		return active;
 	}
@@ -68,9 +84,14 @@ public class Standard {
 	}
 
 	public void change(String newName, int newOrder, String newStream) {
+		change(newName, newOrder, newStream, this.usesStream);
+	}
+
+	public void change(String newName, int newOrder, String newStream, boolean newUsesStream) {
 		this.name = newName;
 		this.displayOrder = newOrder;
 		this.stream = newStream;
+		this.usesStream = newUsesStream;
 	}
 
 	public void setActive(boolean active) {
@@ -82,6 +103,7 @@ public class Standard {
 		values.put("name", name);
 		values.put("displayOrder", displayOrder);
 		values.put("stream", stream);
+		values.put("usesStream", usesStream);
 		values.put("active", active);
 		return values;
 	}

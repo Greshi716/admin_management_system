@@ -269,7 +269,7 @@ Permanent record of each student.
 
 Replaces the CLASSFORMATION sheet. One row per student per year.
 
-> G.R, NAME, DIV, CATEGORY come from here; R.NO, DATE, PAID FEE, TOTAL, PENDING FEE are calculated from receipts. Roll numbers are given by the class teacher and are not stored.
+> G.R, NAME, DIV, CATEGORY come from here; R.NO, DATE, PAID FEE, TOTAL, PENDING FEE are calculated from receipts. Roll numbers are given by the class teacher and are not stored. Left students note: marking a student Left in the promotion wizard sets the student status to Left and carries forward nothing (`fee_brought_forward` remains untouched). The leaving certificate is prepared later from the profile (F5).
 
 | Field | Code | Type | Entry | Notes |
 |---|---|---|---|---|
@@ -278,6 +278,7 @@ Replaces the CLASSFORMATION sheet. One row per student per year.
 | Standard | `standard` | Link | Required |  |
 | Division | `division` | Link | Required |  |
 | Category (this year) | `category` | Link | Required |  |
+| Stream | `stream` | Choice | Optional | Science / Commerce for Std 11 & 12; null for Std 1 to 10 |
 | Year status | `status` | Choice | Auto | Studying / Promoted / Detained / Left |
 
 #### Google Form Admissions  `admission_requests`
@@ -345,7 +346,7 @@ Every fee receipt, matching the receipt book.
 | Total (₹) | `total` | Amount | Auto |  |
 | Total in words | `total_words` | Text | Auto |  |
 | Receipt type | `receipt_type` | Choice | Auto | Current year (registration fee row + year fee row) / Previous years' pending (for one earlier academic year) |
-| Registration fee paid (₹) | `registration_paid` | Amount | Optional | Separate row on the receipt; current-year receipts only |
+| Registration fee paid (₹) | `registration_paid` | Amount | Optional | Separate row on the receipt; current-year receipts only. The registration fee must be paid all at once (no partial payment accepted; refused with code `REGISTRATION_PART_PAYMENT`) so an unpaid part does not vanish at year change. |
 | Year fee paid (₹) | `fee_paid` | Amount | Optional | Separate row on the receipt |
 | Paid up to | `paid_up_to` | Date | Auto | **F3 change:** not stored on the receipt and not printed. Calculated from the valid year-fee payments (last paid day, rounded half up) and shown on the student profile and the Students list |
 | Status | `status` | Choice | Auto | **F3 change:** Valid / Cheque not cleared / Voided by correction, held as a mark in `receipt_marks`, never as a change to the receipt |
@@ -901,3 +902,4 @@ Every list screen has a search box, filters on any column, sorting and export to
 | 26-10-2026 | Fees (F2): table shapes differ from section 4.4 on purpose (brought-forward amount per student, registration fee on the account, a status table per year); see the decision log. |
 | 28-10-2026 | Receipts (F3): the receipt shows the registration fee as its own row; a separate receipt type pays an earlier year's pending; overpayment is refused; the admin types the receipt number and date; no cancellation and no corrections (a confirmation dialog before saving); a cheque counts when received and can be marked "not cleared" with a reason (amount added back, audited). FEE-04 changed from cancellation to cheque-not-cleared. Printed on A4. |
 | 28-10-2026 | Receipts (F3), owner answers: "Paid up to" is not on the receipt but on the profile and the Students list; no DUPLICATE mark and no print record (section 8 changed); receipt status is a separate append-only mark (Valid, Cheque not cleared, Voided by correction); a developer-assisted void frees the receipt number for a corrected receipt. No financial rule of this agreement is otherwise changed. |
+| 2026-10-31 | Year change and admissions (F4): New year setup copies standards, divisions and fee amounts from previous year with shifted due dates; fee structure finalized and locked per year. Promotion wizard promotes standard-by-standard when previous year has ended; unpromoted standards display a warning banner until completed. Promoted students preserve division letter, Std 10 requires stream selection (Science/Commerce) for Std 11. Std 12 has only Detained or Left outcomes. Marking Left sets student status to Left and carries nothing forward. Part-paid year fee carries forward to fee_brought_forward (accumulating with existing amount); registration fee must be paid all at once. Wrong promotions corrected via developer-assisted function correct_promotion with audit entry. Google Form responses (XLSX/CSV) imported offline with duplicate flagging and review/approval workflow. |

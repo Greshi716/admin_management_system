@@ -24,10 +24,12 @@ const LISTS: PickLists = {
   standards: [
     { id: 10, name: '5', displayOrder: 5, stream: null, active: true },
     { id: 11, name: '6', displayOrder: 6, stream: null, active: true },
+    { id: 12, name: '12', displayOrder: 12, stream: null, active: true },
   ],
   divisions: [
     { id: 100, standardId: 10, name: 'A', active: true },
     { id: 101, standardId: 11, name: 'B', active: true },
+    { id: 102, standardId: 12, name: 'A', active: true },
   ],
   categories: [
     { id: 7, code: 'GEN', name: 'General', active: true },
@@ -42,13 +44,19 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
 
   /** The protected members the tests use, reached through a typed view instead of `any`. */
   interface DialogView {
-    form: FormGroup<{ standardId: FormControl<number | null>; divisionId: FormControl<number | null>; categoryId: FormControl<number | null> }>;
+    form: FormGroup<{
+      standardId: FormControl<number | null>;
+      divisionId: FormControl<number | null>;
+      categoryId: FormControl<number | null>;
+      stream: FormControl<string | null>;
+    }>;
     divisions(): { id: number }[];
     stale(): unknown;
     save(): void;
     keepMine(): void;
     useLatest(): void;
     locked(): boolean;
+    usesStream(): boolean;
   }
   const component = () => fixture.componentInstance as unknown as DialogView;
 
@@ -70,7 +78,7 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
 
   it("loads the pick-lists of the record's own year and starts with its current values", () => {
     expect(service.pickLists).toHaveBeenCalledWith(2, 5);
-    expect(component().form.getRawValue()).toEqual({ standardId: 10, divisionId: 100, categoryId: 7 });
+    expect(component().form.getRawValue()).toEqual({ standardId: 10, divisionId: 100, categoryId: 7, stream: null });
     expect(component().divisions().map((d) => d.id)).toEqual([100]);
   });
 
@@ -86,7 +94,24 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
 
     component().save();
 
-    expect(service.updateEnrollment).toHaveBeenCalledWith(5, 2, { version: 3, standardId: 10, divisionId: 100, categoryId: 8 });
+    expect(service.updateEnrollment).toHaveBeenCalledWith(5, 2, { version: 3, standardId: 10, divisionId: 100, categoryId: 8, stream: null });
+    expect(changed).toHaveBeenCalled();
+  });
+
+  it('shows stream picker when standard is 11 or 12 and saves the selected stream', () => {
+    service.updateEnrollment.mockReturnValue(of(RECORD));
+    component().form.patchValue({ standardId: 12, divisionId: 102, stream: 'Science' });
+    expect(component().usesStream()).toBe(true);
+
+    component().save();
+
+    expect(service.updateEnrollment).toHaveBeenCalledWith(5, 2, {
+      version: 3,
+      standardId: 12,
+      divisionId: 102,
+      categoryId: 7,
+      stream: 'Science',
+    });
     expect(changed).toHaveBeenCalled();
   });
 
@@ -154,7 +179,7 @@ describe('ClassRecordDialogComponent (FR-006, FR-018)', () => {
 
       component().save();
 
-      expect(service.updateEnrollment).toHaveBeenCalledWith(5, 2, { version: 3, standardId: 10, divisionId: 100, categoryId: 7 });
+      expect(service.updateEnrollment).toHaveBeenCalledWith(5, 2, { version: 3, standardId: 10, divisionId: 100, categoryId: 7, stream: null });
     });
 
     it('a 409 FEE_STRUCTURE_FINALISED fixes the fields and shows the same message', () => {

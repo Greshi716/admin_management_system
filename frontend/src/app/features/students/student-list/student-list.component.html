@@ -6,22 +6,60 @@
   <a routerLink="/students/new" class="btn btn-primary">Register student</a>
 </div>
 
-<div class="mb-3 flex items-center gap-2">
+<div class="mb-3 flex flex-wrap items-center gap-4">
   <label class="flex items-center gap-2 text-sm font-semibold">
     Status
-    <select class="input" aria-label="Status" (change)="chooseStatus($event)">
+    <select class="input min-h-[44px]" aria-label="Status" (change)="chooseStatus($event)">
       @for (option of statuses; track option) {
         <option [value]="option" [selected]="option === status()">{{ option }}</option>
       }
     </select>
   </label>
+
+  @if (standardsList().length > 0) {
+    <label class="flex items-center gap-2 text-sm font-semibold">
+      Standard
+      <select
+        class="input min-h-[44px]"
+        aria-label="Standard"
+        data-testid="standard-filter"
+        (change)="chooseStandard($event)"
+      >
+        <option value="">All standards</option>
+        @for (std of standardsList(); track std.id) {
+          <option [value]="std.id" [selected]="selectedStandardId() === std.id">{{ std.name }}</option>
+        }
+      </select>
+    </label>
+
+    @if (selectedStandardId() && canPromoteSelected()) {
+      <a
+        [routerLink]="['/yearchange/promote', selectedStandardId()]"
+        class="btn btn-primary min-h-[44px] inline-flex items-center"
+        data-testid="promote-students-btn"
+        [attr.title]="promoteButtonReason()"
+      >
+        Promote students
+      </a>
+    } @else {
+      <button
+        type="button"
+        class="btn btn-secondary btn-outlined min-h-[44px]"
+        data-testid="promote-students-btn"
+        disabled
+        [attr.title]="promoteButtonReason()"
+      >
+        {{ selectedStandardId() && !canPromoteSelected() ? 'Done' : 'Promote students' }}
+      </button>
+    }
+  }
 </div>
 
 @if (columns(); as shownColumns) {
   <campus-table
     [endpoint]="endpoint"
     [columns]="shownColumns"
-    [extraParams]="{ status: status() }"
+    [extraParams]="tableExtraParams()"
     searchPlaceholder="Name, GR No. or mobile"
   >
     <ng-template #cell let-row let-column="column">
@@ -46,9 +84,27 @@
         } @else {
           —
         }
+      } @else if (column.field === 'yearStatus') {
+        <span data-testid="year-status">{{ text(row, 'yearStatus') || '—' }}</span>
+      } @else if (column.field === 'lastYearResult') {
+        <span data-testid="last-year-result">{{ text(row, 'lastYearResult') || '—' }}</span>
       } @else {
         {{ text(row, 'stdDiv') }}
-        @if (yearNote(row); as year) {
+        @if (text(row, 'stream'); as str) {
+          @if (str) {
+            <span class="ml-1 text-xs text-muted" data-testid="student-stream">({{ str }})</span>
+          }
+        }
+        @if (row['notPromotedYet']) {
+          <span
+            class="block mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold bg-warning-bg text-warning-text"
+            data-testid="not-promoted-yet-tag"
+            title="promote this student to move them into the new year"
+          >
+            Not promoted yet
+          </span>
+          <small class="block text-xs text-muted">promote this student to move them into the new year</small>
+        } @else if (yearNote(row); as year) {
           <small class="block text-xs text-muted" data-testid="record-year">{{ year }}</small>
         }
       }

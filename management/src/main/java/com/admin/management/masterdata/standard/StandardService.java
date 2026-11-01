@@ -33,8 +33,9 @@ public class StandardService {
 
 	@Transactional
 	public StandardDto create(StandardDto input) {
+		boolean usesStream = Boolean.TRUE.equals(input.usesStream());
 		Standard standard = standards
-			.saveAndFlush(new Standard(input.name().trim(), input.displayOrder(), input.stream()));
+			.saveAndFlush(new Standard(input.name().trim(), input.displayOrder(), input.stream(), usesStream));
 		audit.created(TYPE, standard.getId(), standard.snapshot());
 		return StandardDto.of(standard);
 	}
@@ -44,7 +45,8 @@ public class StandardService {
 		Standard standard = find(id);
 		Versions.check(input.version(), standard.getVersion(), () -> StandardDto.of(standard));
 		var before = standard.snapshot();
-		standard.change(input.name().trim(), input.displayOrder(), input.stream());
+		boolean usesStream = input.usesStream() != null ? input.usesStream() : standard.isUsesStream();
+		standard.change(input.name().trim(), input.displayOrder(), input.stream(), usesStream);
 		standards.saveAndFlush(standard);
 		audit.edited(TYPE, id, before, standard.snapshot());
 		return StandardDto.of(standard);

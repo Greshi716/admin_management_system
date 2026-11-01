@@ -164,7 +164,7 @@ class MasterDataLookupService implements MasterDataLookup {
 			.filter((standard) -> standard.isActive() || standard.getId().equals(keepStandardId))
 			.sorted(Comparator.comparingInt(Standard::getDisplayOrder).thenComparing(Standard::getName))
 			.map((standard) -> new StandardOption(standard.getId(), standard.getName(), standard.getDisplayOrder(),
-					standard.getStream(), standard.isActive()))
+					standard.getStream(), standard.isUsesStream(), standard.isActive()))
 			.toList();
 		List<DivisionOption> divisionOptions = divisions.findAllByYear(yearId)
 			.stream()
@@ -192,7 +192,7 @@ class MasterDataLookupService implements MasterDataLookup {
 			.stream()
 			.sorted(Comparator.comparingInt(Standard::getDisplayOrder).thenComparing(Standard::getName))
 			.map((standard) -> new StandardOption(standard.getId(), standard.getName(), standard.getDisplayOrder(),
-					standard.getStream(), standard.isActive()))
+					standard.getStream(), standard.isUsesStream(), standard.isActive()))
 			.toList();
 		List<YearDivisionOption> divisionOptions = years.findAll()
 			.stream()

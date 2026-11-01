@@ -27,12 +27,14 @@ export class StandardsComponent {
     { field: 'name', header: 'Name' },
     { field: 'displayOrder', header: 'Display order', type: 'number' },
     { field: 'stream', header: 'Stream' },
+    { field: 'usesStream', header: 'Uses stream', type: 'boolean' },
     { field: 'active', header: 'Active', type: 'boolean' },
   ];
   protected readonly staleFields: StaleField[] = [
     { field: 'name', label: 'Name' },
     { field: 'displayOrder', label: 'Display order', type: 'number' },
     { field: 'stream', label: 'Stream' },
+    { field: 'usesStream', label: 'Uses stream', type: 'boolean' },
   ];
 
   private readonly http = inject(HttpClient);
@@ -51,6 +53,7 @@ export class StandardsComponent {
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     displayOrder: new FormControl<number | null>(null, { validators: [Validators.required] }),
     stream: new FormControl('', { nonNullable: true }),
+    usesStream: new FormControl(false, { nonNullable: true }),
   });
 
   protected get isEdit(): boolean {
@@ -59,7 +62,7 @@ export class StandardsComponent {
 
   protected add(): void {
     this.editing = null;
-    this.form.reset({ name: '', displayOrder: null, stream: '' });
+    this.form.reset({ name: '', displayOrder: null, stream: '', usesStream: false });
     this.formOpen.set(true);
   }
 
@@ -82,8 +85,8 @@ export class StandardsComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const { name, displayOrder, stream } = this.form.getRawValue();
-    const values = { name, displayOrder, stream: stream || null };
+    const { name, displayOrder, stream, usesStream } = this.form.getRawValue();
+    const values = { name, displayOrder, stream: stream || null, usesStream };
     const editing = this.editing;
     this.busy.set(true);
     const request = editing
@@ -153,6 +156,7 @@ export class StandardsComponent {
       name: values['name'] as string,
       displayOrder: values['displayOrder'] as number,
       stream: (values['stream'] as string | null) ?? '',
+      usesStream: Boolean(values['usesStream']),
     });
   }
 

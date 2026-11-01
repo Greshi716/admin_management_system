@@ -15,4 +15,13 @@ public interface StudentLookup {
 	record StudentSummary(Long id, String fullName, String grNo, String status) {
 	}
 
+	/**
+	 * All students (any status) as candidates for duplicate matching (FR-032).
+	 */
+	java.util.List<DuplicateCandidate> duplicateCandidates();
+
+	record DuplicateCandidate(Long id, String surname, String firstName, String middleName,
+			java.time.LocalDate dob, String mobile1) {
+	}
+
 }

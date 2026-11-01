@@ -1,0 +1,201 @@
+<div class="space-y-6">
+  <!-- Page Header -->
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-ink">Admissions</h1>
+      <p class="text-sm text-muted">Waiting list of Google Form submissions</p>
+    </div>
+    <div>
+      <button
+        type="button"
+        (click)="uploadOpen.set(true)"
+        class="btn btn-primary flex items-center gap-2 min-h-[44px]"
+        data-testid="upload-responses-btn"
+      >
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+        <span>Upload responses file</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter & Search Bar -->
+  <div class="rounded-card border border-border bg-surface p-4 shadow-sm space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <!-- Status Pills -->
+      <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by status">
+        @for (st of ['All', 'Pending', 'Approved', 'Rejected']; track st) {
+          <button
+            type="button"
+            (click)="setStatus(st)"
+            [class.bg-accent]="statusFilter() === st"
+            [class.text-on-accent]="statusFilter() === st"
+            [class.bg-page]="statusFilter() !== st"
+            [class.text-ink]="statusFilter() !== st"
+            class="rounded-full px-4 py-1.5 text-sm font-semibold transition-colors hover:bg-accent-strong hover:text-on-accent"
+            [attr.data-testid]="'status-filter-' + st.toLowerCase()"
+          >
+            {{ st }}
+          </button>
+        }
+      </div>
+
+      <!-- Duplicate Toggle & Search -->
+      <div class="flex flex-wrap items-center gap-4">
+        <label class="flex items-center gap-2 text-sm font-medium text-ink cursor-pointer">
+          <input
+            type="checkbox"
+            [checked]="duplicateOnly()"
+            (change)="toggleDuplicates()"
+            class="h-4 w-4 rounded border-border text-accent focus:ring-accent"
+            data-testid="duplicate-filter-checkbox"
+          />
+          <span>Duplicates only</span>
+        </label>
+
+        <div class="relative min-w-[200px]">
+          <input
+            type="text"
+            [ngModel]="search()"
+            (ngModelChange)="onSearchChange($event)"
+            placeholder="Search candidate or mobile"
+            class="w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            data-testid="admissions-search-input"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table Card -->
+  <div class="rounded-card border border-border bg-surface shadow-sm overflow-hidden">
+    @if (loading()) {
+      <div class="p-6">
+        <app-page-skeleton />
+      </div>
+    } @else if (rows().length === 0) {
+      <div class="p-12 text-center text-muted" data-testid="empty-admissions">
+        <p class="text-base font-medium text-ink">No admissions found</p>
+        <p class="text-sm mt-1">Upload a Google Form responses file to populate the waiting list.</p>
+      </div>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-ink border-collapse">
+          <thead class="border-b border-border bg-page text-xs uppercase font-semibold text-muted tracking-wider">
+            <tr>
+              <th scope="col" class="px-4 py-3">Submitted</th>
+              <th scope="col" class="px-4 py-3">Candidate name</th>
+              <th scope="col" class="px-4 py-3">Gender</th>
+              <th scope="col" class="px-4 py-3">DOB</th>
+              <th scope="col" class="px-4 py-3">Mobile</th>
+              <th scope="col" class="px-4 py-3">Standard</th>
+              <th scope="col" class="px-4 py-3">Status</th>
+              <th scope="col" class="px-4 py-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            @for (row of rows(); track row.id) {
+              <tr class="hover:bg-page transition-colors" [attr.data-testid]="'admission-row-' + row.id">
+                <td class="px-4 py-3 whitespace-nowrap text-xs text-muted">
+                  {{ row.submittedAt ? (row.submittedAt | date:'dd/MM/yyyy HH:mm') : '—' }}
+                </td>
+                <td class="px-4 py-3 font-medium text-ink">
+                  <div class="flex items-center gap-2">
+                    <span>{{ row.studentName || (row.surname + ', ' + row.firstName) }}</span>
+                    @if (row.duplicateFlag) {
+                      <span
+                        class="rounded-full bg-warning-bg text-warning-text border border-border px-2 py-0.5 text-xs font-semibold"
+                        data-testid="duplicate-badge"
+                      >
+                        Duplicate?
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ row.gender }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ row.dob }}</td>
+                <td class="px-4 py-3 whitespace-nowrap font-mono text-xs">{{ row.mobile1 }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ row.admissionStandard }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  @switch (row.status) {
+                    @case ('Pending') {
+                      <span class="inline-flex rounded-full bg-warning-bg text-warning-text border border-border px-2.5 py-0.5 text-xs font-medium" data-testid="status-pending">
+                        Pending
+                      </span>
+                    }
+                    @case ('Approved') {
+                      <span class="inline-flex rounded-full bg-accent-soft text-accent-text border border-border px-2.5 py-0.5 text-xs font-medium" data-testid="status-approved">
+                        Approved
+                      </span>
+                    }
+                    @case ('Rejected') {
+                      <span class="inline-flex rounded-full bg-page text-muted border border-border px-2.5 py-0.5 text-xs font-medium" data-testid="status-rejected">
+                        Rejected
+                      </span>
+                    }
+                  }
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-right">
+                  <a
+                    [routerLink]="['/admissions', row.id]"
+                    class="btn btn-secondary btn-sm min-h-[44px] inline-flex items-center justify-center font-semibold text-accent hover:text-accent-strong"
+                    [attr.data-testid]="'review-btn-' + row.id"
+                  >
+                    Review
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="flex flex-wrap items-center justify-between gap-4 border-t border-border px-4 py-3 text-sm text-muted">
+        <div class="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select
+            [ngModel]="pageSize()"
+            (ngModelChange)="onPageSizeChange($event)"
+            class="rounded-control border border-input-border bg-surface px-2 py-1 text-sm text-ink focus:border-accent focus:outline-none"
+          >
+            @for (size of pageSizes; track size) {
+              <option [value]="size">{{ size }}</option>
+            }
+          </select>
+          <span class="ml-2">
+            Showing {{ first() + 1 }} to {{ first() + rows().length }} of {{ total() }} entries
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            (click)="previousPage()"
+            [disabled]="first() === 0"
+            class="btn btn-secondary btn-sm min-h-[44px] px-3"
+            [class.opacity-50]="first() === 0"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="first() + pageSize() >= total()"
+            class="btn btn-secondary btn-sm min-h-[44px] px-3"
+            [class.opacity-50]="first() + pageSize() >= total()"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Upload Responses Dialog -->
+<app-upload-dialog
+  [(visible)]="uploadOpen"
+  (uploaded)="onUploaded($event)"
+/>

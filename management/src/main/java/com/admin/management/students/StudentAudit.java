@@ -16,26 +16,26 @@ import com.admin.management.audit.AuditService;
  * Aadhaar and religion/caste are masked by the audit service when the entry is stored.
  */
 @Component
-class StudentAudit {
+public class StudentAudit {
 
-	static final String AREA = "Students";
+	public static final String AREA = "Students";
 
-	static final String STUDENT = "Student";
+	public static final String STUDENT = "Student";
 
-	static final String ENROLLMENT = "StudentEnrollment";
+	public static final String ENROLLMENT = "StudentEnrollment";
 
 	private final AuditService audit;
 
-	StudentAudit(AuditService audit) {
+	public StudentAudit(AuditService audit) {
 		this.audit = audit;
 	}
 
-	void created(String type, Long id, Map<String, Object> values) {
+	public void created(String type, Long id, Map<String, Object> values) {
 		audit.record(AREA, "Create", type + "#" + id, Map.of("new", values), null);
 	}
 
 	/** Records only the fields that changed. A save that changes nothing writes no entry. */
-	void edited(String type, Long id, Map<String, Object> before, Map<String, Object> after) {
+	public void edited(String type, Long id, Map<String, Object> before, Map<String, Object> after) {
 		Map<String, Object> oldValues = new LinkedHashMap<>();
 		Map<String, Object> newValues = new LinkedHashMap<>();
 		after.forEach((field, value) -> {
@@ -49,8 +49,17 @@ class StudentAudit {
 		}
 	}
 
+	/**
+	 * Promotion, detention, or left outcome for a student's class record (FR-018).
+	 * Records old and new standard, division, category, stream and year status.
+	 */
+	public void promotion(Long fromEnrollmentId, Map<String, Object> oldValues, Map<String, Object> newValues) {
+		audit.record(AREA, "Edit", ENROLLMENT + "#" + fromEnrollmentId,
+				Map.of("old", oldValues, "new", newValues), null);
+	}
+
 	/** A photo was added, replaced or removed. The image itself is never stored in the log. */
-	void photoChanged(Long studentId, Long oldVersion, Long newVersion) {
+	public void photoChanged(Long studentId, Long oldVersion, Long newVersion) {
 		Map<String, Object> oldValues = new LinkedHashMap<>();
 		oldValues.put("photo", oldVersion == null ? "none" : "version " + oldVersion);
 		Map<String, Object> newValues = new LinkedHashMap<>();
@@ -58,9 +67,8 @@ class StudentAudit {
 		audit.record(AREA, "Edit", STUDENT + "#" + studentId, Map.of("old", oldValues, "new", newValues), null);
 	}
 
-
 	/** The newest entries about the student and the given class records, newest first (FR-019). */
-	AuditService.History history(Long studentId, List<Long> enrollmentIds, int limit) {
+	public AuditService.History history(Long studentId, List<Long> enrollmentIds, int limit) {
 		List<String> entities = new ArrayList<>();
 		entities.add(STUDENT + "#" + studentId);
 		enrollmentIds.forEach((id) -> entities.add(ENROLLMENT + "#" + id));

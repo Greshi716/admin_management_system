@@ -43,27 +43,48 @@ class ModuleDependencyTest {
 
 	/** What any module may import from another module. Everything else of another module is internal. */
 	private static final List<String> PUBLIC = List.of("shared.", "audit.AuditService", "audit.AuditExportRecorder",
-			"masterdata.api.", "students.api.");
+			"masterdata.api.", "students.api.", "fees.api.", "yearchange.api.", "admissions.api.");
 
 	/**
 	 * Edges the architecture allows today (research R7, F2 research R2): students reaches fees only through the small
 	 * interface in shared, so the order is shared, audit, masterdata, students, fees and there is no cycle.
 	 */
-	private static final Map<String, Set<String>> ALLOWED = Map.of("audit", Set.of("shared"), "masterdata",
-			Set.of("audit", "shared"), "security", Set.of("audit", "shared"), "students",
-			Set.of("shared", "audit", "masterdata"), "fees", Set.of("shared", "audit", "masterdata", "students"),
+	private static final Map<String, Set<String>> ALLOWED = Map.of(
+			"audit", Set.of("shared"),
+			"masterdata", Set.of("audit", "shared"),
+			"security", Set.of("audit", "shared"),
+			"students", Set.of("shared", "audit", "masterdata"),
+			"fees", Set.of("shared", "audit", "masterdata", "students"),
+			"yearchange", Set.of("shared", "audit", "masterdata", "students", "fees"),
+			"admissions", Set.of("shared", "audit", "masterdata", "students"),
 			"shared", Set.of());
 
 	/** The module that owns each table. A module reads only its own tables, apart from the list below. */
-	private static final Map<String, String> TABLE_OWNER = Map.ofEntries(Map.entry("fee_year_status", "fees"),
-			Map.entry("fee_rows", "fees"), Map.entry("fee_accounts", "fees"), Map.entry("fee_brought_forward", "fees"),
-			Map.entry("students", "students"), Map.entry("student_enrollments", "students"),
-			Map.entry("student_gr_numbers", "students"), Map.entry("student_photos", "students"),
-			Map.entry("users", "security"), Map.entry("audit_log", "audit"), Map.entry("academic_years", "masterdata"),
-			Map.entry("standards", "masterdata"), Map.entry("divisions", "masterdata"),
-			Map.entry("student_categories", "masterdata"), Map.entry("receipts", "fees"),
-			Map.entry("receipt_marks", "fees"), Map.entry("v_valid_receipts", "fees"), Map.entry("v_fee_position", "fees"),
-			Map.entry("v_earlier_pending", "fees"));
+	private static final Map<String, String> TABLE_OWNER = Map.ofEntries(
+			Map.entry("fee_year_status", "fees"),
+			Map.entry("fee_rows", "fees"),
+			Map.entry("fee_accounts", "fees"),
+			Map.entry("fee_brought_forward", "fees"),
+			Map.entry("students", "students"),
+			Map.entry("student_enrollments", "students"),
+			Map.entry("student_gr_numbers", "students"),
+			Map.entry("student_photos", "students"),
+			Map.entry("users", "security"),
+			Map.entry("audit_log", "audit"),
+			Map.entry("academic_years", "masterdata"),
+			Map.entry("standards", "masterdata"),
+			Map.entry("divisions", "masterdata"),
+			Map.entry("student_categories", "masterdata"),
+			Map.entry("receipts", "fees"),
+			Map.entry("receipt_marks", "fees"),
+			Map.entry("v_valid_receipts", "fees"),
+			Map.entry("v_fee_position", "fees"),
+			Map.entry("v_earlier_pending", "fees"),
+			Map.entry("admission_requests", "admissions"),
+			Map.entry("admission_import_batches", "admissions"),
+			Map.entry("promotion_runs", "yearchange"),
+			Map.entry("promotion_run_items", "yearchange"),
+			Map.entry("promotion_corrections", "yearchange"));
 
 	/**
 	 * Reads of another module's table that were approved, as "module:table": the audit log shows the user's name, and
@@ -108,7 +129,9 @@ class ModuleDependencyTest {
 	}
 
 	/** Test-profile seeding endpoints that must write another module's tables to build fixtures. */
-	private static final Set<String> TABLE_SCAN_EXEMPT_FILES = Set.of("fees/FeeTestSupportController.java");
+	private static final Set<String> TABLE_SCAN_EXEMPT_FILES = Set.of(
+			"fees/FeeTestSupportController.java",
+			"students/StudentTestSupportController.java");
 
 	@Test
 	void aModuleReadsOnlyItsOwnTablesApartFromTheApprovedReads() throws IOException {

@@ -66,6 +66,16 @@ const FEE_STRUCTURE_FINALISED = 'FEE_STRUCTURE_FINALISED';
               <p class="mt-1 text-sm text-error-text" role="alert">{{ text }}</p>
             }
           </div>
+          @if (usesStream()) {
+            <div>
+              <label class="mb-1 block text-sm font-semibold" for="crStream">Stream</label>
+              <select id="crStream" class="input w-full" formControlName="stream" data-testid="cr-stream">
+                <option [ngValue]="null">Choose stream</option>
+                <option value="Science">Science</option>
+                <option value="Commerce">Commerce</option>
+              </select>
+            </div>
+          }
           <div class="mt-2 flex justify-end gap-2">
             <button type="button" class="btn btn-secondary btn-outlined" (click)="closed.emit()">Cancel</button>
             <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()">Save</button>
@@ -112,6 +122,14 @@ export class ClassRecordDialogComponent {
     standardId: new FormControl<number | null>(null, { validators: [Validators.required] }),
     divisionId: new FormControl<number | null>(null, { validators: [Validators.required] }),
     categoryId: new FormControl<number | null>(null, { validators: [Validators.required] }),
+    stream: new FormControl<string | null>(null),
+  });
+
+  protected readonly usesStream = computed(() => {
+    const stdId = this.chosenStandard();
+    if (!stdId) return false;
+    const std = this.lists()?.standards.find((s) => s.id === stdId);
+    return std ? std.displayOrder >= 11 || std.name.includes('11') || std.name.includes('12') : false;
   });
 
   protected readonly divisions = computed(() => {
@@ -153,6 +171,7 @@ export class ClassRecordDialogComponent {
         standardId: value.standardId as number,
         divisionId: value.divisionId as number,
         categoryId: value.categoryId as number,
+        stream: value.stream ?? null,
       })
       .subscribe({
         next: () => {
@@ -208,7 +227,12 @@ export class ClassRecordDialogComponent {
     this.version = record.version;
     this.stale.set(null);
     this.chosenStandard.set(record.standardId);
-    this.form.reset({ standardId: record.standardId, divisionId: record.divisionId, categoryId: record.categoryId });
+    this.form.reset({
+      standardId: record.standardId,
+      divisionId: record.divisionId,
+      categoryId: record.categoryId,
+      stream: record.stream ?? null,
+    });
     this.locked.set(false);
     this.form.controls.standardId.enable();
     this.form.controls.categoryId.enable();

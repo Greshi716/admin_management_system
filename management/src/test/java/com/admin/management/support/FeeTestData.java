@@ -267,6 +267,16 @@ public final class FeeTestData {
 				registrationDue.subtract(registration).max(BigDecimal.ZERO));
 	}
 
+	/** Sets uses_stream on a standard (FR-012, FR-040). */
+	public static void setUsesStream(JdbcTemplate jdbc, long standardId, boolean usesStream) {
+		jdbc.update("update standards set uses_stream = ? where id = ?", usesStream, standardId);
+	}
+
+	/** Sets stream on an enrollment record (FR-012, FR-040). */
+	public static void setStream(JdbcTemplate jdbc, long enrollmentId, String stream) {
+		jdbc.update("update student_enrollments set stream = ? where id = ?", stream, enrollmentId);
+	}
+
 	/** {@code case g.<column> when 0 then id0 when 1 then id1 ... end}: ids are our own numbers, never user input. */
 	private static String caseOf(String column, List<Long> ids) {
 		StringBuilder sql = new StringBuilder("case g.").append(column);

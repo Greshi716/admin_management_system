@@ -57,6 +57,11 @@
       <div class="mb-3"></div>
     }
 
+    <div class="mb-4 flex items-center gap-2">
+      <input id="standardUsesStream" type="checkbox" formControlName="usesStream" class="h-4 w-4 rounded border-input-border text-accent focus:ring-accent" />
+      <label class="text-sm font-semibold cursor-pointer select-none" for="standardUsesStream">Uses stream</label>
+    </div>
+
     <div class="flex justify-end gap-2">
       <button type="button" (click)="closeForm()" class="btn btn-secondary btn-outlined">Cancel</button>
       <button type="submit" class="btn btn-primary" [class.btn-loading]="busy()" [disabled]="busy()">Save</button>
