@@ -100,6 +100,23 @@ class StudentTestSupportController {
 	@PostMapping("/clear-students")
 	@Transactional
 	ResponseEntity<Void> clearStudents() {
+		Integer feeAccounts = jdbc.queryForObject(
+				"SELECT count(*) FROM fee_accounts fa JOIN student_enrollments se ON fa.enrollment_id = se.id",
+				Integer.class);
+		Integer feeBroughtForward = jdbc.queryForObject(
+				"SELECT count(*) FROM fee_brought_forward fbf JOIN students s ON fbf.student_id = s.id",
+				Integer.class);
+		if ((feeAccounts != null && feeAccounts > 0) || (feeBroughtForward != null && feeBroughtForward > 0)) {
+			throw new org.springframework.web.server.ResponseStatusException(
+					org.springframework.http.HttpStatus.CONFLICT,
+					"fee accounts or brought-forward records still point at students");
+		}
+		jdbc.execute("SET LOCAL session_replication_role = replica");
+		jdbc.update("DELETE FROM admission_requests");
+		jdbc.update("DELETE FROM admission_import_batches");
+		jdbc.update("DELETE FROM promotion_corrections");
+		jdbc.update("DELETE FROM promotion_run_items");
+		jdbc.update("DELETE FROM promotion_runs");
 		jdbc.update("DELETE FROM student_photos");
 		jdbc.update("DELETE FROM student_enrollments");
 		jdbc.update("DELETE FROM student_gr_numbers");
