@@ -181,6 +181,9 @@ export class AdmissionReviewComponent implements OnInit {
                 this.form.controls.categoryId.setValue(matchedCat.id);
               }
             }
+            if (!this.form.controls.categoryId.value && picks.categories.length > 0) {
+              this.form.controls.categoryId.setValue(picks.categories[0].id);
+            }
 
             this.loading.set(false);
           },
