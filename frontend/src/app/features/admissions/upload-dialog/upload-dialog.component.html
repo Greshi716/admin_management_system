@@ -11,7 +11,7 @@
       </p>
 
       @if (errorMessage()) {
-        <div class="rounded-control border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800" role="alert">
+        <div class="rounded-control border border-danger-border bg-error-bg p-3 text-sm text-error-text" role="alert">
           {{ errorMessage() }}
         </div>
       }
@@ -63,39 +63,39 @@
       <div class="rounded-card border border-border bg-surface p-4">
         <h3 class="mb-3 text-base font-bold text-ink">Upload complete</h3>
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 text-center">
-          <div class="rounded-control bg-slate-50 p-2">
+          <div class="rounded-control bg-page p-2">
             <span class="block text-xl font-bold text-ink" data-testid="result-total">{{ result()?.total }}</span>
             <span class="text-xs text-muted">Total rows</span>
           </div>
-          <div class="rounded-control bg-emerald-50 p-2">
-            <span class="block text-xl font-bold text-emerald-700" data-testid="result-added">{{ result()?.added }}</span>
+          <div class="rounded-control bg-page p-2">
+            <span class="block text-xl font-bold text-success" data-testid="result-added">{{ result()?.added }}</span>
             <span class="text-xs text-muted">Added</span>
           </div>
-          <div class="rounded-control bg-amber-50 p-2">
-            <span class="block text-xl font-bold text-amber-700" data-testid="result-skipped">{{ result()?.skipped }}</span>
+          <div class="rounded-control bg-warning-bg p-2">
+            <span class="block text-xl font-bold text-warning-text" data-testid="result-skipped">{{ result()?.skipped }}</span>
             <span class="text-xs text-muted">Skipped</span>
           </div>
-          <div class="rounded-control bg-purple-50 p-2">
-            <span class="block text-xl font-bold text-purple-700" data-testid="result-duplicates">{{ result()?.duplicates }}</span>
+          <div class="rounded-control bg-accent-soft p-2">
+            <span class="block text-xl font-bold text-accent-text" data-testid="result-duplicates">{{ result()?.duplicates }}</span>
             <span class="text-xs text-muted">Duplicates</span>
           </div>
         </div>
       </div>
 
       @if (result()?.invalid && result()!.invalid.length > 0) {
-        <div class="rounded-card border border-rose-200 bg-rose-50/50 p-3">
-          <h4 class="mb-2 text-sm font-bold text-rose-800">
+        <div class="rounded-card border border-danger-border bg-error-bg p-3">
+          <h4 class="mb-2 text-sm font-bold text-error-text">
             Invalid rows not imported ({{ result()!.invalid.length }})
           </h4>
           <div class="max-h-48 overflow-y-auto">
             <table class="w-full text-left text-xs text-ink">
-              <thead class="border-b border-rose-200 font-semibold text-rose-900">
+              <thead class="border-b border-border font-semibold text-error-text">
                 <tr>
                   <th class="py-1 px-2">Row</th>
                   <th class="py-1 px-2">Reason</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-rose-100">
+              <tbody class="divide-y divide-border">
                 @for (item of result()!.invalid; track item.row) {
                   <tr>
                     <td class="py-1 px-2 font-mono font-medium">{{ item.row }}</td>

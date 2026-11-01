@@ -31,7 +31,7 @@
             (click)="setStatus(st)"
             [class.bg-accent]="statusFilter() === st"
             [class.text-on-accent]="statusFilter() === st"
-            [class.bg-slate-100]="statusFilter() !== st"
+            [class.bg-page]="statusFilter() !== st"
             [class.text-ink]="statusFilter() !== st"
             class="rounded-full px-4 py-1.5 text-sm font-semibold transition-colors hover:bg-accent-strong hover:text-on-accent"
             [attr.data-testid]="'status-filter-' + st.toLowerCase()"
@@ -82,7 +82,7 @@
     } @else {
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm text-ink border-collapse">
-          <thead class="border-b border-border bg-slate-50/75 text-xs uppercase font-semibold text-muted tracking-wider">
+          <thead class="border-b border-border bg-page text-xs uppercase font-semibold text-muted tracking-wider">
             <tr>
               <th scope="col" class="px-4 py-3">Submitted</th>
               <th scope="col" class="px-4 py-3">Candidate name</th>
@@ -96,7 +96,7 @@
           </thead>
           <tbody class="divide-y divide-border">
             @for (row of rows(); track row.id) {
-              <tr class="hover:bg-slate-50/50 transition-colors" [attr.data-testid]="'admission-row-' + row.id">
+              <tr class="hover:bg-page transition-colors" [attr.data-testid]="'admission-row-' + row.id">
                 <td class="px-4 py-3 whitespace-nowrap text-xs text-muted">
                   {{ row.submittedAt ? (row.submittedAt | date:'dd/MM/yyyy HH:mm') : '—' }}
                 </td>
@@ -105,7 +105,7 @@
                     <span>{{ row.studentName || (row.surname + ', ' + row.firstName) }}</span>
                     @if (row.duplicateFlag) {
                       <span
-                        class="rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 text-xs font-semibold"
+                        class="rounded-full bg-warning-bg text-warning-text border border-border px-2 py-0.5 text-xs font-semibold"
                         data-testid="duplicate-badge"
                       >
                         Duplicate?
@@ -120,17 +120,17 @@
                 <td class="px-4 py-3 whitespace-nowrap">
                   @switch (row.status) {
                     @case ('Pending') {
-                      <span class="inline-flex rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 text-xs font-medium" data-testid="status-pending">
+                      <span class="inline-flex rounded-full bg-warning-bg text-warning-text border border-border px-2.5 py-0.5 text-xs font-medium" data-testid="status-pending">
                         Pending
                       </span>
                     }
                     @case ('Approved') {
-                      <span class="inline-flex rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-xs font-medium" data-testid="status-approved">
+                      <span class="inline-flex rounded-full bg-accent-soft text-accent-text border border-border px-2.5 py-0.5 text-xs font-medium" data-testid="status-approved">
                         Approved
                       </span>
                     }
                     @case ('Rejected') {
-                      <span class="inline-flex rounded-full bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-0.5 text-xs font-medium" data-testid="status-rejected">
+                      <span class="inline-flex rounded-full bg-page text-muted border border-border px-2.5 py-0.5 text-xs font-medium" data-testid="status-rejected">
                         Rejected
                       </span>
                     }

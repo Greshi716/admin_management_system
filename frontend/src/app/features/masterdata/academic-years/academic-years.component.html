@@ -63,7 +63,7 @@
 
     @if (!isEdit && hasPreviousYears()) {
       <div class="mb-4 flex items-center gap-2">
-        <input id="copyFromLast" type="checkbox" formControlName="copyFromLast" class="h-4 w-4 rounded border-gray-300" />
+        <input id="copyFromLast" type="checkbox" formControlName="copyFromLast" class="h-4 w-4 rounded border-input-border text-accent focus:ring-accent" />
         <label class="text-sm font-semibold cursor-pointer select-none" for="copyFromLast">Copy from last year</label>
       </div>
     }

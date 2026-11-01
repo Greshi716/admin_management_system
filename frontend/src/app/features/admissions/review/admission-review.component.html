@@ -21,17 +21,17 @@
       <div>
         @switch (det.status) {
           @case ('Pending') {
-            <span class="rounded-full bg-amber-50 text-amber-800 border border-amber-300 px-3 py-1 text-sm font-semibold" data-testid="review-status-pending">
+            <span class="rounded-full bg-warning-bg text-warning-text border border-border px-3 py-1 text-sm font-semibold" data-testid="review-status-pending">
               Pending review
             </span>
           }
           @case ('Approved') {
-            <span class="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-1 text-sm font-semibold" data-testid="review-status-approved">
+            <span class="rounded-full bg-accent-soft text-accent-text border border-border px-3 py-1 text-sm font-semibold" data-testid="review-status-approved">
               Approved
             </span>
           }
           @case ('Rejected') {
-            <span class="rounded-full bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 text-sm font-semibold" data-testid="review-status-rejected">
+            <span class="rounded-full bg-page text-muted border border-border px-3 py-1 text-sm font-semibold" data-testid="review-status-rejected">
               Rejected
             </span>
           }
@@ -41,7 +41,7 @@
   </div>
 
   @if (errorMessage()) {
-    <div class="rounded-card border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm" role="alert" data-testid="review-error-banner">
+    <div class="rounded-card border border-danger-border bg-error-bg p-4 text-sm text-error-text shadow-sm" role="alert" data-testid="review-error-banner">
       {{ errorMessage() }}
     </div>
   }
@@ -52,18 +52,18 @@
 
     <!-- Duplicate Warning Banner -->
     @if (det.duplicateFlag) {
-      <div class="rounded-card border border-amber-300 bg-amber-50/80 p-4 shadow-sm" data-testid="duplicate-warning-banner">
+      <div class="rounded-card border border-border bg-warning-bg p-4 shadow-sm" data-testid="duplicate-warning-banner">
         <div class="flex items-start gap-3">
-          <svg class="h-6 w-6 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="h-6 w-6 text-warning-text shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <div class="space-y-1">
-            <h2 class="text-sm font-bold text-amber-900">Potential duplicate candidate</h2>
-            <p class="text-xs text-amber-800">
+            <h2 class="text-sm font-bold text-warning-text">Potential duplicate candidate</h2>
+            <p class="text-xs text-warning-text">
               This submission matches an existing student or another admission request on name, date of birth, or mobile number:
             </p>
             @if (det.duplicateMatches && det.duplicateMatches.length > 0) {
-              <ul class="list-disc list-inside text-xs font-medium text-amber-950 pt-1 space-y-1">
+              <ul class="list-disc list-inside text-xs font-medium text-warning-text pt-1 space-y-1">
                 @for (m of det.duplicateMatches; track m.link) {
                   <li>
                     <span class="font-semibold">{{ m.type }}:</span>
@@ -74,7 +74,7 @@
                 }
               </ul>
             } @else {
-              <p class="text-xs italic text-amber-800">Matching record details flagged during import.</p>
+              <p class="text-xs italic text-warning-text">Matching record details flagged during import.</p>
             }
           </div>
         </div>
@@ -83,7 +83,7 @@
 
     <!-- Non-pending Notification Banner -->
     @if (det.status === 'Approved') {
-      <div class="rounded-card border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm" data-testid="approved-banner">
+      <div class="rounded-card border border-border bg-accent-soft p-4 text-sm text-accent-text shadow-sm" data-testid="approved-banner">
         <p class="font-bold">This admission request has already been approved.</p>
         <p class="text-xs mt-1">
           Reviewed on {{ det.reviewedAt | date:'medium' }}.
@@ -95,7 +95,7 @@
         </p>
       </div>
     } @else if (det.status === 'Rejected') {
-      <div class="rounded-card border border-slate-300 bg-slate-100 p-4 text-sm text-slate-800 shadow-sm" data-testid="rejected-banner">
+      <div class="rounded-card border border-border bg-page p-4 text-sm text-ink shadow-sm" data-testid="rejected-banner">
         <p class="font-bold">This admission request was rejected.</p>
         <p class="text-xs mt-1">Reviewed on {{ det.reviewedAt | date:'medium' }}.</p>
         @if (det.remarks) {
@@ -114,7 +114,7 @@
           <!-- GR No -->
           <div>
             <label for="grNo" class="block text-sm font-semibold text-ink">
-              GR No. <span class="text-rose-600">*</span>
+              GR No. <span class="text-danger-text">*</span>
             </label>
             <input
               id="grNo"
@@ -125,14 +125,14 @@
               data-testid="input-gr-no"
             />
             @if (form.controls.grNo.touched && form.controls.grNo.errors?.['required']) {
-              <p class="text-xs text-rose-600 mt-1">Enter the GR No.</p>
+              <p class="text-xs text-danger-text mt-1">Enter the GR No.</p>
             }
           </div>
 
           <!-- Academic Year -->
           <div>
             <label for="academicYearId" class="block text-sm font-semibold text-ink">
-              Academic Year <span class="text-rose-600">*</span>
+              Academic Year <span class="text-danger-text">*</span>
             </label>
             <select
               id="academicYearId"
@@ -150,7 +150,7 @@
           <!-- Admission Standard (Fixed from Google Form) -->
           <div>
             <label class="block text-sm font-semibold text-ink">Admission Standard</label>
-            <div class="mt-1 block w-full rounded-control border border-border bg-slate-50 px-3 py-2 text-sm text-ink font-medium" data-testid="standard-name-badge">
+            <div class="mt-1 block w-full rounded-control border border-border bg-page px-3 py-2 text-sm text-ink font-medium" data-testid="standard-name-badge">
               {{ admissionStandardName() }}
             </div>
           </div>
@@ -158,7 +158,7 @@
           <!-- Division -->
           <div>
             <label for="divisionId" class="block text-sm font-semibold text-ink">
-              Division <span class="text-rose-600">*</span>
+              Division <span class="text-danger-text">*</span>
             </label>
             <select
               id="divisionId"
@@ -171,14 +171,14 @@
               }
             </select>
             @if (divisions().length === 0) {
-              <p class="text-xs text-amber-700 mt-1">No divisions found for this standard in chosen year.</p>
+              <p class="text-xs text-warning-text mt-1">No divisions found for this standard in chosen year.</p>
             }
           </div>
 
           <!-- Category -->
           <div>
             <label for="categoryId" class="block text-sm font-semibold text-ink">
-              Category <span class="text-rose-600">*</span>
+              Category <span class="text-danger-text">*</span>
             </label>
             <select
               id="categoryId"
@@ -192,14 +192,14 @@
               }
             </select>
             @if (form.controls.categoryId.touched && form.controls.categoryId.errors?.['required']) {
-              <p class="text-xs text-rose-600 mt-1">Choose the category.</p>
+              <p class="text-xs text-danger-text mt-1">Choose the category.</p>
             }
           </div>
 
           <!-- Admission Date -->
           <div>
             <label for="admissionDate" class="block text-sm font-semibold text-ink">
-              Admission Date <span class="text-rose-600">*</span>
+              Admission Date <span class="text-danger-text">*</span>
             </label>
             <input
               id="admissionDate"
@@ -219,7 +219,7 @@
           <!-- Surname -->
           <div>
             <label for="surname" class="block text-sm font-semibold text-ink">
-              Surname <span class="text-rose-600">*</span>
+              Surname <span class="text-danger-text">*</span>
             </label>
             <input
               id="surname"
@@ -233,7 +233,7 @@
           <!-- First Name -->
           <div>
             <label for="firstName" class="block text-sm font-semibold text-ink">
-              First name <span class="text-rose-600">*</span>
+              First name <span class="text-danger-text">*</span>
             </label>
             <input
               id="firstName"
@@ -259,7 +259,7 @@
           <!-- Gender -->
           <div>
             <label for="gender" class="block text-sm font-semibold text-ink">
-              Gender <span class="text-rose-600">*</span>
+              Gender <span class="text-danger-text">*</span>
             </label>
             <select
               id="gender"
@@ -276,7 +276,7 @@
           <!-- Date of Birth -->
           <div>
             <label for="dob" class="block text-sm font-semibold text-ink">
-              Date of birth <span class="text-rose-600">*</span>
+              Date of birth <span class="text-danger-text">*</span>
             </label>
             <input
               id="dob"
@@ -324,7 +324,7 @@
           <!-- Mobile 1 -->
           <div>
             <label for="mobile1" class="block text-sm font-semibold text-ink">
-              Mobile 1 <span class="text-rose-600">*</span>
+              Mobile 1 <span class="text-danger-text">*</span>
             </label>
             <input
               id="mobile1"
@@ -362,7 +362,7 @@
           <!-- Address -->
           <div class="sm:col-span-3">
             <label for="address" class="block text-sm font-semibold text-ink">
-              Address <span class="text-rose-600">*</span>
+              Address <span class="text-danger-text">*</span>
             </label>
             <textarea
               id="address"
@@ -406,7 +406,7 @@
             type="button"
             (click)="openRejectDialog()"
             [disabled]="busy()"
-            class="btn btn-secondary min-h-[44px] text-rose-700 hover:bg-rose-50 border-rose-300"
+            class="btn btn-danger min-h-[44px]"
             data-testid="reject-btn"
           >
             Reject admission
@@ -436,7 +436,7 @@
     <p class="text-sm text-ink">
       Are you sure you want to approve this admission?
     </p>
-    <div class="rounded-control bg-slate-50 p-3 text-xs space-y-1.5 text-muted">
+    <div class="rounded-control bg-page p-3 text-xs space-y-1.5 text-muted">
       <div><span class="font-semibold text-ink">Candidate:</span> {{ candidateName() }}</div>
       <div><span class="font-semibold text-ink">GR No:</span> {{ form.controls.grNo.value }}</div>
       <div><span class="font-semibold text-ink">Standard & Division:</span> {{ admissionStandardName() }} - Div {{ selectedDivisionName() }}</div>
@@ -477,11 +477,11 @@
   <div class="space-y-4">
     <p class="text-sm text-ink">
       Please provide a remark explaining why this admission request is rejected.
-      <span class="text-rose-600 font-semibold">*</span>
+      <span class="text-danger-text font-semibold">*</span>
     </p>
 
     @if (rejectError()) {
-      <div class="rounded-control border border-rose-300 bg-rose-50 p-2 text-xs text-rose-800" role="alert">
+      <div class="rounded-control border border-danger-border bg-error-bg p-2 text-xs text-error-text" role="alert">
         {{ rejectError() }}
       </div>
     }
@@ -510,7 +510,7 @@
         type="button"
         (click)="confirmReject()"
         [disabled]="busy()"
-        class="btn min-h-[44px] bg-rose-700 text-white hover:bg-rose-800"
+        class="btn min-h-[44px] btn-danger"
         data-testid="confirm-reject-btn"
       >
         @if (busy()) {
