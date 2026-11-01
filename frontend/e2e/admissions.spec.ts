@@ -6,7 +6,7 @@ import { signInAsTestAdmin } from './support/test-data';
  * Admissions e2e flow (FR-028, FR-030, FR-031, FR-032, FR-033, FR-034, FR-036, FR-037):
  * Upload responses file -> duplicate highlighted -> approve one -> reject one -> badge changes -> upload again skips.
  */
-test.describe('Admissions Google Form flow', () => {
+test.describe('Admissions Google Form flow (FR-037)', () => {
   test.beforeEach(async ({ page }) => {
     await signInAsTestAdmin(page);
     await clearMasterData(page);

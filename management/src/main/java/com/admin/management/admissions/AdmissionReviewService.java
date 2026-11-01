@@ -23,6 +23,7 @@ import com.admin.management.shared.web.CodedConflictException;
 import com.admin.management.shared.web.NotFoundException;
 import com.admin.management.shared.web.StaleVersionException;
 import com.admin.management.shared.web.ValidationException;
+import com.admin.management.students.api.StudentLookup;
 import com.admin.management.students.api.StudentRegistration;
 import com.admin.management.students.api.StudentRegistration.RegistrationInput;
 
@@ -37,6 +38,7 @@ public class AdmissionReviewService {
 
 	private final AdmissionRequestRepository requestRepo;
 	private final StudentRegistration studentRegistration;
+	private final StudentLookup studentLookup;
 	private final AuditService audit;
 	private final CurrentUserProvider currentUser;
 	private final JdbcTemplate jdbc;
@@ -44,12 +46,14 @@ public class AdmissionReviewService {
 
 	public AdmissionReviewService(AdmissionRequestRepository requestRepo,
 			StudentRegistration studentRegistration,
+			StudentLookup studentLookup,
 			AuditService audit,
 			CurrentUserProvider currentUser,
 			JdbcTemplate jdbc,
 			EntityManager entityManager) {
 		this.requestRepo = requestRepo;
 		this.studentRegistration = studentRegistration;
+		this.studentLookup = studentLookup;
 		this.audit = audit;
 		this.currentUser = currentUser;
 		this.jdbc = jdbc;
@@ -352,14 +356,10 @@ public class AdmissionReviewService {
 			for (Object item : sIds) {
 				if (item instanceof Number num) {
 					long sId = num.longValue();
-					jdbc.query("select id, gr_no, surname, first_name, status from students where id = ?",
-							rs -> {
-								String grNo = rs.getString("gr_no");
-								String name = rs.getString("surname") + ", " + rs.getString("first_name");
-								String st = rs.getString("status");
-								matches.add(new DuplicateMatchDto("Student", sId,
-										grNo + " - " + name + " (" + st + ")", "/students/" + sId));
-							}, sId);
+					studentLookup.summary(sId).ifPresent(sum -> {
+						matches.add(new DuplicateMatchDto("Student", sId,
+								sum.grNo() + " - " + sum.fullName() + " (" + sum.status() + ")", "/students/" + sId));
+					});
 				}
 			}
 		}

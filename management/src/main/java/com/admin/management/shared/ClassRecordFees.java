@@ -22,4 +22,7 @@ public interface ClassRecordFees {
 	 */
 	void classRecordAdded(Long enrollmentId, Long yearId, Long standardId, Long categoryId);
 
+	/** True when a fee structure row exists for the given standard and category in the academic year. */
+	boolean hasFee(Long yearId, Long standardId, Long categoryId);
+
 }

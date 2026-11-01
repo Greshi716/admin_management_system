@@ -57,4 +57,11 @@ class FeeClassRecordHooks implements ClassRecordFees {
 				clock.instant()));
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public boolean hasFee(Long yearId, Long standardId, Long categoryId) {
+		return FeeSelection.of(rows.findByAcademicYearIdOrderById(yearId))
+			.select(standardId, categoryId).amount() != null;
+	}
+
 }

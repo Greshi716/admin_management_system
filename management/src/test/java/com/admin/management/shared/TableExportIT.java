@@ -99,7 +99,7 @@ class TableExportIT extends IntegrationTest {
 		try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file))) {
 			Sheet sheet = workbook.getSheetAt(0);
 			assertThat(sheet.getLastRowNum()).isZero();
-			assertThat(cells(sheet, 0)).containsExactly("Name", "Display order", "Stream", "Active");
+			assertThat(cells(sheet, 0)).containsExactly("Name", "Display order", "Stream", "Uses stream", "Active");
 		}
 	}
 

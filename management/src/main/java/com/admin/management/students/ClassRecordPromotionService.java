@@ -63,21 +63,19 @@ public class ClassRecordPromotionService implements ClassRecordPromotion {
 	@Override
 	@Transactional(readOnly = true)
 	public List<CandidateStudent> studentsToPromote(long fromYearId, long toYearId, long standardId) {
+		Map<Long, String> divisionNames = masterData.divisionNames();
+		Map<Long, String> categoryNames = masterData.categoryNames();
 		return jdbc.query("""
 				select e.id as enrollment_id,
 				       s.id as student_id,
 				       s.gr_no,
 				       trim(s.surname || ' ' || s.first_name || coalesce(' ' || nullif(s.middle_name, ''), '')) as student_name,
-				       d.id as division_id,
-				       d.name as division_name,
-				       c.id as category_id,
-				       c.name as category_name,
+				       e.division_id,
+				       e.category_id,
 				       e.stream,
 				       e.version
 				from student_enrollments e
 				join students s on s.id = e.student_id
-				join divisions d on d.id = e.division_id
-				join student_categories c on c.id = e.category_id
 				where e.academic_year_id = ?
 				  and e.standard_id = ?
 				  and e.year_status = 'Studying'
@@ -87,42 +85,51 @@ public class ClassRecordPromotionService implements ClassRecordPromotion {
 				      where e2.student_id = s.id and e2.academic_year_id = ?
 				  )
 				order by s.surname, s.first_name, s.gr_no
-				""", (rs, rowNum) -> new CandidateStudent(
-						rs.getLong("enrollment_id"),
-						rs.getLong("student_id"),
-						rs.getString("gr_no"),
-						rs.getString("student_name"),
-						rs.getLong("division_id"),
-						rs.getString("division_name"),
-						rs.getLong("category_id"),
-						rs.getString("category_name"),
-						rs.getString("stream"),
-						rs.getLong("version")),
-				fromYearId, standardId, toYearId);
+				""", (rs, rowNum) -> {
+					long divId = rs.getLong("division_id");
+					long catId = rs.getLong("category_id");
+					return new CandidateStudent(
+							rs.getLong("enrollment_id"),
+							rs.getLong("student_id"),
+							rs.getString("gr_no"),
+							rs.getString("student_name"),
+							divId,
+							divisionNames.getOrDefault(divId, ""),
+							catId,
+							categoryNames.getOrDefault(catId, ""),
+							rs.getString("stream"),
+							rs.getLong("version"));
+				}, fromYearId, standardId, toYearId);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<PendingStandard> pendingByStandard(long fromYearId, long toYearId) {
-		return jdbc.query("""
-				select st.id as standard_id,
-				       st.name as standard_name,
+		Map<Long, String> standardNames = masterData.standardNames();
+		Map<Long, Integer> displayOrders = masterData.standardDisplayOrders();
+		List<PendingStandard> list = jdbc.query("""
+				select e.standard_id,
 				       count(e.id)::int as pending_count
-				from standards st
-				join student_enrollments e on e.standard_id = st.id and e.academic_year_id = ? and e.year_status = 'Studying'
+				from student_enrollments e
 				join students s on s.id = e.student_id and s.status = 'Active'
-				where not exists (
-				    select 1 from student_enrollments e2
-				    where e2.student_id = s.id and e2.academic_year_id = ?
-				)
-				group by st.id, st.name, st.display_order
-				having count(e.id) > 0
-				order by st.display_order
-				""", (rs, rowNum) -> new PendingStandard(
-						rs.getLong("standard_id"),
-						rs.getString("standard_name"),
-						rs.getInt("pending_count")),
-				fromYearId, toYearId);
+				where e.academic_year_id = ? and e.year_status = 'Studying'
+				  and not exists (
+				      select 1 from student_enrollments e2
+				      where e2.student_id = s.id and e2.academic_year_id = ?
+				  )
+				group by e.standard_id
+				""", (rs, rowNum) -> {
+					long stdId = rs.getLong("standard_id");
+					return new PendingStandard(
+							stdId,
+							standardNames.getOrDefault(stdId, ""),
+							rs.getInt("pending_count"));
+				}, fromYearId, toYearId);
+
+		return list.stream()
+				.filter(p -> p.pending() > 0)
+				.sorted(java.util.Comparator.comparingInt(p -> displayOrders.getOrDefault(p.standardId(), 999)))
+				.toList();
 	}
 
 	@Override

@@ -67,7 +67,7 @@ class VoidReceiptIT extends IntegrationTest {
 	}
 
 	private String runbook() throws IOException {
-		return Files.readString(RUNBOOK);
+		return Files.readString(RUNBOOK).replace("\r\n", "\n");
 	}
 
 	/** The block marked {@code -- runbook:void} with the three placeholders filled in. */

@@ -31,6 +31,7 @@ import com.admin.management.support.IntegrationTest;
 @Covers("FR-034")
 @Covers("FR-035")
 @Covers("FR-036")
+@Covers("FR-037")
 class AdmissionReviewIT extends IntegrationTest {
 
 	@Autowired

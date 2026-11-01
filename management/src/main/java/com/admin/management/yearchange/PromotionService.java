@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +17,7 @@ import com.admin.management.fees.api.FeeCarryForward.CarryForwardResult;
 import com.admin.management.masterdata.api.MasterDataLookup;
 import com.admin.management.masterdata.api.MasterDataLookup.YearDates;
 import com.admin.management.masterdata.api.MasterDataLookup.YearRef;
+import com.admin.management.shared.ClassRecordFees;
 import com.admin.management.shared.CurrentUserProvider;
 import com.admin.management.shared.web.ApiProblem.FieldError;
 import com.admin.management.shared.web.CodedConflictException;
@@ -45,24 +45,25 @@ public class PromotionService {
 
 	private final FeeCarryForward feeCarryForward;
 
+	private final ClassRecordFees classRecordFees;
+
 	private final PromotionRunRepository runs;
 
 	private final PromotionRunItemRepository runItems;
 
 	private final CurrentUserProvider currentUser;
 
-	private final JdbcTemplate jdbc;
-
 	public PromotionService(MasterDataLookup masterData, ClassRecordPromotion classRecordPromotion,
-			FeeCarryForward feeCarryForward, PromotionRunRepository runs, PromotionRunItemRepository runItems,
-			CurrentUserProvider currentUser, JdbcTemplate jdbc) {
+			FeeCarryForward feeCarryForward, ClassRecordFees classRecordFees,
+			PromotionRunRepository runs, PromotionRunItemRepository runItems,
+			CurrentUserProvider currentUser) {
 		this.masterData = masterData;
 		this.classRecordPromotion = classRecordPromotion;
 		this.feeCarryForward = feeCarryForward;
+		this.classRecordFees = classRecordFees;
 		this.runs = runs;
 		this.runItems = runItems;
 		this.currentUser = currentUser;
-		this.jdbc = jdbc;
 	}
 
 	@Transactional(readOnly = true)
@@ -77,10 +78,7 @@ public class PromotionService {
 		YearDates oldYear = earlier.get(0);
 		String oldYearName = masterData.yearNames().get(oldYear.id());
 
-		Integer finalisedCount = jdbc.queryForObject(
-				"select count(*) from fee_year_status where academic_year_id = ? and status = 'Finalised'",
-				Integer.class, newYear.id());
-		if (finalisedCount == null || finalisedCount == 0) {
+		if (!classRecordFees.isLocked(newYear.id())) {
 			throw new CodedConflictException("FEE_STRUCTURE_NOT_FINALISED", null,
 					"The fee structure for the new academic year must be finalised first.", null);
 		}
@@ -104,9 +102,10 @@ public class PromotionService {
 				.map(d -> new PromoteScreenDto.DivisionRef(d.id(), d.name(), d.standardId()))
 				.toList();
 
-		List<PromoteScreenDto.CategoryRef> categoryRefs = jdbc.query(
-				"select id, name from student_categories where active = true order by id",
-				(rs, rowNum) -> new PromoteScreenDto.CategoryRef(rs.getLong("id"), rs.getString("name")));
+		List<PromoteScreenDto.CategoryRef> categoryRefs = masterData.pickLists(newYear.id()).categories().stream()
+				.filter(MasterDataLookup.CategoryOption::active)
+				.map(c -> new PromoteScreenDto.CategoryRef(c.id(), c.name()))
+				.toList();
 
 		List<CandidateStudent> candidates = classRecordPromotion.studentsToPromote(oldYear.id(), newYear.id(), standardId);
 
@@ -155,10 +154,7 @@ public class PromotionService {
 
 		classRecordPromotion.lockStandardStudying(oldYear.id(), standardId);
 
-		Integer finalisedCount = jdbc.queryForObject(
-				"select count(*) from fee_year_status where academic_year_id = ? and status = 'Finalised'",
-				Integer.class, newYear.id());
-		if (finalisedCount == null || finalisedCount == 0) {
+		if (!classRecordFees.isLocked(newYear.id())) {
 			throw new CodedConflictException("FEE_STRUCTURE_NOT_FINALISED", null,
 					"The fee structure for the new academic year must be finalised first.", null);
 		}
@@ -225,14 +221,7 @@ public class PromotionService {
 						: currentStandard.id();
 				long targetCategoryId = line.categoryId() != null ? line.categoryId() : candidateMap.get(line.enrollmentId()).categoryId();
 
-				Integer feeRowCount = jdbc.queryForObject("""
-						select count(*) from fee_rows
-						where academic_year_id = ? and standard_id = ?
-						  and (category_id = ? or category_id is null)
-						  and amount is not null
-						""", Integer.class, newYear.id(), targetStandardId, targetCategoryId);
-
-				if (feeRowCount == null || feeRowCount == 0) {
+				if (!classRecordFees.hasFee(newYear.id(), targetStandardId, targetCategoryId)) {
 					throw new CodedConflictException("FEE_NOT_SET", null,
 							"No fee is set for the target standard and category in the new academic year.", null);
 				}
@@ -312,29 +301,17 @@ public class PromotionService {
 	}
 
 	private List<StandardInfo> queryActiveStandards() {
-		return jdbc.query("""
-				select id, name, display_order, uses_stream, active
-				from standards
-				where active = true
-				order by display_order
-				""", (rs, rowNum) -> new StandardInfo(
-						rs.getLong("id"),
-						rs.getString("name"),
-						rs.getInt("display_order"),
-						rs.getBoolean("uses_stream"),
-						rs.getBoolean("active")));
+		return masterData.filterOptions().standards().stream()
+				.filter(MasterDataLookup.StandardOption::active)
+				.map(s -> new StandardInfo(s.id(), s.name(), s.displayOrder(), s.usesStream(), s.active()))
+				.toList();
 	}
 
 	private List<DivisionInfo> queryDivisions(long yearId) {
-		return jdbc.query("""
-				select id, name, standard_id
-				from divisions
-				where academic_year_id = ? and active = true
-				order by name
-				""", (rs, rowNum) -> new DivisionInfo(
-						rs.getLong("id"),
-						rs.getString("name"),
-						rs.getLong("standard_id")), yearId);
+		return masterData.pickLists(yearId).divisions().stream()
+				.filter(MasterDataLookup.DivisionOption::active)
+				.map(d -> new DivisionInfo(d.id(), d.name(), d.standardId()))
+				.toList();
 	}
 
 	private static PromotionRules.StudentCandidate toCandidate(CandidateStudent c) {
