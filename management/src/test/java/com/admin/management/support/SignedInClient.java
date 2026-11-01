@@ -4,6 +4,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -39,6 +40,14 @@ public final class SignedInClient {
 
 	public ResultActions delete(String url) throws Exception {
 		return mvc.perform(MockMvcRequestBuilders.delete(url).with(csrf()).session(session));
+	}
+
+	public ResultActions multipart(String url, MockMultipartFile file) throws Exception {
+		return mvc.perform(MockMvcRequestBuilders.multipart(url).file(file).with(csrf()).session(session));
+	}
+
+	public MockHttpSession session() {
+		return session;
 	}
 
 	private MockHttpServletRequestBuilder withBody(MockHttpServletRequestBuilder builder, String json) {
