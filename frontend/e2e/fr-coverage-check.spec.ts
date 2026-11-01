@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,7 +12,9 @@ const REPO = join(process.cwd(), '..');
 const SCRIPT = join(REPO, 'scripts', 'check-fr-coverage.sh');
 
 function run(root: string, ...args: string[]) {
-  return spawnSync('bash', [join(root, 'scripts', 'check-fr-coverage.sh'), ...args], { encoding: 'utf8' });
+  const gitBash = 'C:\\Program Files\\Git\\bin\\bash.exe';
+  const bash = process.platform === 'win32' && existsSync(gitBash) ? gitBash : 'bash';
+  return spawnSync(bash, [join(root, 'scripts', 'check-fr-coverage.sh'), ...args], { encoding: 'utf8' });
 }
 
 test.describe('FR coverage check', () => {

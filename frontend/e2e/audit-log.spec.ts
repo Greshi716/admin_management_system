@@ -85,7 +85,8 @@ test.describe('audit log', () => {
 
     await area.selectOption('Students');
     await expect(area).toHaveValue('Students');
-    await expect(page.getByRole('row').filter({ hasText: 'testadmin' })).toHaveCount(0);
+    await expect(page.getByRole('row').filter({ hasText: 'Security' })).toHaveCount(0);
+    await expect(page.getByRole('row').filter({ hasText: 'Master data' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
   });
 
