@@ -129,7 +129,9 @@ class ModuleDependencyTest {
 	}
 
 	/** Test-profile seeding endpoints that must write another module's tables to build fixtures. */
-	private static final Set<String> TABLE_SCAN_EXEMPT_FILES = Set.of("fees/FeeTestSupportController.java");
+	private static final Set<String> TABLE_SCAN_EXEMPT_FILES = Set.of(
+			"fees/FeeTestSupportController.java",
+			"students/StudentTestSupportController.java");
 
 	@Test
 	void aModuleReadsOnlyItsOwnTablesApartFromTheApprovedReads() throws IOException {
