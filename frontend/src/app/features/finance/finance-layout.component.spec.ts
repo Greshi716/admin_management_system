@@ -27,7 +27,7 @@ describe('Finance tab (FR-014)', () => {
 
   it('adds the Finance tab to the top bar between Students and Setup', () => {
     const shell = TestBed.createComponent(ShellComponent).componentInstance as unknown as { tabs: { label: string; link: string }[] };
-    expect(shell.tabs.map((t) => t.label)).toEqual(['Students', 'Finance', 'Setup']);
-    expect(shell.tabs[1].link).toBe('/finance');
+    expect(shell.tabs.map((t) => t.label)).toEqual(['Approvals', 'Students', 'Finance', 'Setup']);
+    expect(shell.tabs.find((t) => t.label === 'Finance')?.link).toBe('/finance');
   });
 });

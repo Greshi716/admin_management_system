@@ -17,4 +17,7 @@ public interface AdmissionRequestRepository extends Repository<AdmissionRequest,
 
 	long countByStatus(String status);
 
+	@org.springframework.data.jpa.repository.Query("select r from AdmissionRequest r where r.status in ('Pending', 'Approved')")
+	java.util.List<AdmissionRequest> findPendingOrApproved();
+
 }

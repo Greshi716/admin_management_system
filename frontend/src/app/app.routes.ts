@@ -22,6 +22,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/home/home.component').then((m) => m.HomeComponent),
       },
       {
+        path: 'admissions',
+        loadChildren: () => import('./features/admissions/admissions.routes').then((m) => m.ADMISSIONS_ROUTES),
+      },
+      {
         path: 'students',
         loadChildren: () => import('./features/students/students.routes').then((m) => m.STUDENTS_ROUTES),
       },

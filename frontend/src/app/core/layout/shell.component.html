@@ -18,9 +18,18 @@
           <a
             [routerLink]="tab.link"
             routerLinkActive="bg-accent font-semibold"
-            class="rounded-control px-4 py-2 text-[0.95rem] text-on-accent no-underline transition-colors hover:bg-accent-strong"
-            >{{ tab.label }}</a
+            class="flex items-center gap-1.5 rounded-control px-4 py-2 text-[0.95rem] text-on-accent no-underline transition-colors hover:bg-accent-strong"
           >
+            <span>{{ tab.label }}</span>
+            @if (tab.count && tab.count()! > 0) {
+              <span
+                class="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-900 leading-none"
+                data-testid="approvals-badge"
+              >
+                {{ tab.count() }}
+              </span>
+            }
+          </a>
         }
       }
     </nav>

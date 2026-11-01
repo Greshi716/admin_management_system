@@ -1,0 +1,123 @@
+<app-dialog
+  header="Upload responses file"
+  [(visible)]="visible"
+  [width]="'38rem'"
+  (close)="close()"
+>
+  @if (!result()) {
+    <div class="space-y-4">
+      <p class="text-sm text-muted">
+        Select a Google Form responses sheet (.xlsx or .csv, up to 5 MB, up to 2,000 rows).
+      </p>
+
+      @if (errorMessage()) {
+        <div class="rounded-control border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800" role="alert">
+          {{ errorMessage() }}
+        </div>
+      }
+
+      <div class="flex flex-col gap-2">
+        <label for="responses-file-input" class="text-sm font-semibold text-ink">Choose file</label>
+        <input
+          id="responses-file-input"
+          type="file"
+          accept=".xlsx,.csv"
+          (change)="onFileSelected($event)"
+          [disabled]="uploading()"
+          class="block w-full text-sm text-ink file:mr-4 file:rounded-control file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-on-accent hover:file:bg-accent-strong cursor-pointer"
+        />
+        @if (selectedFile(); as file) {
+          <div class="text-xs text-muted">
+            Selected: <span class="font-medium text-ink">{{ file.name }}</span> ({{ (file.size / 1024).toFixed(1) }} KB)
+          </div>
+        }
+      </div>
+
+      <div class="mt-6 flex justify-end gap-3 pt-2">
+        <button
+          type="button"
+          (click)="close()"
+          [disabled]="uploading()"
+          class="btn btn-secondary"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="upload()"
+          [disabled]="!selectedFile() || uploading()"
+          class="btn btn-primary min-h-[44px]"
+          data-testid="upload-submit-btn"
+        >
+          @if (uploading()) {
+            Uploading...
+          } @else {
+            Upload file
+          }
+        </button>
+      </div>
+    </div>
+  } @else {
+    <!-- Upload Results Summary -->
+    <div class="space-y-4" data-testid="upload-result-summary">
+      <div class="rounded-card border border-border bg-surface p-4">
+        <h3 class="mb-3 text-base font-bold text-ink">Upload complete</h3>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 text-center">
+          <div class="rounded-control bg-slate-50 p-2">
+            <span class="block text-xl font-bold text-ink" data-testid="result-total">{{ result()?.total }}</span>
+            <span class="text-xs text-muted">Total rows</span>
+          </div>
+          <div class="rounded-control bg-emerald-50 p-2">
+            <span class="block text-xl font-bold text-emerald-700" data-testid="result-added">{{ result()?.added }}</span>
+            <span class="text-xs text-muted">Added</span>
+          </div>
+          <div class="rounded-control bg-amber-50 p-2">
+            <span class="block text-xl font-bold text-amber-700" data-testid="result-skipped">{{ result()?.skipped }}</span>
+            <span class="text-xs text-muted">Skipped</span>
+          </div>
+          <div class="rounded-control bg-purple-50 p-2">
+            <span class="block text-xl font-bold text-purple-700" data-testid="result-duplicates">{{ result()?.duplicates }}</span>
+            <span class="text-xs text-muted">Duplicates</span>
+          </div>
+        </div>
+      </div>
+
+      @if (result()?.invalid && result()!.invalid.length > 0) {
+        <div class="rounded-card border border-rose-200 bg-rose-50/50 p-3">
+          <h4 class="mb-2 text-sm font-bold text-rose-800">
+            Invalid rows not imported ({{ result()!.invalid.length }})
+          </h4>
+          <div class="max-h-48 overflow-y-auto">
+            <table class="w-full text-left text-xs text-ink">
+              <thead class="border-b border-rose-200 font-semibold text-rose-900">
+                <tr>
+                  <th class="py-1 px-2">Row</th>
+                  <th class="py-1 px-2">Reason</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-rose-100">
+                @for (item of result()!.invalid; track item.row) {
+                  <tr>
+                    <td class="py-1 px-2 font-mono font-medium">{{ item.row }}</td>
+                    <td class="py-1 px-2">{{ item.reason }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <div class="mt-4 flex justify-end">
+        <button
+          type="button"
+          (click)="close()"
+          class="btn btn-primary min-h-[44px]"
+          data-testid="upload-done-btn"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  }
+</app-dialog>

@@ -85,4 +85,9 @@ public class ImportBatch {
 		return rowsInvalid;
 	}
 
+	public void setCounts(int rowsAdded, int rowsSkipped) {
+		this.rowsAdded = rowsAdded;
+		this.rowsSkipped = rowsSkipped;
+	}
+
 }

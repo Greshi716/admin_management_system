@@ -113,7 +113,14 @@ public class Student {
 	}
 
 	public Student(StudentDetails details, Long categoryId) {
+		this(details, categoryId, MANUAL);
+	}
+
+	public Student(StudentDetails details, Long categoryId, String source) {
 		this.categoryId = categoryId;
+		if (source != null) {
+			this.source = source;
+		}
 		apply(details);
 	}
 

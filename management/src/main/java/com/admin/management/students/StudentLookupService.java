@@ -32,4 +32,9 @@ class StudentLookupService implements StudentLookup {
 			.map((s) -> new StudentSummary(s.getId(), StudentService.fullName(s), s.getGrNo(), s.getStatus()));
 	}
 
+	@Override
+	public java.util.List<DuplicateCandidate> duplicateCandidates() {
+		return students.findDuplicateCandidates();
+	}
+
 }

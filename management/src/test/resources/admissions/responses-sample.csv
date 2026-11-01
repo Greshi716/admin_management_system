@@ -1,0 +1,8 @@
+Timestamp,Surname,First name,Father's / middle name,Gender,Date of birth,Place of birth,Father's name,Mother's name,Mobile 1,Mobile 2,Address,Aadhaar number,Religion / Caste,Category,Previous school,Admission date,Admission standard
+2026/05/01 09:30:00,Verma,Rohan,Anil,Male,12/04/2015,Pune,Anil Verma,Sunita Verma,9876543210,9876543211,"Flat 101, Green Acres, Pune",123456789012,Hindu,General,St Mary School,01/06/2026,Standard 1
+2026/05/01 10:15:00,Verma,Rohan,,Male,12/04/2015,Pune,Anil Verma,Sunita Verma,9876543210,,Flat 101 Green Acres,123456789012,Hindu,General,,01/06/2026,Standard 1
+2026/05/01 10:20:00,Verma,Vivaan,Anil,Male,12/04/2015,Pune,Anil Verma,Sunita Verma,9876543210,,Flat 101 Green Acres,123456789013,Hindu,General,,01/06/2026,Standard 1
+2026/05/01 11:00:00,,Aarav,Suresh,Male,15/06/2014,Mumbai,Suresh,Meena,9822334455,,"45 MG Road, Mumbai",,Hindu,OBC,,,Standard 2
+2026/05/01 11:30:00,Patil,Pooja,Rajesh,Female,20/08/2015,Nashik,Rajesh,Kavita,98223344,,"12 Station Road, Nashik",,Hindu,General,,,Standard 1
+2026/05/01 12:00:00,Joshi,Neha,Mahesh,Female,15/08/2030,Thane,Mahesh,Rekha,9833445566,,"78 Lake View, Thane",,Hindu,General,,,Standard 1
+2026/05/01 12:30:00,Kulkarni,Omkar,Sanjay,Male,10/10/2014,Nagpur,Sanjay,Asha,9844556677,,"88 Ring Road, Nagpur",,Hindu,General,,,Standard 99

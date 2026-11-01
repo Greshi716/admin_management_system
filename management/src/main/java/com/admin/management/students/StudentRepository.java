@@ -17,6 +17,9 @@ public interface StudentRepository extends Repository<Student, Long> {
 
 	Optional<Student> findById(Long id);
 
+	@Query("select new com.admin.management.students.api.StudentLookup$DuplicateCandidate(s.id, s.surname, s.firstName, s.middleName, s.dob, s.mobile1) from Student s")
+	List<com.admin.management.students.api.StudentLookup.DuplicateCandidate> findDuplicateCandidates();
+
 	/**
 	 * Students (any status) whose surname, first name and middle name equal the given ones, ignoring capitals and
 	 * spaces at both ends (FR-003). The arguments must already be trimmed and lower-case.

@@ -1,0 +1,524 @@
+<div class="space-y-6 max-w-5xl mx-auto pb-12">
+  <!-- Back Link & Page Title -->
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <a
+        routerLink="/admissions"
+        class="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-strong"
+        data-testid="back-to-admissions-link"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span>Back to Admissions</span>
+      </a>
+      <span class="text-muted">/</span>
+      <h1 class="text-xl font-bold text-ink">Review Admission Request #{{ id() }}</h1>
+    </div>
+
+    <!-- Status Tag -->
+    @if (detail(); as det) {
+      <div>
+        @switch (det.status) {
+          @case ('Pending') {
+            <span class="rounded-full bg-amber-50 text-amber-800 border border-amber-300 px-3 py-1 text-sm font-semibold" data-testid="review-status-pending">
+              Pending review
+            </span>
+          }
+          @case ('Approved') {
+            <span class="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-1 text-sm font-semibold" data-testid="review-status-approved">
+              Approved
+            </span>
+          }
+          @case ('Rejected') {
+            <span class="rounded-full bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 text-sm font-semibold" data-testid="review-status-rejected">
+              Rejected
+            </span>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  @if (errorMessage()) {
+    <div class="rounded-card border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm" role="alert" data-testid="review-error-banner">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  @if (loading()) {
+    <app-page-skeleton />
+  } @else if (detail(); as det) {
+
+    <!-- Duplicate Warning Banner -->
+    @if (det.duplicateFlag) {
+      <div class="rounded-card border border-amber-300 bg-amber-50/80 p-4 shadow-sm" data-testid="duplicate-warning-banner">
+        <div class="flex items-start gap-3">
+          <svg class="h-6 w-6 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div class="space-y-1">
+            <h2 class="text-sm font-bold text-amber-900">Potential duplicate candidate</h2>
+            <p class="text-xs text-amber-800">
+              This submission matches an existing student or another admission request on name, date of birth, or mobile number:
+            </p>
+            @if (det.duplicateMatches && det.duplicateMatches.length > 0) {
+              <ul class="list-disc list-inside text-xs font-medium text-amber-950 pt-1 space-y-1">
+                @for (m of det.duplicateMatches; track m.link) {
+                  <li>
+                    <span class="font-semibold">{{ m.type }}:</span>
+                    <a [routerLink]="m.link" class="ml-1 text-accent underline hover:text-accent-strong" target="_blank">
+                      {{ m.label }}
+                    </a>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="text-xs italic text-amber-800">Matching record details flagged during import.</p>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Non-pending Notification Banner -->
+    @if (det.status === 'Approved') {
+      <div class="rounded-card border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-sm" data-testid="approved-banner">
+        <p class="font-bold">This admission request has already been approved.</p>
+        <p class="text-xs mt-1">
+          Reviewed on {{ det.reviewedAt | date:'medium' }}.
+          @if (det.studentId) {
+            <a [routerLink]="['/students', det.studentId]" class="ml-1 text-accent font-semibold underline">
+              View student profile #{{ det.studentId }}
+            </a>
+          }
+        </p>
+      </div>
+    } @else if (det.status === 'Rejected') {
+      <div class="rounded-card border border-slate-300 bg-slate-100 p-4 text-sm text-slate-800 shadow-sm" data-testid="rejected-banner">
+        <p class="font-bold">This admission request was rejected.</p>
+        <p class="text-xs mt-1">Reviewed on {{ det.reviewedAt | date:'medium' }}.</p>
+        @if (det.remarks) {
+          <p class="mt-2 text-xs font-medium bg-surface/80 p-2 rounded-control border border-border">
+            <span class="font-semibold text-muted">Remarks:</span> {{ det.remarks }}
+          </p>
+        }
+      </div>
+    }
+
+    <form [formGroup]="form" class="space-y-6">
+      <!-- Section 1: Admission & School Details -->
+      <div class="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
+        <h2 class="text-lg font-bold text-ink border-b border-border pb-2">Admission Assignment</h2>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <!-- GR No -->
+          <div>
+            <label for="grNo" class="block text-sm font-semibold text-ink">
+              GR No. <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="grNo"
+              type="text"
+              formControlName="grNo"
+              placeholder="e.g. 2026-001"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-gr-no"
+            />
+            @if (form.controls.grNo.touched && form.controls.grNo.errors?.['required']) {
+              <p class="text-xs text-rose-600 mt-1">Enter the GR No.</p>
+            }
+          </div>
+
+          <!-- Academic Year -->
+          <div>
+            <label for="academicYearId" class="block text-sm font-semibold text-ink">
+              Academic Year <span class="text-rose-600">*</span>
+            </label>
+            <select
+              id="academicYearId"
+              formControlName="academicYearId"
+              (ngModelChange)="onYearChange($event)"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="select-academic-year"
+            >
+              @for (yr of academicYears(); track yr.id) {
+                <option [value]="yr.id">{{ yr.name }}</option>
+              }
+            </select>
+          </div>
+
+          <!-- Admission Standard (Fixed from Google Form) -->
+          <div>
+            <label class="block text-sm font-semibold text-ink">Admission Standard</label>
+            <div class="mt-1 block w-full rounded-control border border-border bg-slate-50 px-3 py-2 text-sm text-ink font-medium" data-testid="standard-name-badge">
+              {{ admissionStandardName() }}
+            </div>
+          </div>
+
+          <!-- Division -->
+          <div>
+            <label for="divisionId" class="block text-sm font-semibold text-ink">
+              Division <span class="text-rose-600">*</span>
+            </label>
+            <select
+              id="divisionId"
+              formControlName="divisionId"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="select-division"
+            >
+              @for (div of divisions(); track div.id) {
+                <option [value]="div.id">Division {{ div.name }}</option>
+              }
+            </select>
+            @if (divisions().length === 0) {
+              <p class="text-xs text-amber-700 mt-1">No divisions found for this standard in chosen year.</p>
+            }
+          </div>
+
+          <!-- Category -->
+          <div>
+            <label for="categoryId" class="block text-sm font-semibold text-ink">
+              Category <span class="text-rose-600">*</span>
+            </label>
+            <select
+              id="categoryId"
+              formControlName="categoryId"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="select-category"
+            >
+              <option [ngValue]="null">-- Select Category --</option>
+              @for (cat of categories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+            @if (form.controls.categoryId.touched && form.controls.categoryId.errors?.['required']) {
+              <p class="text-xs text-rose-600 mt-1">Choose the category.</p>
+            }
+          </div>
+
+          <!-- Admission Date -->
+          <div>
+            <label for="admissionDate" class="block text-sm font-semibold text-ink">
+              Admission Date <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="admissionDate"
+              type="date"
+              formControlName="admissionDate"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-admission-date"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Student Details -->
+      <div class="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
+        <h2 class="text-lg font-bold text-ink border-b border-border pb-2">Student & Family Information</h2>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <!-- Surname -->
+          <div>
+            <label for="surname" class="block text-sm font-semibold text-ink">
+              Surname <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="surname"
+              type="text"
+              formControlName="surname"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-surname"
+            />
+          </div>
+
+          <!-- First Name -->
+          <div>
+            <label for="firstName" class="block text-sm font-semibold text-ink">
+              First name <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              formControlName="firstName"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-first-name"
+            />
+          </div>
+
+          <!-- Middle Name -->
+          <div>
+            <label for="middleName" class="block text-sm font-semibold text-ink">Middle name</label>
+            <input
+              id="middleName"
+              type="text"
+              formControlName="middleName"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-middle-name"
+            />
+          </div>
+
+          <!-- Gender -->
+          <div>
+            <label for="gender" class="block text-sm font-semibold text-ink">
+              Gender <span class="text-rose-600">*</span>
+            </label>
+            <select
+              id="gender"
+              formControlName="gender"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="select-gender"
+            >
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <!-- Date of Birth -->
+          <div>
+            <label for="dob" class="block text-sm font-semibold text-ink">
+              Date of birth <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="dob"
+              type="date"
+              formControlName="dob"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-dob"
+            />
+          </div>
+
+          <!-- Place of Birth -->
+          <div>
+            <label for="birthPlace" class="block text-sm font-semibold text-ink">Place of birth</label>
+            <input
+              id="birthPlace"
+              type="text"
+              formControlName="birthPlace"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-birth-place"
+            />
+          </div>
+
+          <!-- Father Name -->
+          <div>
+            <label for="fatherName" class="block text-sm font-semibold text-ink">Father's name</label>
+            <input
+              id="fatherName"
+              type="text"
+              formControlName="fatherName"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <!-- Mother Name -->
+          <div>
+            <label for="motherName" class="block text-sm font-semibold text-ink">Mother's name</label>
+            <input
+              id="motherName"
+              type="text"
+              formControlName="motherName"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <!-- Mobile 1 -->
+          <div>
+            <label for="mobile1" class="block text-sm font-semibold text-ink">
+              Mobile 1 <span class="text-rose-600">*</span>
+            </label>
+            <input
+              id="mobile1"
+              type="tel"
+              formControlName="mobile1"
+              maxlength="10"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-mobile1"
+            />
+          </div>
+
+          <!-- Mobile 2 -->
+          <div>
+            <label for="mobile2" class="block text-sm font-semibold text-ink">Mobile 2</label>
+            <input
+              id="mobile2"
+              type="tel"
+              formControlName="mobile2"
+              maxlength="10"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <!-- Previous School -->
+          <div class="sm:col-span-2">
+            <label for="previousSchool" class="block text-sm font-semibold text-ink">Previous school</label>
+            <input
+              id="previousSchool"
+              type="text"
+              formControlName="previousSchool"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <!-- Address -->
+          <div class="sm:col-span-3">
+            <label for="address" class="block text-sm font-semibold text-ink">
+              Address <span class="text-rose-600">*</span>
+            </label>
+            <textarea
+              id="address"
+              rows="2"
+              formControlName="address"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-address"
+            ></textarea>
+          </div>
+
+          <!-- Aadhaar (Masked) -->
+          <div>
+            <label for="aadhaar" class="block text-sm font-semibold text-ink">Aadhaar number</label>
+            <input
+              id="aadhaar"
+              type="text"
+              formControlName="aadhaar"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-aadhaar"
+            />
+          </div>
+
+          <!-- Religion / Caste (Masked) -->
+          <div>
+            <label for="religionCaste" class="block text-sm font-semibold text-ink">Religion / Caste</label>
+            <input
+              id="religionCaste"
+              type="text"
+              formControlName="religionCaste"
+              class="mt-1 block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              data-testid="input-religion"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Review Action Bar (When Pending) -->
+      @if (isPending()) {
+        <div class="flex flex-wrap items-center justify-end gap-4 rounded-card border border-border bg-surface p-4 shadow-sm" data-testid="review-action-bar">
+          <button
+            type="button"
+            (click)="openRejectDialog()"
+            [disabled]="busy()"
+            class="btn btn-secondary min-h-[44px] text-rose-700 hover:bg-rose-50 border-rose-300"
+            data-testid="reject-btn"
+          >
+            Reject admission
+          </button>
+          <button
+            type="button"
+            (click)="openApproveDialog()"
+            [disabled]="busy()"
+            class="btn btn-primary min-h-[44px] px-6"
+            data-testid="approve-btn"
+          >
+            Approve admission
+          </button>
+        </div>
+      }
+    </form>
+  }
+</div>
+
+<!-- Approve Confirmation Dialog -->
+<app-dialog
+  header="Confirm Admission Approval"
+  [(visible)]="approveDialogOpen"
+  [width]="'32rem'"
+>
+  <div class="space-y-4">
+    <p class="text-sm text-ink">
+      Are you sure you want to approve this admission?
+    </p>
+    <div class="rounded-control bg-slate-50 p-3 text-xs space-y-1.5 text-muted">
+      <div><span class="font-semibold text-ink">Candidate:</span> {{ candidateName() }}</div>
+      <div><span class="font-semibold text-ink">GR No:</span> {{ form.controls.grNo.value }}</div>
+      <div><span class="font-semibold text-ink">Standard & Division:</span> {{ admissionStandardName() }} - Div {{ selectedDivisionName() }}</div>
+      <div><span class="font-semibold text-ink">Academic Year:</span> {{ selectedYearName() }}</div>
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button
+        type="button"
+        (click)="approveDialogOpen.set(false)"
+        [disabled]="busy()"
+        class="btn btn-secondary"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        (click)="confirmApprove()"
+        [disabled]="busy()"
+        class="btn btn-primary min-h-[44px]"
+        data-testid="confirm-approve-btn"
+      >
+        @if (busy()) {
+          Approving...
+        } @else {
+          Confirm & Approve
+        }
+      </button>
+    </div>
+  </div>
+</app-dialog>
+
+<!-- Reject Confirmation Dialog -->
+<app-dialog
+  header="Reject Admission Request"
+  [(visible)]="rejectDialogOpen"
+  [width]="'32rem'"
+>
+  <div class="space-y-4">
+    <p class="text-sm text-ink">
+      Please provide a remark explaining why this admission request is rejected.
+      <span class="text-rose-600 font-semibold">*</span>
+    </p>
+
+    @if (rejectError()) {
+      <div class="rounded-control border border-rose-300 bg-rose-50 p-2 text-xs text-rose-800" role="alert">
+        {{ rejectError() }}
+      </div>
+    }
+
+    <div>
+      <textarea
+        [formControl]="rejectRemarks"
+        rows="3"
+        maxlength="500"
+        placeholder="Enter remarks (e.g. Incomplete documentation, age criteria not met)"
+        class="block w-full rounded-control border border-input-border bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        data-testid="reject-remarks-textarea"
+      ></textarea>
+    </div>
+
+    <div class="flex justify-end gap-3 pt-2">
+      <button
+        type="button"
+        (click)="rejectDialogOpen.set(false)"
+        [disabled]="busy()"
+        class="btn btn-secondary"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        (click)="confirmReject()"
+        [disabled]="busy()"
+        class="btn min-h-[44px] bg-rose-700 text-white hover:bg-rose-800"
+        data-testid="confirm-reject-btn"
+      >
+        @if (busy()) {
+          Rejecting...
+        } @else {
+          Confirm Reject
+        }
+      </button>
+    </div>
+  </div>
+</app-dialog>
