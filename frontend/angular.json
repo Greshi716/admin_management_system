@@ -54,7 +54,8 @@
         },
         "serve": {
           "options": {
-            "proxyConfig": "proxy.conf.json"
+            "proxyConfig": "proxy.conf.json",
+            "allowedHosts": ["sbjct-corps-reproduced-custom.trycloudflare.com"]
           },
           "builder": "@angular/build:dev-server",
           "configurations": {
