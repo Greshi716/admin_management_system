@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <script>
+      (function() {
+        // Capture host references before any artifact code runs: Window.parent
+        // is [Replaceable] (a top-level `var parent` in artifact code would
+        // replace the accessor with a data property), and a top-level
+        // `const crypto` would shadow the global — either would otherwise
+        // silently break the bridge for artifacts that worked before.
+        const realParent = window.parent;
+        const cryptoObj = window.crypto;
+        const RealURL = URL;
+        const realDecodeURIComponent = decodeURIComponent;
+        const RealTextEncoder = TextEncoder;
+        const realAtob = atob;
+        const RealString = String;
+        // html-to-image is only used by takeScreenshot: fetched on first use, not as a
+        // parser-blocking tag. Native fetch, captured before the proxy override below.
+        const realFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+        const HTML_TO_IMAGE_SRC = "https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js";
+        const HTML_TO_IMAGE_INTEGRITY = "sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==";
+        let htmlToImageLoad = null;
+        const loadHtmlToImage = () => {
+          if (!htmlToImageLoad) {
+            htmlToImageLoad = (realFetch
+              ? realFetch(HTML_TO_IMAGE_SRC, { integrity: HTML_TO_IMAGE_INTEGRITY, credentials: 'omit', referrerPolicy: 'no-referrer' })
+              : Promise.reject(new Error('fetch unavailable'))
+            )
+              .then((res) => {
+                if (!res.ok) throw new Error('html-to-image failed to load (' + res.status + ')');
+                return res.text();
+              })
+              .then((source) => {
+                // UMD bundle: hide the artifact's AMD/CommonJS globals so it takes the
+                // window-global branch; inline script text runs synchronously on insert.
+                const hidden = ['define', 'module', 'exports'].map((k) => {
+                  const entry = { k, own: Object.prototype.hasOwnProperty.call(window, k), v: window[k] };
+                  try { window[k] = undefined; } catch (e) {}
+                  return entry;
+                });
+                try {
+                  const el = document.createElement('script');
+                  el.text = source;
+                  (document.head || document.documentElement).appendChild(el);
+                } finally {
+                  hidden.forEach(({ k, own, v }) => {
+                    try { if (own) { window[k] = v; } else { delete window[k]; } } catch (e) {}
+                  });
+                }
+                if (!window.htmlToImage) throw new Error('html-to-image unavailable after load');
+                return window.htmlToImage;
+              });
+            // A failed load may be transient; let the next screenshot retry.
+            htmlToImageLoad.catch(() => { htmlToImageLoad = null; });
+          }
+          return htmlToImageLoad;
+        };
+        // crypto.randomUUID exists only in Secure Contexts; fall back to a
+        // unique non-crypto id elsewhere (http://LAN-IP dev flows) —
+        // uniqueness is what the bridge needs, unpredictability is
+        // defense-in-depth on top of the source guards.
+        const newRequestId =
+          cryptoObj && typeof cryptoObj.randomUUID === "function"
+            ? function () { return cryptoObj.randomUUID(); }
+            : function () { return Date.now() + "-" + Math.random(); };
+
+        // Bridge request ids are crypto-random (not sequential) so they
+        // cannot be predicted by other frames in the tab.
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        // storage.get and .list calls not yet answered, read by the parent at this frame's 'load' (an answer may restyle the page); counted
+        // here, not there, because WebKit can run this frame's 'load' in the parent before a message posted while parsing has arrived.
+        let storageReadsOut = 0;
+        try { Object.defineProperty(window, '__storageReadsOut', { configurable: true, get: () => storageReadsOut }); } catch (e) {}
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+              storageReadsOut += 1;
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+              storageReadsOut += 1;
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = newRequestId();
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Null-body statuses: Response(stream, {status: 204}) throws
+                // per the Fetch spec, which would escape this resolver and
+                // hang the artifact's await forever.
+                if (response.status === 204 || response.status === 205 || response.status === 304) {
+                  try {
+                    resolve(new Response(null, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    }));
+                  } catch (err) {
+                    // Invalid statusText/header bytes can throw here too.
+                    reject(new TypeError(
+                      'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                    ));
+                  }
+                  return;
+                }
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream. Response()
+                // requires status in [200, 599]; an opaque/no-cors fetch
+                // forwards status 0, which would throw here and escape the
+                // resolver, hanging the artifact's await. Surface it as a
+                // network-error-shaped rejection instead.
+                try {
+                  resolve(new Response(stream, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers
+                  }));
+                } catch (err) {
+                  streamControllers.delete(channelId);
+                  reject(new TypeError(
+                    'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                  ));
+                }
+              },
+              reject,
+              channelId
+            });
+            
+            realParent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          // Only the embedding parent may drive the bridge — sibling and
+          // nested frames can also postMessage into this window.
+          if (event.source !== realParent) return;
+          if (event.data.type === 'takeScreenshot') {
+            // Echo the request's nonce so the requester can correlate the
+            // reply to ITS request — a reply without the expected nonce
+            // (e.g. from a stale pre-remount artifact) is ignored upstream.
+            const screenshotNonce = event.data.nonce;
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: new Error('Root element not found'),
+              }, '*');
+              return;
+            }
+            // Catch CDN load failures and toPng errors so the parent always
+            // gets a response instead of hanging forever.
+            try {
+              const htmlToImage = await loadHtmlToImage();
+              const screenshot = await htmlToImage.toPng(rootElement, {
+                imagePlaceholder:
+                  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+              });
+              realParent.postMessage({
+                type: 'screenshotData',
+                nonce: screenshotNonce,
+                data: screenshot,
+              }, '*');
+            } catch (err) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }, '*');
+            }
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            storageReadsOut -= 1;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            storageReadsOut -= 1;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        // An SVG <a> exposes href as an SVGAnimatedString; its baseVal is the attribute
+        // as written, so resolve it against the base URL as the browser does for an HTML <a>.
+        const resolvedHref = (linkEl) => {
+          if (typeof linkEl.href === "string") return linkEl.href;
+          const written = linkEl.href?.baseVal;
+          // A same-document SVG link, such as one that begins an animation, stays with the browser.
+          if (!written || written.trim().startsWith("#")) return "";
+          try {
+            return new RealURL(written, linkEl.baseURI).href;
+          } catch (error) {
+            return written;
+          }
+        };
+
+        // This frame's URL is about:srcdoc, so the browser resolves "#id" against the renderer
+        // page and would load that page in the frame instead of scrolling.
+        const sameDocumentFragment = (linkEl) => {
+          const written = linkEl.getAttribute("href")?.trim();
+          if (!written?.startsWith("#") || document.querySelector("base[href]")) return null;
+          return written.slice(1);
+        };
+
+        const scrollToFragment = (fragment) => {
+          let decoded = fragment;
+          try {
+            decoded = realDecodeURIComponent(fragment);
+          } catch (error) {}
+          let target = document.getElementById(fragment) ?? document.getElementById(decoded);
+          for (const named of target ? [] : document.getElementsByName(decoded)) {
+            if (named.localName === "a") {
+              target = named;
+              break;
+            }
+          }
+          if (target) {
+            target.scrollIntoView();
+          } else if (decoded.toLowerCase() === "top") {
+            window.scrollTo(0, 0);
+          } else {
+            return false;
+          }
+          return true;
+        };
+
+        // Same decoder as dataUrlFile in app/page.tsx; change both together.
+        const hexPair = /^[0-9a-f]{2}$/i;
+        const dataUrlFile = (href) => {
+          const hash = href.indexOf("#");
+          const url = hash === -1 ? href : href.slice(0, hash);
+          const comma = url.indexOf(",");
+          if (comma === -1) return null;
+          const header = url.slice(0, comma);
+          const payload = url.slice(comma + 1);
+          const mimeMatch = header.match(/data:([^;]+)/);
+          const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+          const declaredBase64 = header
+            .split(";")
+            .slice(1)
+            .some((param) => param.trim().toLowerCase() === "base64");
+          const type = mimeMatch ? mimeMatch[1].trim().toLowerCase() : "";
+          const binaryType = type !== "" && !type.startsWith("text/");
+          if (declaredBase64 || (binaryType && !payload.includes("%"))) {
+            let binary = null;
+            try {
+              binary = realAtob(
+                payload.replace(/%([0-9a-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16))),
+              );
+            } catch (error) {
+              if (declaredBase64) return null;
+            }
+            if (binary !== null) {
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+              }
+              return { mimeType, data: bytes.buffer };
+            }
+          }
+          const input = new RealTextEncoder().encode(payload);
+          const bytes = new Uint8Array(input.length);
+          let length = 0;
+          for (let i = 0; i < input.length; i++) {
+            if (input[i] === 0x25 && i + 2 < input.length) {
+              const pair = String.fromCharCode(input[i + 1], input[i + 2]);
+              if (hexPair.test(pair)) {
+                bytes[length++] = parseInt(pair, 16);
+                i += 2;
+                continue;
+              }
+            }
+            bytes[length++] = input[i];
+          }
+          return { mimeType, data: bytes.slice(0, length).buffer };
+        };
+
+        window.addEventListener('click', (event) => {
+          // Not instanceof Element: an artifact's own top-level class Element shadows the global.
+          if (typeof event.target?.closest !== "function") return;
+    
+          const linkEl = event.target.closest("a");
+          const href = linkEl && resolvedHref(linkEl);
+          if (!href) return;
+
+          const fragment = sameDocumentFragment(linkEl);
+          if (fragment !== null) {
+            const handledByArtifact = event.defaultPrevented;
+            event.preventDefault();
+            if (handledByArtifact || fragment === "" || scrollToFragment(fragment)) return;
+            // A fragment that names nothing in the artifact may name something in the host,
+            // such as a project thread. The artifact's own listeners still see the click.
+            realParent.postMessage({ type: 'openExternal', href }, '*');
+            return;
+          }
+          const filename = linkEl.getAttribute("download") ?? "";
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              realParent.postMessage({
+                type: "downloadFile",
+                filename,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (href.startsWith("data:")) {
+            const file = dataUrlFile(href);
+            if (!file) return;
+            realParent.postMessage({
+              type: "downloadFile",
+              filename,
+              data: file.data,
+              mimeType: file.mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            realParent.postMessage({
+              type: 'openExternal',
+              href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          realParent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          realParent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+
+        // Last, so that a throw here leaves the bridge laid.
+        // As join(' ') words each argument, but for a Symbol or an object with no toString, at which join throws in the page's own call.
+        const worded = (arg) => {
+          try {
+            return RealString(arg ?? '');
+          } catch {
+            return '[object Object]';
+          }
+        };
+        [['log', ''], ['error', 'Error: '], ['warn', 'Warning: ']].forEach(([method, prefix]) => {
+          if (typeof window.console?.[method] !== 'function') return;
+          const native = window.console[method].bind(window.console);
+          window.console[method] = (...args) => {
+            native(...args);
+            realParent.postMessage({ type: 'console', message: prefix + args.map(worded).join(' ') }, '*');
+          };
+        });
+      })();
+    </script>
+  <style id="claude-scrollbar">@layer claude-scrollbar{*{scrollbar-width:thin}html{scrollbar-color:rgb(128 128 128 / 50%) transparent}}</style><script>
+(function () {
+  "use strict";
+  if (window.__coworkHtmlReviewGuest) return;
+  window.__coworkHtmlReviewGuest = true;
+
+  var READY_TYPE = "__cowork_html_review_ready__";
+  var SEL_CLASS = "__cwhr-sel";
+  var CONTEXT_LEN = 32;
+  var EXACT_CAP = 1000;
+  var port = null;
+  var mode = false;
+  var pins = [];
+  var quotes = [];
+  // Resolved Range per quote id; invalidated on DOM mutation and on a
+  // fresh quotes set. Scroll/resize re-reports just re-read
+  // getClientRects() from the cached Range. Null prototype - ids are
+  // collaborator-writable and must not collide with Object.prototype.
+  var quoteRanges = Object.create(null);
+  var hoverEl = null;
+  var selected = null;
+  var hasTextSel = false;
+  var rafPending = false;
+  // Capture before page body scripts can shadow them; start() defers
+  // to DOMContentLoaded which page code can race.
+  var _MessageChannel = window.MessageChannel;
+  var _topPost = window.top.postMessage.bind(window.top);
+
+  function visibleText(el) {
+    // innerText drops display:none/visibility:hidden subtrees; keep an
+    // empty innerText (icon-only el) rather than falling through to
+    // textContent which would re-include hidden text.
+    var t = typeof el.innerText === "string" ? el.innerText : (el.textContent || "");
+    return t.replace(/\s+/g, " ").trim();
+  }
+
+  // Comment-mode cursor: see HTML_PREVIEW_COMMENT_CURSOR above.
+  var BUBBLE_CURSOR = "url(\"data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'24'%20height%3D'24'%20viewBox%3D'0%200%2024%2024'%3E%3Cpath%20d%3D'M12%20.5h0A11.5%2011.5%200%200%201%2023.5%2012v0A11.5%2011.5%200%200%201%2012%2023.5H2.5a2%202%200%200%201-2-2V12A11.5%2011.5%200%200%201%2012%20.5Z'%20fill%3D'%23fff'%20stroke%3D'rgba(0%2C0%2C0%2C0.22)'%20stroke-width%3D'1'%2F%3E%3C%2Fsvg%3E\") 1 23, url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAACjklEQVR4AbRWS2gaURR9TGpiFTUEWpKQkA+EruqizWcRSBRT/G8KKpXiyo0ra1fVNiDFLmypFUo3iht/iO4Uay1FGwtFECl1p6KWLly4CGqrSMTY+wRFQ7WhGYd7Zu697845b+7M8B6BJh+UxcXFG3a7XeTxeHQAC+C12+1+ZLPZhHgMbp8FjLWxAkaj8U48Hg8lEomfIpEoLBaLLTKZTAd4LJFI3kD8HsZ+xGKxoMFgYI9T+JvAtUAg8FylUn3hcDj8ra0t6vLyMmKxWIhCofSAfZyDMRqXy+Wr1eqvPp/vKYjMAEZsRMDpdN6MRCKf+Xz+8cbGBm2kckIAtXShUGgKh8Mnfr9/Ybh0IKDT6a4vLS19EggE+wwGY7jmUj6TyUTQyv35+fmP0MbBexkISKVS+97e3u1LsU0oAo67Go3G1i/pCZjN5t3Nzc0H/zPzPlH/ip8EWvbQYrHs4hwWmN3e3n62traGfZy7MtbX12fYbPYTIKIQOzs7C6urq/cgINVWVlaO4EtjEXq9nken06mksgMZtJthtVp5xNzcHBsEIEWu0Wg0RKVS2USz2WTigFx6hPCkMTfRarXgB6WQzd/j63Q6bdK+nB7j0KnRaCCCIMpTE4D2oEql8m1qAvV6/VSr1U5PIJvN+qFjv6fyBIVC4ZfD4XgJAmekC9RqNZROp1+FQqESCCDSBWCVO1EoFC8wOQZpAnjm0Wj0O/xX94H4HNAzotvtNnreFU6lUgllMplAMpnclcvlp8NURC6Xi8BLGc5N9NvtNqpWq6hcLqN8Pn8OLUkAMe/g4EAOG4WzizcTJpPpA6zFIpfL9Ra2I45/IRgM2lKp1LtisXjs9XpvHR4eHimVythF4n78BwAA//8r8OPFAAAABklEQVQDAPCY8Oae0TJxAAAAAElFTkSuQmCC\") 1 23, default";
+
+  function injectStyle() {
+    var style = document.createElement("style");
+    // Hover box is painted by the host (from streamed rects); the guest
+    // marks the selected element and, in comment mode, swaps the native
+    // cursor for the comment bubble (forced, so page cursor styles don't
+    // fight the picker). While a composer or thread card is open the arrow
+    // returns, so the bubble cursor and the pin just placed never show at
+    // once. Keyed on <html> data attributes, which page scripts that
+    // rewrite body.className leave alone; ":not(#_)" lifts the rules to
+    // id-level specificity so a page's own !important cursor rules lose.
+    var ANY = ":not(#__cwhr_)";
+    var MODE = "html[data-cwhr-mode]";
+    var COMPOSING = MODE + "[data-cwhr-composing]";
+    style.textContent =
+      "." + SEL_CLASS + "{outline:1px solid hsl(40 70% 40%) !important;outline-offset:0;}" +
+      MODE + ANY + "," + MODE + " " + ANY + "{cursor:" + BUBBLE_CURSOR + " !important;}" +
+      COMPOSING + ANY + "," + COMPOSING + " " + ANY + "{cursor:default !important;}";
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function isUnique(sel) {
+    try {
+      return document.querySelectorAll(sel).length === 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Mirrors the host's stripInvisibles ranges. The host strips these
+  // from stored selectors, so a selector built on a value containing
+  // them would validate here but never match again - skip those rungs
+  // and fall through to the structural ladder instead.
+  function hasInvisibles(s) {
+    for (var i = 0; i < s.length; i++) {
+      var c = s.codePointAt(i);
+      if (c > 0xffff) i++;
+      if (
+        c <= 0x1f ||
+        c === 0x061c ||
+        c === 0x070f ||
+        c === 0xad ||
+        (c >= 0x7f && c <= 0x9f) ||
+        c === 0x115f ||
+        c === 0x1160 ||
+        c === 0x180e ||
+        (c >= 0x200b && c <= 0x200f) ||
+        (c >= 0x202a && c <= 0x202e) ||
+        (c >= 0x2060 && c <= 0x2064) ||
+        (c >= 0x2066 && c <= 0x2069) ||
+        c === 0x3164 ||
+        c === 0xfeff ||
+        (c >= 0xfff9 && c <= 0xfffb) ||
+        c === 0xffa0 ||
+        (c >= 0xe0000 && c <= 0xe007f)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function escapeAttr(v) {
+    return String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
+  // Selector ladder: unique #id -> unique [data-*] -> structural
+  // tag:nth-of-type path rooted at the nearest unique-id ancestor.
+  function selectorFor(el) {
+    if (el.id && !hasInvisibles(el.id) && isUnique("#" + CSS.escape(el.id))) {
+      return "#" + CSS.escape(el.id);
+    }
+    for (var i = 0; i < el.attributes.length; i++) {
+      var attr = el.attributes[i];
+      if (
+        attr.name.indexOf("data-") === 0 &&
+        attr.value &&
+        !hasInvisibles(attr.value)
+      ) {
+        var dataSel = "[" + attr.name + '="' + escapeAttr(attr.value) + '"]';
+        if (isUnique(dataSel)) return dataSel;
+      }
+    }
+    var parts = [];
+    var cur = el;
+    while (cur && cur !== document.body && cur.nodeType === 1 && parts.length < 10) {
+      var sel = cur.tagName.toLowerCase();
+      var parent = cur.parentElement;
+      if (parent) {
+        var sameTag = [];
+        for (var c = 0; c < parent.children.length; c++) {
+          if (parent.children[c].tagName === cur.tagName) sameTag.push(parent.children[c]);
+        }
+        if (sameTag.length > 1) {
+          sel += ":nth-of-type(" + (sameTag.indexOf(cur) + 1) + ")";
+        }
+      }
+      parts.unshift(sel);
+      if (
+        parent &&
+        parent.id &&
+        !hasInvisibles(parent.id) &&
+        isUnique("#" + CSS.escape(parent.id))
+      ) {
+        parts.unshift("#" + CSS.escape(parent.id));
+        return parts.join(" > ");
+      }
+      cur = parent;
+    }
+    if (cur === document.body) {
+      parts.unshift("body");
+      return parts.join(" > ");
+    }
+    // Depth cap hit without a root - an unrooted chain would match the
+    // first structural pattern anywhere in the document. Mark the pin
+    // detached instead of attaching it to the wrong element.
+    return ":not(*)";
+  }
+
+  function descriptorFor(el) {
+    var tag = "<" + el.tagName.toLowerCase() + ">";
+    var idPart = el.id ? " #" + el.id : "";
+    var text = visibleText(el).slice(0, 60);
+    var textPart = text ? ' "' + text + '"' : "";
+    // Nearest id'd ancestor, skipping the UCR-injected
+    // #artifacts-component-root-* wrapper which is implementation noise.
+    var section = el.parentElement;
+    while (
+      section &&
+      (!section.id || section.id.indexOf("artifacts-component-root") === 0)
+    ) {
+      section = section.parentElement;
+    }
+    var sectionPart = section && section.id ? " in #" + section.id : "";
+    return (tag + idPart + textPart + sectionPart).slice(0, 400);
+  }
+
+  // textContent offset of (node, offset) within body - the coordinate
+  // system text-quote anchors are stored in. -1 when the boundary
+  // isn't under body (shadow root, detached).
+  function textOffset(node, offset) {
+    var body = document.body;
+    if (!body) return -1;
+    try {
+      var pre = document.createRange();
+      pre.selectNodeContents(body);
+      pre.setEnd(node, offset);
+      return pre.toString().length;
+    } catch (e) {
+      return -1;
+    }
+  }
+
+  // Inverse: build a Range covering [start, end) in body.textContent.
+  function rangeForOffsets(start, end) {
+    var body = document.body;
+    if (!body) return null;
+    var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    var acc = 0;
+    var range = document.createRange();
+    var haveStart = false;
+    var t;
+    while ((t = walker.nextNode())) {
+      var next = acc + t.length;
+      if (!haveStart && start < next) {
+        range.setStart(t, start - acc);
+        haveStart = true;
+      }
+      if (haveStart && end <= next) {
+        range.setEnd(t, end - acc);
+        return range;
+      }
+      acc = next;
+    }
+    return null;
+  }
+
+  // Context-scored search (W3C text-quote resolution): slice-check the
+  // hint, else pick the occurrence whose surrounding chars best match
+  // prefix/suffix. MIRRORS locateTextQuote() above line-for-line - the
+  // tested export is the contract; this copy is what the sandbox runs.
+  function locateQuote(text, q) {
+    var ex = q.exact;
+    if (!ex) return null;
+    var hint = q.startOffset >= 0 ? q.startOffset : 0;
+    if (text.slice(hint, hint + ex.length) === ex) {
+      return { start: hint, end: hint + ex.length };
+    }
+    var best = -1;
+    var bestScore = -1;
+    var bestDist = Infinity;
+    var scanned = 0;
+    for (var idx = text.indexOf(ex); idx !== -1 && ++scanned <= 1000; idx = text.indexOf(ex, idx + 1)) {
+      var before = text.slice(Math.max(0, idx - CONTEXT_LEN), idx);
+      var after = text.slice(idx + ex.length, idx + ex.length + CONTEXT_LEN);
+      var sc = 0;
+      for (var i = 1; i <= q.prefix.length && i <= before.length; i++) {
+        if (q.prefix[q.prefix.length - i] !== before[before.length - i]) break;
+        sc++;
+      }
+      for (var j = 0; j < q.suffix.length && j < after.length; j++) {
+        if (q.suffix[j] !== after[j]) break;
+        sc++;
+      }
+      var dist = Math.abs(idx - hint);
+      if (sc > bestScore || (sc === bestScore && dist < bestDist)) {
+        best = idx;
+        bestScore = sc;
+        bestDist = dist;
+      }
+    }
+    return best === -1 ? null : { start: best, end: best + ex.length };
+  }
+
+  function collectLineRects(range, cap) {
+    var out = [];
+    var rects = range.getClientRects();
+    for (var i = 0; i < rects.length && out.length < cap; i++) {
+      var r = rects[i];
+      if (r.width > 0 && r.height > 0) {
+        out.push({ x: r.left, y: r.top, w: r.width, h: r.height });
+      }
+    }
+    return out;
+  }
+
+  function reportTextSel(full) {
+    if (!port) return;
+    var sel = window.getSelection();
+    var r = sel && !sel.isCollapsed && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (!r || !document.body || !document.body.contains(r.commonAncestorContainer)) {
+      if (hasTextSel) {
+        hasTextSel = false;
+        port.postMessage({ type: "textClear" });
+      }
+      return;
+    }
+    hasTextSel = true;
+    var br = r.getBoundingClientRect();
+    var msg = {
+      type: "textCapture",
+      rect: { x: br.left, y: br.top, w: br.width, h: br.height },
+      lineRects: collectLineRects(r, 80),
+    };
+    if (full) {
+      var live = document.body.textContent || "";
+      var so = textOffset(r.startContainer, r.startOffset);
+      var eo = textOffset(r.endContainer, r.endOffset);
+      if (so < 0 || eo < 0 || eo <= so) {
+        // Unanchorable selection (shadow root, foreign node). A
+        // rect-only post here would make the host pair the new rect
+        // with a stale prior anchor - clear instead.
+        hasTextSel = false;
+        port.postMessage({ type: "textClear" });
+        return;
+      }
+      // Denomination invariant: exact/prefix/suffix are byte-identical
+      // slices of body.textContent. Truncation adjusts endOffset so
+      // the host's (endOffset - startOffset === exact.length) shape
+      // check holds. Cut points back off surrogate halves - a lone
+      // surrogate would never relocate and fails UTF-8 persist.
+      var capped = Math.min(eo, so + EXACT_CAP);
+      if (capped < eo) {
+        var hc = live.charCodeAt(capped - 1);
+        if (hc >= 0xd800 && hc <= 0xdbff) capped--;
+      }
+      if (capped <= so) {
+        port.postMessage(msg);
+        return;
+      }
+      var pStart = Math.max(0, so - CONTEXT_LEN);
+      var pc = live.charCodeAt(pStart);
+      if (pc >= 0xdc00 && pc <= 0xdfff) pStart++;
+      var sEnd = Math.min(live.length, capped + CONTEXT_LEN);
+      if (sEnd < live.length) {
+        var sc = live.charCodeAt(sEnd - 1);
+        if (sc >= 0xd800 && sc <= 0xdbff) sEnd--;
+      }
+      msg.exact = live.slice(so, capped);
+      msg.prefix = live.slice(pStart, so);
+      msg.suffix = live.slice(capped, sEnd);
+      msg.startOffset = so;
+      msg.endOffset = capped;
+    }
+    port.postMessage(msg);
+  }
+
+  function clearSelection() {
+    if (selected) {
+      selected.classList.remove(SEL_CLASS);
+      selected = null;
+    }
+  }
+
+  // rAF-throttled cursor + hover-rect stream so the host can paint the
+  // inspector hover box (and knows the pointer is present) in comment mode.
+  var cursorPending = false;
+  var cursorX = -1;
+  var cursorY = -1;
+  function flushCursor() {
+    cursorPending = false;
+    if (!port) return;
+    var hover = null;
+    if (
+      hoverEl &&
+      hoverEl.nodeType === 1 &&
+      hoverEl !== document.body &&
+      hoverEl !== document.documentElement
+    ) {
+      var r = hoverEl.getBoundingClientRect();
+      if (r.width > 0 || r.height > 0) {
+        hover = { x: r.left, y: r.top, w: r.width, h: r.height };
+      }
+    }
+    port.postMessage({ type: "cursor", x: cursorX, y: cursorY, hover: hover });
+  }
+  function scheduleCursor() {
+    if (!cursorPending) {
+      cursorPending = true;
+      requestAnimationFrame(flushCursor);
+    }
+  }
+  function onMouseMove(ev) {
+    if (!mode || !port) return;
+    // Over the scrollbar gutter (clientX/Y past the content box) - hide
+    // the hover box like a leave.
+    var de = document.documentElement;
+    if (ev.clientX >= de.clientWidth || ev.clientY >= de.clientHeight) {
+      cursorX = -1;
+      cursorY = -1;
+      hoverEl = null;
+      scheduleCursor();
+      return;
+    }
+    cursorX = ev.clientX;
+    cursorY = ev.clientY;
+    hoverEl = ev.target;
+    scheduleCursor();
+  }
+  function onMouseLeave() {
+    if (!mode || !port) return;
+    cursorX = -1;
+    cursorY = -1;
+    hoverEl = null;
+    scheduleCursor();
+  }
+
+  function onClick(ev) {
+    if (!port) return;
+    if (!mode) {
+      // Mode off: don't intercept the page, just let the host close any
+      // open popover (thread card click-away). A non-collapsed selection
+      // means the click ended a drag-select - not a click-away.
+      var s = window.getSelection();
+      if (!s || s.isCollapsed) port.postMessage({ type: "clickAway" });
+      return;
+    }
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    var el = ev.target;
+    if (!el || el.nodeType !== 1 || el === document.documentElement) return;
+    if (el === document.body && el.firstElementChild) {
+      // Pin on body is rarely intentional; keep it anyway but as body.
+    }
+    clearSelection();
+    selected = el;
+    el.classList.add(SEL_CLASS);
+    var rect = el.getBoundingClientRect();
+    var pinX = rect.width > 0 ? (ev.clientX - rect.left) / rect.width : 0.5;
+    var pinY = rect.height > 0 ? (ev.clientY - rect.top) / rect.height : 0.5;
+    port.postMessage({
+      type: "capture",
+      selector: selectorFor(el).slice(0, 1000),
+      textHint: visibleText(el).slice(0, 300),
+      descriptor: descriptorFor(el),
+      pinX: Math.min(1, Math.max(0, pinX)),
+      pinY: Math.min(1, Math.max(0, pinY)),
+      clientX: ev.clientX,
+      clientY: ev.clientY,
+      rectLeft: rect.left,
+      rectTop: rect.top,
+    });
+  }
+
+  function reportRects() {
+    rafPending = false;
+    if (!port) return;
+    // Selected element's live bounds - keeps the host's draft pin /
+    // inspector tag / composer glued through scroll and reflow.
+    if (selected) {
+      var sr = selected.getBoundingClientRect();
+      port.postMessage({
+        type: "selRect",
+        left: sr.left,
+        top: sr.top,
+        w: sr.width,
+        h: sr.height,
+        found:
+          (sr.width > 0 || sr.height > 0) &&
+          document.documentElement.contains(selected),
+      });
+    }
+    var rects = [];
+    for (var i = 0; i < pins.length; i++) {
+      var p = pins[i];
+      var el = null;
+      try {
+        el = document.querySelector(p.selector);
+      } catch (e) {
+        el = null;
+      }
+      if (!el) {
+        rects.push({ id: p.id, x: 0, y: 0, found: false });
+        continue;
+      }
+      var r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) {
+        rects.push({ id: p.id, x: 0, y: 0, found: false });
+        continue;
+      }
+      rects.push({
+        id: p.id,
+        x: r.left + p.pinX * r.width,
+        y: r.top + p.pinY * r.height,
+        found: true,
+      });
+    }
+    var quoteRects = [];
+    if (quotes.length > 0) {
+      var live = null;
+      for (var qi = 0; qi < quotes.length; qi++) {
+        var q = quotes[qi];
+        var qr = quoteRanges[q.id];
+        if (qr === undefined) {
+          if (live === null) {
+            live = (document.body && document.body.textContent) || "";
+          }
+          var loc = locateQuote(live, q);
+          qr = (loc && rangeForOffsets(loc.start, loc.end)) || null;
+          quoteRanges[q.id] = qr;
+        }
+        // Zero paintable rects (display:none subtree) reports as
+        // not-found so the host docks it as detached instead of
+        // rendering nothing clickable.
+        var qlr = qr ? collectLineRects(qr, 80) : [];
+        quoteRects.push(
+          qlr.length > 0
+            ? { id: q.id, found: true, lineRects: qlr }
+            : { id: q.id, found: false, lineRects: [] }
+        );
+      }
+    }
+    port.postMessage({
+      type: "rects",
+      rects: rects,
+      quoteRects: quoteRects,
+      scrollY: window.scrollY || 0,
+    });
+  }
+
+  function scheduleRects() {
+    if (rafPending) return;
+    rafPending = true;
+    var done = false;
+    function run() {
+      if (done) return;
+      done = true;
+      reportRects();
+    }
+    // rAF for paint alignment, with a timeout fallback - rAF is
+    // suspended entirely in hidden tabs and pins must still settle
+    // when the tab becomes visible after background loading.
+    requestAnimationFrame(run);
+    setTimeout(run, 150);
+  }
+
+  function setMode(on) {
+    mode = !!on;
+    document.documentElement.toggleAttribute("data-cwhr-mode", mode);
+    if (!mode) {
+      hoverEl = null;
+      clearSelection();
+    }
+  }
+
+  function setComposing(open) {
+    document.documentElement.toggleAttribute("data-cwhr-composing", !!open);
+  }
+
+  function onPortMessage(ev) {
+    var data = ev.data;
+    if (!data) return;
+    if (data.type === "mode") setMode(data.on);
+    else if (data.type === "composing") setComposing(data.open);
+    else if (data.type === "pins") {
+      pins = Array.isArray(data.pins) ? data.pins : [];
+      scheduleRects();
+    } else if (data.type === "quotes") {
+      quotes = Array.isArray(data.quotes) ? data.quotes : [];
+      quoteRanges = Object.create(null);
+      scheduleRects();
+    } else if (data.type === "clearSelection") {
+      clearSelection();
+    } else if (data.type === "clearTextSel") {
+      var ts = window.getSelection();
+      if (ts) ts.removeAllRanges();
+      hasTextSel = false;
+    } else if (data.type === "restoreScroll") {
+      var ry = Number(data.y);
+      if (isFinite(ry) && ry > 0) {
+        // Apply now and again at load - late images/fonts can grow the
+        // document after the first attempt clamps short.
+        window.scrollTo(0, ry);
+        window.addEventListener("load", function () {
+          window.scrollTo(0, ry);
+        });
+      }
+    }
+  }
+
+  function start() {
+    injectStyle();
+    var channel = new _MessageChannel();
+    port = channel.port1;
+    port.onmessage = onPortMessage;
+    // Sandboxed srcdoc origins can be opaque; "*" is required. The
+    // payload carries only the mount token (multiple sandboxes can be
+    // mounted at once - the token routes the port to the right overlay)
+    // and the channel port itself is pairwise-secure.
+    _topPost(
+      { type: READY_TYPE, token: "cc886e0c-8756-4577-acea-f74d4cd8b888" },
+      "*",
+      [channel.port2]
+    );
+    document.addEventListener("mousemove", onMouseMove, true);
+    // documentElement (not document, capture) so this fires only when the
+    // pointer leaves the viewport - capture-phase on document would fire for
+    // every intra-document element-boundary crossing.
+    document.documentElement.addEventListener("mouseleave", onMouseLeave);
+    document.addEventListener("click", onClick, true);
+    // Text-selection capture: commit on mouseup/keyup (Shift+Arrow),
+    // clear on collapse. Not mode-gated; highlight-to-comment is
+    // always on.
+    function onSelCommit() { reportTextSel(true); }
+    document.addEventListener("mouseup", onSelCommit, true);
+    document.addEventListener("keyup", onSelCommit, true);
+    document.addEventListener("selectionchange", function () {
+      var s = window.getSelection();
+      if (hasTextSel && (!s || s.isCollapsed)) reportTextSel(false);
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape" && port) port.postMessage({ type: "dismiss" });
+    }, true);
+    // Scroll/resize move the hovered element under a stationary pointer -
+    // re-report its rect so the host's inspector box tracks it. Mutations
+    // stay rects-only (animating pages would chatter the cursor stream).
+    var textSelPending = false;
+    function scheduleTextSel() {
+      if (textSelPending) return;
+      textSelPending = true;
+      requestAnimationFrame(function () {
+        textSelPending = false;
+        reportTextSel(false);
+      });
+    }
+    function onLayoutChange() {
+      scheduleRects();
+      if (mode && hoverEl) scheduleCursor();
+      if (hasTextSel) scheduleTextSel();
+    }
+    window.addEventListener("scroll", onLayoutChange, true);
+    window.addEventListener("resize", onLayoutChange);
+    // Full-cache invalidate per childList mutation is acceptable: CSS
+    // animation doesn't fire the observer; JS writers at frame rate
+    // would re-relocate every frame but are rare. characterData isn't
+    // observed, so .data= edits leave highlights stale until the next
+    // childList mutation.
+    var observer = new MutationObserver(function () {
+      quoteRanges = Object.create(null);
+      scheduleRects();
+      if (hasTextSel) scheduleTextSel();
+    });
+    function observe() {
+      if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+    }
+    if (document.body) observe();
+    else document.addEventListener("DOMContentLoaded", observe);
+    // Settle pins after late layout (fonts, images).
+    setInterval(scheduleRects, 2000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CampusFlow – Product Agreement (Editable)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7fb; --surface:#ffffff; --surface-2:#f1f3f9; --ink:#141a2e; --ink-2:#4a5470; --ink-3:#8590ab;
+  --line:#e3e7f0; --accent:#3b4cca; --accent-2:#eef0ff; --teal:#0f8a7e; --teal-bg:#e4f6f3;
+  --amber:#a86400; --amber-bg:#fff4e0; --blue:#2c5bd8; --blue-bg:#e8efff; --red:#c23a3a; --red-bg:#fdebeb;
+  --violet:#7a3fc2; --violet-bg:#f3ebff; --green:#137a2f; --green-bg:#dcf5e3;
+  --radius:14px; --shadow:0 1px 2px rgba(20,26,46,.04),0 4px 16px rgba(20,26,46,.05);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14.5px;line-height:1.55}
+code,.mono{font-family:"JetBrains Mono",monospace;font-size:12px}
+a{color:var(--accent);text-decoration:none}
+.app{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;background:#10152a;color:#c9cfe4;padding:24px 18px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#5b6cff,#19b6a4);display:grid;place-items:center;color:#fff;font-weight:800}
+.brand b{color:#fff;font-size:16px}.brand small{display:block;color:#8a93b3;font-size:11.5px}
+aside nav{margin-top:22px}
+aside nav a{display:flex;gap:10px;align-items:center;color:#b7bed8;padding:7px 10px;border-radius:8px;font-size:13.5px}
+aside nav a span{color:#5f6a90;font-size:11.5px;width:18px}
+aside nav a:hover,aside nav a.active{background:#1d2442;color:#fff}
+.side-foot{margin-top:20px;padding:12px;border-radius:10px;background:#1a2040;font-size:12px;color:#97a0c2}
+.prog{height:6px;background:#2a3157;border-radius:9px;overflow:hidden;margin:8px 0 4px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,#19b6a4,#5bd38a);width:0}
+main{padding:36px 48px 120px;max-width:1260px;width:100%}
+
+.hero{background:linear-gradient(135deg,#1b2350 0%,#2a3a9e 55%,#127e86 100%);color:#fff;border-radius:20px;padding:36px 40px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.hero:after{content:"";position:absolute;right:-80px;top:-80px;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none}
+.hero .eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+.hero h1{margin:8px 0 6px;font-size:34px;letter-spacing:-.02em}
+.hero p{margin:0;opacity:.9;max-width:720px}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px;position:relative;z-index:1}
+.meta div{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);padding:8px 14px;border-radius:10px;font-size:12.5px}
+.meta b{display:block;font-size:14px}
+
+section{margin-top:46px;scroll-margin-top:20px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.sec-num{font-family:"JetBrains Mono";color:var(--accent);font-weight:500;font-size:13px}
+h2{margin:0;font-size:23px;letter-spacing:-.015em}
+.lead{color:var(--ink-2);margin:4px 0 20px;max-width:820px}
+h3{margin:0;font-size:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;line-height:1.6}
+.c-src{background:var(--teal-bg);color:var(--teal)}.c-p{background:var(--blue-bg);color:var(--blue)}
+.c-q{background:var(--amber-bg);color:var(--amber)}.c-sens{background:var(--red-bg);color:var(--red)}
+.c-auto{background:var(--violet-bg);color:var(--violet)}.c-ok{background:var(--green-bg);color:var(--green)}
+.c-x{background:#eceef3;color:#7a8199;text-decoration:line-through}
+.legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.legend>div{display:flex;gap:6px;align-items:center}
+.stat .k{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.stat .s{font-size:12.5px;color:var(--ink-2)}
+
+.role-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.role-table th,.role-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+.role-table th{background:var(--surface-2);font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2)}
+
+.mod{display:flex;flex-direction:column;gap:10px}
+.mod-head{display:flex;align-items:center;gap:10px}
+.mod-ico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:17px;background:var(--accent-2);flex:none}
+.feat{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px dashed var(--line)}
+.feat input[type=checkbox]{margin-top:4px;accent-color:var(--teal);width:16px;height:16px;flex:none}
+.feat .t{font-weight:600;font-size:13.5px}.feat .d{color:var(--ink-2);font-size:12.8px}
+.feat>div{flex:1}
+
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+.filters input{flex:1;min-width:220px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
+.pill{border:1px solid var(--line);background:#fff;padding:7px 13px;border-radius:999px;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);cursor:pointer}
+.pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tcard{margin-bottom:16px;padding:0;overflow:hidden}
+.tcard summary{list-style:none;cursor:pointer;padding:16px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tcard summary::-webkit-details-marker{display:none}
+.tcard summary .caret{margin-left:auto;color:var(--ink-3);transition:transform .2s}
+.tcard[open] summary .caret{transform:rotate(90deg)}
+.tname{font-weight:700;font-size:15px}.tcode{color:var(--ink-3)}
+.tmod{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--accent-2);padding:3px 8px;border-radius:6px}
+.tpurpose{padding:0 22px 12px;color:var(--ink-2);font-size:13.3px}
+.tnote{margin:0 22px 14px;padding:10px 14px;border-radius:10px;background:var(--surface-2);font-size:12.8px;color:var(--ink-2)}
+.tremark{margin:0 22px 14px;padding:10px 14px;border-radius:10px;background:var(--green-bg);font-size:12.8px;color:#0d4f1f}
+.tmeta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 22px 14px}
+.tmeta label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:700;display:block}
+.dt{width:100%;border-collapse:collapse;font-size:13px}
+.dt th{background:var(--surface-2);text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);padding:9px 14px;border-top:1px solid var(--line)}
+.dt td{padding:9px 14px;border-top:1px solid var(--line);vertical-align:top}
+.dt td.fl{font-weight:600;width:22%}
+.dt td.fl code{display:block;color:var(--ink-3);font-weight:400;margin-top:2px;font-size:11px}
+.dt .type{color:var(--ink-2)}
+.req{font-weight:700;font-size:12px}.req.Y{color:var(--teal)}.req.N{color:var(--ink-3)}.req.A{color:var(--violet)}
+tr.st-x td{opacity:.5}
+tr.st-x td.fl{text-decoration:line-through}
+.count{font-size:12px;color:var(--ink-3)}
+
+.er{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.er .box{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.er .box h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.er .box div{font-size:12.8px;padding:3px 0;color:var(--ink-2)}
+.er .box div b{color:var(--ink);font-weight:600}
+
+.map{width:100%;border-collapse:collapse;font-size:12.8px}
+.map th{background:#1b2350;color:#fff;text-align:left;padding:9px 12px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+.map td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.map tr.grp td{background:var(--surface-2);font-weight:700;color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.map td.col{font-family:"JetBrains Mono";font-weight:500}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.step{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:12.8px;display:flex;gap:7px;align-items:center}
+.step i{font-style:normal;font-weight:700;color:#fff;background:var(--accent);border-radius:50%;width:19px;height:19px;display:grid;place-items:center;font-size:10.5px;flex:none}
+.arrow{color:var(--ink-3)}
+.hint{font-size:11.5px;color:var(--ink-3);margin-top:6px}
+
+.doc{border:1.5px solid #2a2f45;border-radius:6px;background:#fbfcfd;padding:16px;font-size:12px;font-family:Georgia,serif;color:#222}
+.doc .dh{text-align:center;border-bottom:1.5px solid #2a2f45;padding-bottom:8px;margin-bottom:8px}
+.doc .dh b{font-family:Inter;font-size:13.5px}
+.doc table{width:100%;border-collapse:collapse;margin-top:6px}
+.doc td,.doc th{border:1px solid #9aa0b3;padding:4px 6px;text-align:left;font-size:11.5px}
+.doc .line{display:flex;gap:8px;margin:3px 0}
+.doc .line span{flex:1;border-bottom:1px dotted #777}
+.doc .new{background:#fff4c8}
+.doc-cap{font-size:12.5px;color:var(--ink-2);margin-top:8px}
+
+.q{display:grid;grid-template-columns:54px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.q .qn{font-family:"JetBrains Mono";font-weight:500;color:var(--amber);background:var(--amber-bg);border-radius:8px;height:28px;display:grid;place-items:center;font-size:12px}
+.q.done .qn{color:var(--green);background:var(--green-bg)}
+.q .qt{font-weight:600;font-size:13.6px}
+.q .qw{font-size:12.6px;color:var(--ink-2);margin-top:2px}
+.q textarea{margin-top:8px;width:100%;border:1px dashed #cdd3e2;border-radius:8px;min-height:44px;padding:8px 10px;font:inherit;font-size:13px;background:#fcfcfe;resize:vertical}
+.q textarea:focus{outline:2px solid var(--accent-2);border-style:solid;border-color:var(--accent)}
+.q .qfoot{display:flex;gap:14px;align-items:center;margin-top:6px;font-size:12.5px;color:var(--ink-2)}
+.qgroup{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--accent);margin:22px 0 4px}
+.qfilter{display:flex;gap:6px;margin-bottom:6px}
+
+ul.clean{margin:8px 0 0;padding-left:18px}ul.clean li{margin:4px 0}
+.sign{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.sign .box{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+.sign .box .ln{border-bottom:1px solid #999;height:44px;margin:8px 0 4px}
+.sign small{color:var(--ink-3)}
+.ver{width:100%;border-collapse:collapse;font-size:13px}
+.ver td,.ver th{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.ver th{font-size:11.5px;text-transform:uppercase;color:var(--ink-2);background:var(--surface-2)}
+.ver input{width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;font-size:13px}
+
+/* ---- editing ---- */
+.ce{outline:none;border-radius:4px;padding:0 2px;min-width:20px;display:inline-block}
+body.editing .ce{background:#fffbe6;box-shadow:inset 0 -1px 0 #f0c64a}
+body.editing .ce:focus{background:#fff3c0;box-shadow:0 0 0 2px #f0c64a}
+body.editing [data-ed]{outline:1.5px dashed #f0c64a;outline-offset:4px;border-radius:6px}
+body.editing [data-ed]:focus{outline-style:solid;background:#fffdf3}
+.ed-only{display:none!important}
+body.editing .ed-only{display:revert!important}
+body.editing .view-only{display:none!important}
+select.mini{font:inherit;font-size:12px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.xbtn{border:0;background:var(--red-bg);color:var(--red);width:24px;height:24px;border-radius:6px;cursor:pointer;font-weight:700;flex:none}
+.addbtn{border:1.5px dashed #b9c1d9;background:#fff;color:var(--accent);font:inherit;font-weight:600;font-size:12.5px;padding:7px 12px;border-radius:9px;cursor:pointer;margin:10px 0}
+.tcard .addbtn{margin:10px 22px 16px}
+.sensbox{display:inline-flex;gap:4px;align-items:center;font-size:11.5px;color:var(--red);margin-top:4px}
+.remark-ta{width:100%;border:1px solid #bfe3c9;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;background:#f5fcf7;min-height:40px;resize:vertical}
+
+/* floating bar */
+.bar{position:fixed;right:20px;bottom:20px;z-index:50;display:flex;gap:8px;align-items:center;background:#10152a;padding:8px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);flex-wrap:wrap;max-width:calc(100vw - 40px)}
+.bar button,.bar label{border:0;cursor:pointer;font:inherit;font-weight:600;font-size:12.5px;padding:8px 13px;border-radius:9px;background:#232a4d;color:#dfe4f7}
+.bar button.primary{background:linear-gradient(135deg,#5b6cff,#19b6a4);color:#fff}
+.bar button.on{background:#f0c64a;color:#2a2000}
+.bar .saved{font-size:11.5px;color:#8fe0b4;padding:0 6px;min-width:70px}
+.banner{display:none;margin-top:14px;background:#fff3c0;color:#5a4300;border:1px solid #f0c64a;border-radius:12px;padding:10px 14px;font-size:13px}
+body.editing .banner{display:block}
+
+@media (max-width:1000px){.app{grid-template-columns:1fr}aside{display:none}main{padding:20px 16px 140px}.g3,.g4,.er,.sign,.tmeta{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+@media (max-width:640px){.g3,.g4,.er,.sign,.tmeta{grid-template-columns:1fr}.hero{padding:26px 22px}.hero h1{font-size:26px}.dt,.map{display:block;overflow-x:auto}}
+@media print{
+  aside,.bar,.filters,.no-print,.ed-only,.addbtn,.xbtn,.banner,.qfilter{display:none!important}
+  .app{display:block}main{padding:0;max-width:none}body{background:#fff;font-size:12px}
+  .card,.hero{box-shadow:none}
+  .hero,.chip,.map th,.tmod,.step i,.tremark{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .tcard,.q,.sign .box,.doc{break-inside:avoid}
+  [data-ed],.ce{outline:none!important;background:none!important;box-shadow:none!important}
+}
+</style>
+<style>.__cwhr-sel{outline:1px solid hsl(40 70% 40%) !important;outline-offset:0;}html[data-cwhr-mode]:not(#__cwhr_),html[data-cwhr-mode] :not(#__cwhr_){cursor:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'24'%20height%3D'24'%20viewBox%3D'0%200%2024%2024'%3E%3Cpath%20d%3D'M12%20.5h0A11.5%2011.5%200%200%201%2023.5%2012v0A11.5%2011.5%200%200%201%2012%2023.5H2.5a2%202%200%200%201-2-2V12A11.5%2011.5%200%200%201%2012%20.5Z'%20fill%3D'%23fff'%20stroke%3D'rgba(0%2C0%2C0%2C0.22)'%20stroke-width%3D'1'%2F%3E%3C%2Fsvg%3E") 1 23, url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAACjklEQVR4AbRWS2gaURR9TGpiFTUEWpKQkA+EruqizWcRSBRT/G8KKpXiyo0ra1fVNiDFLmypFUo3iht/iO4Uay1FGwtFECl1p6KWLly4CGqrSMTY+wRFQ7WhGYd7Zu697845b+7M8B6BJh+UxcXFG3a7XeTxeHQAC+C12+1+ZLPZhHgMbp8FjLWxAkaj8U48Hg8lEomfIpEoLBaLLTKZTAd4LJFI3kD8HsZ+xGKxoMFgYI9T+JvAtUAg8FylUn3hcDj8ra0t6vLyMmKxWIhCofSAfZyDMRqXy+Wr1eqvPp/vKYjMAEZsRMDpdN6MRCKf+Xz+8cbGBm2kckIAtXShUGgKh8Mnfr9/Ybh0IKDT6a4vLS19EggE+wwGY7jmUj6TyUTQyv35+fmP0MbBexkISKVS+97e3u1LsU0oAo67Go3G1i/pCZjN5t3Nzc0H/zPzPlH/ip8EWvbQYrHs4hwWmN3e3n62traGfZy7MtbX12fYbPYTIKIQOzs7C6urq/cgINVWVlaO4EtjEXq9nken06mksgMZtJthtVp5xNzcHBsEIEWu0Wg0RKVS2USz2WTigFx6hPCkMTfRarXgB6WQzd/j63Q6bdK+nB7j0KnRaCCCIMpTE4D2oEql8m1qAvV6/VSr1U5PIJvN+qFjv6fyBIVC4ZfD4XgJAmekC9RqNZROp1+FQqESCCDSBWCVO1EoFC8wOQZpAnjm0Wj0O/xX94H4HNAzotvtNnreFU6lUgllMplAMpnclcvlp8NURC6Xi8BLGc5N9NvtNqpWq6hcLqN8Pn8OLUkAMe/g4EAOG4WzizcTJpPpA6zFIpfL9Ra2I45/IRgM2lKp1LtisXjs9XpvHR4eHimVythF4n78BwAA//8r8OPFAAAABklEQVQDAPCY8Oae0TJxAAAAAElFTkSuQmCC") 1 23, default !important;}html[data-cwhr-mode][data-cwhr-composing]:not(#__cwhr_),html[data-cwhr-mode][data-cwhr-composing] :not(#__cwhr_){cursor:default !important;}</style></head>
+<body id="artifacts-component-root-html" class="">
+<div class="app">
+<aside>
+  <div class="brand"><div class="logo">C</div><div><b>CampusFlow</b><small>Product Agreement · Editable</small></div></div>
+  <nav id="nav">
+    <a href="#overview" class="active"><span>01</span>Overview</a>
+    <a href="#users" class=""><span>02</span>Users &amp; Access</a>
+    <a href="#features" class=""><span>03</span>Features</a>
+    <a href="#model" class=""><span>04</span>Data Overview</a>
+    <a href="#tables" class=""><span>05</span>Data Tables</a>
+    <a href="#salary" class=""><span>06</span>Salary Sheet Mapping</a>
+    <a href="#receipt" class=""><span>07</span>Receipt &amp; Fee Heads</a>
+    <a href="#workflows" class=""><span>08</span>Workflows</a>
+    <a href="#documents" class=""><span>09</span>Printable Documents</a>
+    <a href="#dashboards" class=""><span>10</span>Dashboards</a>
+    <a href="#questions" class=""><span>11</span>Questions for School</a>
+    <a href="#scope" class=""><span>12</span>Assumptions &amp; Scope</a>
+    <a href="#install" class=""><span>13</span>Installation &amp; Safety</a>
+    <a href="#approval" class=""><span>14</span>Decisions &amp; Approval</a>
+  </nav>
+  <div class="side-foot">
+    <div>Agreement progress</div>
+    <div class="prog"><i id="progBar" style="width: 0%;"></i></div>
+    <div id="progText">0% — 0 items agreed, 0 questions resolved</div>
+  </div>
+</aside>
+
+<main>
+<div class="hero">
+  <div class="eyebrow">Product Agreement Document</div>
+  <h1>CampusFlow — School Administration System</h1>
+  <p data-ed="heroText">Prepared for <b>Birlasagar Higher Secondary School, Porbandar</b>. This document describes what the system will do, what information it will store, and the rules it will follow. Please review it, answer the open questions, and sign the approval section.</p>
+  <div class="meta" id="meta"></div>
+</div>
+<div class="banner">✏️ <b>Edit mode is on.</b> Click any yellow text to change it. Use the status dropdowns to mark items <b>Agreed ✓</b> or <b>Not needed</b>. Changes are saved automatically in this browser — use <b>Download copy</b> to keep or share a file.</div>
+
+<section id="overview">
+  <div class="sec-head"><span class="sec-num">01</span><h2>Overview</h2></div>
+  <p class="lead" data-ed="ovLead">CampusFlow replaces the Excel sheets, receipt books and paper registers currently used for students, fees, staff, salary and school expenses. It runs on a computer inside the school and does not need cloud services.</p>
+  <div class="grid g4">
+    <div class="card stat"><div class="k">Data tables</div><div class="v" id="tcount">33</div><div class="s">Explained in section 05</div></div>
+    <div class="card stat"><div class="k">Items agreed</div><div class="v" id="acount">0 / 305</div><div class="s">Fields &amp; salary columns marked Agreed</div></div>
+    <div class="card stat"><div class="k">Still to confirm</div><div class="v" id="ccount">70</div><div class="s">Fields &amp; columns marked To confirm</div></div>
+    <div class="card stat"><div class="k">Open questions</div><div class="v" id="qcount">32 / 32</div><div class="s">Not yet marked resolved</div></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>How to read this document</h3>
+    <div class="legend" style="margin-top:10px">
+      <div><span class="chip c-src">School records</span> From your sheets / receipt book</div>
+      <div><span class="chip c-p">Proposed</span> Our suggestion</div>
+      <div><span class="chip c-q">To confirm</span> Needs your answer</div>
+      <div><span class="chip c-auto">Automatic</span> Filled by system</div>
+      <div><span class="chip c-ok">Agreed ✓</span> Approved by school</div>
+      <div><span class="chip c-x">Not needed</span> Removed</div>
+      <div><span class="chip c-sens">🔒 Sensitive</span> Restricted access</div>
+    </div>
+  </div>
+</section>
+
+<section id="users">
+  <div class="sec-head"><span class="sec-num">02</span><h2>Users &amp; Access</h2></div>
+  <p class="lead" data-ed="usersLead">Every person using the system has their own login. Every financial action records who did it and when. Edit the table to match who will hold each role.</p>
+  <div class="card" style="padding:0;overflow:hidden">
+  <table class="role-table">
+    <thead><tr><th>Area</th><th>Admin (Principal / Trustee)</th><th>Accountant</th><th>Clerk / Office staff</th></tr></thead>
+    <tbody data-ed="roles">
+      <tr><td><br></td><td></td><td></td><td><br></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="features">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Features</h2></div>
+  <p class="lead">Tick each feature the school approves for version 1. Ticks are saved.</p>
+  <div class="grid g2" id="featureGrid"></div>
+  <button class="addbtn ed-only" onclick="addModule()">+ Add module</button>
+</section>
+
+<section id="model">
+  <div class="sec-head"><span class="sec-num">04</span><h2>Data Overview</h2></div>
+  <p class="lead">A student has one permanent record and a <b>yearly class record</b> for every academic year. Staff have one permanent record and <b>dated salary details</b>, so past salaries never change when a new rate is set.</p>
+  <div class="er">
+    <div class="box"><h4>Setup</h4><div><b>Academic Years</b></div><div><b>Standards</b> → <b>Divisions</b></div><div><b>Student Categories</b></div><div><b>Fee Heads</b> → <b>Fee Structure</b></div><div><b>Salary Rules</b></div><div><b>Leave Types</b>, <b>Facilities</b></div></div>
+    <div class="box"><h4>Students</h4><div><b>Student</b> (GR No.)</div><div>→ <b>Yearly Class Record</b></div><div>→ <b>Fee Account</b></div><div>→ <b>Receipts</b> → <b>Receipt Lines</b></div><div>→ <b>LC Register</b></div><div><b>Google Form Admissions</b></div></div>
+    <div class="box"><h4>Staff</h4><div><b>Staff</b></div><div>→ <b>Salary Details</b> (dated)</div><div>→ <b>Leave Records</b> / <b>Balance</b></div><div>→ <b>Facility Subscriptions</b></div><div>→ <b>Payslips</b> per month</div><div>→ <b>Staff Leaving Register</b></div></div>
+    <div class="box"><h4>Money &amp; Control</h4><div><b>Fund Ledger</b> — every rupee</div><div>← Receipts, Payroll, Expenses</div><div><b>Expenses</b></div><div><b>Monthly Fund Summary</b></div><div><b>Audit Log</b></div><div><b>Backup History</b></div></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Important principles</h3>
+    <ul class="clean" data-ed="principles">
+      <li><b>Nothing financial is ever deleted.</b> A wrong receipt is <i>cancelled</i> with a reason; the number stays in the register.</li>
+      <li><b>Leaving students and staff are not erased.</b> They move to the LC / Leaving register and disappear from active lists, but history is kept.</li>
+      <li><b>A finalised payroll month is locked.</b> Later rule changes apply only from their effective month.</li>
+      <li><b>All amounts are exact to the paisa</b>; rounding follows rules approved by the school.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="tables">
+  <div class="sec-head"><span class="sec-num">05</span><h2>Data Tables</h2></div>
+  <p class="lead">Every table and field. In edit mode you can rename fields, change status, add or remove fields, and write the school's remarks for each table.</p>
+  <div class="filters no-print">
+    <input id="search" placeholder="Search fields, e.g. GR No, EPF, cheque…" oninput="renderTables()">
+    <div id="modFilters" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <select class="mini" id="stFilter" onchange="renderTables()" style="padding:8px">
+      <option value="">All statuses</option><option value="q">To confirm</option><option value="ok">Agreed</option><option value="p">Proposed</option><option value="src">School records</option><option value="x">Not needed</option>
+    </select>
+  </div>
+  <div id="tableList"></div>
+  <button class="addbtn ed-only" onclick="addTable()">+ Add table</button>
+</section>
+
+<section id="salary">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Salary Sheet Mapping</h2></div>
+  <p class="lead" data-ed="salLead">Every column from the current salary sheet, what we understand it means, and how we propose to calculate it. Write the school's confirmed formula in <b>Client remarks</b> and mark the row <b>Agreed ✓</b>.</p>
+  <div class="card" style="padding:0;overflow:auto"><table class="map" id="salaryMap"></table></div>
+  <button class="addbtn ed-only" onclick="addSal(false)">+ Add column</button> <button class="addbtn ed-only" onclick="addSal(true)">+ Add group heading</button>
+</section>
+
+<section id="receipt">
+  <div class="sec-head"><span class="sec-num">07</span><h2>Receipt &amp; Fee Heads</h2></div>
+  <p class="lead">Fee heads from the printed receipt book. Add, remove or rename as agreed.</p>
+  <div class="grid g2">
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="dt"><thead><tr><th>#</th><th>Fee head</th><th>Type</th><th>Extra details</th><th class="ed-only"></th></tr></thead><tbody id="feeHeads"></tbody></table>
+      <button class="addbtn ed-only" style="margin:10px 14px" onclick="addFee()">+ Add fee head</button>
+    </div>
+    <div class="card">
+      <h3>Receipt rules</h3>
+      <ul class="clean" data-ed="receiptRules">
+        <li>Receipt number is generated automatically, never repeated, never skipped. <span class="chip c-q">To confirm</span> continue from current book or restart each year?</li>
+        <li>One receipt can contain several fee heads (as in the book).</li>
+        <li>Payment mode: Cash or Cheque (cheque no. and date). <span class="chip c-q">To confirm</span> UPI / bank transfer?</li>
+        <li>Partial payment is allowed; the balance stays pending in the student's fee account.</li>
+        <li>Total in words printed automatically in Indian style.</li>
+        <li>Wrong receipt → <b>cancel with reason</b>; amount reversed in fund ledger.</li>
+        <li>Duplicate copy can be printed any time, marked "DUPLICATE".</li>
+        <li>Caution money tracked as a refundable deposit, settled at LC time.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="workflows">
+  <div class="sec-head"><span class="sec-num">08</span><h2>Workflows</h2></div>
+  <p class="lead">Step-by-step how each task is done. In edit mode, separate steps with <b>→</b>.</p>
+  <div class="grid g2" id="flowGrid"></div>
+  <button class="addbtn ed-only" onclick="addFlow()">+ Add workflow</button>
+</section>
+
+<section id="documents">
+  <div class="sec-head"><span class="sec-num">09</span><h2>Printable Documents</h2></div>
+  <p class="lead">Simplified previews. Final layouts will match the school's formats; yellow highlights are suggested additions.</p>
+  <div class="grid g3">
+    <div>
+      <div class="doc">
+        <div class="dh"><b>BIRLASAGAR HIGHER SECONDARY SCHOOL</b><br>PORBANDAR – 360576<br><b style="font-size:12px">RECEIPT</b> &nbsp; No. 3101</div>
+        <div class="line">Date <span>24-10-2026</span></div>
+        <div class="line">Cash / Cheque No. <span>—</span> Dated <span></span></div>
+        <div class="line">From <span>Patel Riya K. (GR 2451)</span></div>
+        <div class="line">Std <span>9</span> Div <span>B</span> <span class="new">Year 2026-27</span></div>
+        <table><tbody><tr><th>#</th><th>Particulars</th><th>Rs.</th></tr>
+        <tr><td>2</td><td>School Fee for the year</td><td>8,000</td></tr>
+        <tr><td>8</td><td>School Diary</td><td>150</td></tr>
+        <tr><td></td><td><b>Total</b></td><td><b>8,150</b></td></tr>
+        <tr class="new"><td></td><td>Balance pending for year</td><td>4,000</td></tr></tbody></table>
+        <div class="line" style="margin-top:6px">Rupees <span>Eight Thousand One Hundred Fifty Only</span></div>
+        <div style="text-align:right;margin-top:10px">For, Birlasagar Hr. Sec. School</div>
+      </div>
+      <div class="doc-cap" data-ed="capReceipt"><b>Fee Receipt</b> — same as receipt book, with year and pending balance added.</div>
+    </div>
+    <div>
+      <div class="doc">
+        <div class="dh"><b>BIRLASAGAR HIGHER SECONDARY SCHOOL, PORBANDAR</b><br>Pay Slip: OCT-26</div>
+        <div class="line">Name <span>MS. Bhavana I Patel</span> EPF No. <span>…</span></div>
+        <table>
+          <tbody><tr><th>Earnings</th><th>Rs.</th><th>Deductions</th><th>Rs.</th></tr>
+          <tr><td>Basic</td><td>…</td><td>E.P.F. 12%</td><td>…</td></tr>
+          <tr><td>D.A.</td><td>…</td><td>P.T.</td><td>…</td></tr>
+          <tr><td>Conveyance</td><td>…</td><td>Income Tax</td><td>…</td></tr>
+          <tr><td>Medical All.</td><td>…</td><td>L.I.C.</td><td>…</td></tr>
+          <tr><td>LTA</td><td>…</td><td>Facilities</td><td>…</td></tr>
+          <tr><td>Arrears / Spl. All.</td><td>…</td><td></td><td></td></tr>
+          <tr><td><b>Total Salary</b></td><td>…</td><td><b>Total Ded.</b></td><td>…</td></tr>
+        </tbody></table>
+        <div class="line" style="margin-top:6px">Month days <span>31</span> Days payable <span>31</span></div>
+        <div class="line new">Net Payment <span>…</span> Bank A/C <span>XXXX1234</span></div>
+        <div class="line new">Leave balance <span>CL 6 · EL 12</span></div>
+      </div>
+      <div class="doc-cap" data-ed="capPayslip"><b>Payslip</b> — current sample shows earnings only; we propose adding deductions, net pay and leave balance. <span class="chip c-q">To confirm</span></div>
+    </div>
+    <div>
+      <div class="doc">
+        <div class="dh"><b>BIRLASAGAR HIGHER SECONDARY SCHOOL</b><br>PORBANDAR<br><b style="font-size:12px">LEAVING CERTIFICATE</b> &nbsp; No. LC/26/045</div>
+        <div class="line">GR No. <span>2451</span></div>
+        <div class="line">Name <span>Patel Riya K.</span></div>
+        <div class="line">Date of birth <span>12-03-2012</span></div>
+        <div class="line">Date of admission <span>10-06-2019</span> Std <span>2</span></div>
+        <div class="line">Standard studying <span>9 B</span></div>
+        <div class="line">Date of leaving <span>30-10-2026</span></div>
+        <div class="line">Reason <span>Parent transfer</span></div>
+        <div class="line">Conduct <span>Good</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:16px"><span>Clerk</span><span>Principal</span></div>
+      </div>
+      <div class="doc-cap" data-ed="capLC"><b>Leaving Certificate</b> — to be matched to the official LC format. <span class="chip c-q">To confirm</span></div>
+    </div>
+  </div>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card" data-ed="docNotice"><h3>Fee Reminder Notice</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">Printable letter per student or class listing pending fee heads and due date, plus a ready-to-copy WhatsApp / SMS message.</p></div>
+    <div class="card" data-ed="docSheet"><h3>Salary Sheet (Excel)</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">Monthly salary sheet exported in exactly the same column layout as the current Excel.</p></div>
+    <div class="card" data-ed="docReports"><h3>Reports</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">Class formation sheet, pending fee list, day-wise collection, monthly fund summary, expense and leave reports — Excel and PDF.</p></div>
+  </div>
+</section>
+
+<section id="dashboards">
+  <div class="sec-head"><span class="sec-num">10</span><h2>Dashboards</h2></div>
+  <p class="lead">Every list screen: search box, filter by any column, sort, export to Excel.</p>
+  <div class="grid g3" id="dashGrid"></div>
+  <button class="addbtn ed-only" onclick="addDash()">+ Add dashboard</button>
+</section>
+
+<section id="questions">
+  <div class="sec-head"><span class="sec-num">11</span><h2>Questions for the School</h2></div>
+  <p class="lead">Type the school's answer in each box and tick <b>Resolved</b> once agreed. Answers are always editable, even outside edit mode.</p>
+  <div class="qfilter no-print">
+    <button class="pill on" data-qf="all" onclick="setQF(this)">All</button>
+    <button class="pill" data-qf="open" onclick="setQF(this)">Open</button>
+    <button class="pill" data-qf="done" onclick="setQF(this)">Resolved</button>
+  </div>
+  <div class="card" id="qList"></div>
+</section>
+
+<section id="scope">
+  <div class="sec-head"><span class="sec-num">12</span><h2>Assumptions &amp; Scope</h2></div>
+  <div class="grid g2">
+    <div class="card"><h3>Assumptions</h3>
+      <ul class="clean" data-ed="assumptions">
+        <li>One school, one campus.</li>
+        <li>The system runs on one computer in the school; other office computers open it in a browser over the school network.</li>
+        <li>Internet is not required for daily use (only for importing Google Form entries).</li>
+        <li>Current students, staff, this year's payments and the opening balance will be imported from Excel.</li>
+        <li>For 1–2 months after go-live, Excel and the system will be used side by side.</li>
+        <li>Screens in English. Gujarati for notices / messages to be confirmed.</li>
+      </ul>
+    </div>
+    <div class="card"><h3>Not included in version 1</h3>
+      <ul class="clean" data-ed="outScope">
+        <li>Online fee payment by parents (payment gateway).</li>
+        <li>Automatic sending of SMS / WhatsApp — the system prepares the message.</li>
+        <li>Attendance, exams &amp; marks, timetable, library, transport.</li>
+        <li>Parent or student login / mobile app.</li>
+        <li>Government portal uploads (EPF ECR, income tax returns).</li>
+        <li>Cloud hosting.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="sec-head"><span class="sec-num">13</span><h2>Installation, Updates &amp; Data Safety</h2></div>
+  <div class="grid g4">
+    <div class="card" data-ed="inst1"><div class="mod-ico">🖥️</div><h3 style="margin-top:10px">Installation</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">We install the application and database on the school computer. A desktop shortcut opens CampusFlow.</p></div>
+    <div class="card" data-ed="inst2"><div class="mod-ico">⬆️</div><h3 style="margin-top:10px">Updates</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">One update file. It backs up first, then updates. If something fails, the previous version is restored.</p></div>
+    <div class="card" data-ed="inst3"><div class="mod-ico">💾</div><h3 style="margin-top:10px">Backups</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">Automatic daily backup. Last 7 days, 4 weeks and 12 months kept. Dashboard shows the last backup time.</p></div>
+    <div class="card" data-ed="inst4"><div class="mod-ico">🔐</div><h3 style="margin-top:10px">Privacy</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">Data stays inside the school. Bank, EPF, Aadhaar and salary details are visible only to authorised roles.</p></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>School's responsibilities</h3>
+    <ul class="clean" data-ed="schoolResp">
+      <li>Provide one computer that stays on during office hours (recommended: 8 GB RAM, 100 GB free). Actual machine: ____________</li>
+      <li>Copy the backup folder to a USB drive or Google Drive once a week (the system will remind you).</li>
+      <li>Use a UPS for the server computer.</li>
+      <li>Keep admin passwords private; create a separate login for each person.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="approval">
+  <div class="sec-head"><span class="sec-num">14</span><h2>Decisions &amp; Approval</h2></div>
+  <p class="lead">Record every decision taken in meetings. Changes after approval get a new version number.</p>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="ver"><thead><tr><th style="width:120px">Date</th><th>Decision</th><th style="width:180px">Decided by</th><th class="ed-only" style="width:40px"></th></tr></thead><tbody id="decisions"></tbody></table>
+    <button class="addbtn" style="margin:10px 14px" onclick="addDecision()">+ Add decision</button>
+  </div>
+  <div class="sign" style="margin-top:16px" data-ed="signers">
+    <div class="box"><b>For the School</b><br><small>Principal / Trustee</small><div class="ln"></div><small>Name, signature &amp; date</small></div>
+    <div class="box"><b>Accounts</b><br><small>Accountant</small><div class="ln"></div><small>Name, signature &amp; date</small></div>
+    <div class="box"><b>Developer</b><br><small>CampusFlow</small><div class="ln"></div><small>Name, signature &amp; date</small></div>
+  </div>
+  <div class="card" style="margin-top:16px;padding:0;overflow:hidden">
+    <table class="ver"><thead><tr><th>Version</th><th>Date</th><th>Change</th><th>Approved by</th></tr></thead>
+    <tbody data-ed="versions"><tr><td>0.1</td><td>24-10-2026</td><td>First draft from school's salary sheet, payslip, class formation sheet and receipt book</td><td>—</td></tr>
+    <tr><td>0.2</td><td></td><td>Client review meeting</td><td></td></tr></tbody></table>
+  </div>
+</section>
+</main>
+</div>
+
+<div class="bar no-print">
+  <button id="editBtn" onclick="toggleEdit()" class="">✏️ Edit mode</button>
+  <span class="saved" id="savedMsg"></span>
+  <button class="primary" onclick="downloadCopy()">⬇ Download copy</button>
+  <button onclick="printDoc()">🖨 Print / PDF</button>
+  <button onclick="exportJSON()">Export data</button>
+  <label>Import data<input type="file" accept=".json" style="display:none" onchange="importJSON(this)"></label>
+  <button onclick="resetAll()">Reset</button>
+</div>
+
+<!-- Saved state is embedded here when you use "Download copy" -->
+<script id="state" type="application/json">{"meta":{"version":"0.2 (Review)","date":"24 Oct 2026","status":"Awaiting school review","year":"2026-27 onward"},"features":[{"ico":"🎓","name":"Students & Admissions","items":[["New registration (manual)","Admin enters student details; GR No. checked for duplicates.",true],["Registration via Google Form","Form responses imported into a waiting list; staff reviews and approves.",true],["Yearly class record","Standard, division, roll no. and category stored for each academic year.",true],["Student profile","All details, class history, fee history on one page.",true]]},{"ico":"📅","name":"Academic Year Change","items":[["New academic year setup","Copy standards, divisions and fee structure from last year, then edit.",true],["Promotion wizard","Promote a whole class at once; mark detained / left individually.",true],["Pending fee carry-forward","Unpaid fees of last year move to the new year's account, with highlight and proper audit this is pending",true]]},{"ico":"📄","name":"Leaving Certificate (LC)","items":[["Issue LC","Refer LC number from the table, admin will edit the record of student from active to left,once that is done they should be prompted with button to prepare LC, and once user saves it add it to seperate table and their preserve the LC form too, each LC form should be editable; audit if fees pending or caution money not settled.",true],["Left Students Register","Separate list of students who left; removed from active lists, once the save is clicked",true],["Duplicate LC","Reprint marked as duplicate.",true]]},{"ico":"💰","name":"Fees","items":[["Fee structure per standard & category","Set in Admin panel per academic year.",true],["Fee collection & receipt","Multi-head receipt; cash / cheque; partial payments.",true],["Paid & pending per student","Always up-to-date balance.This reflection should garantee consistency, incase of inconsistency show the pop up, and have hard refresh option too.as application will be eventually consistent",true],["Receipt cancellation","With reason and audit trail; never deleted.",true],["Due dates / installments / late fee","Follow the school's timeline rules.",true],["Fee reminder notices","Printable notice and WhatsApp/SMS draft.It should have data per standard wi",true]]},{"ico":"👩‍🏫","name":"Staff","items":[["New staff entry","Personal, EPF, bank and salary details with effective date.",true],["Salary breakdown","How gross and net are calculated.",true],["Staff leaving","Leaving register with settlement; removed from active lists and payroll.",true],["Facility charges","Monthly subscriptions (HR, water, electricity, clubs, mess…).",true]]},{"ico":"🗓️","name":"Leave","items":[["Leave types & allowance","Days allowed per year per type; leave year Jun–May.",true],["Leave entry","Shows balance and marks unpaid days automatically.",true],["Unpaid leave in payroll","Unpaid days reduce Paid Days.",true],["Leave encashment","Calculated at leave-year end.",true]]},{"ico":"🧾","name":"Payroll","items":[["Monthly payroll","Generate, review, finalise (locks the month).",true],["Payslips","Print / PDF payslip per staff, month-wise.",true],["Salary sheet export","Excel in existing column layout.",true],["Configurable salary rules","Each column's calculation editable with effective date.",true],["Total Salary option anually for teacher if request can be provided","if any teacher ",true]]},{"ico":"🏦","name":"Fund, Expenses & Audit","items":[["Expense tracker","Expenses with category, voucher no. and bill photo.",false],["Fund ledger","Every rupee in and out in one register.",true],["Monthly carry-forward","Unused balance carried to next month.",true],["Salary coverage dashboard","How much more money is needed this month.",true],["Audit log","Who changed what and when; filter by date, month, year.",true],["Global search","Find any student, staff, receipt or expense.",true]]}],"tables":[{"mod":"Setup","name":"Academic Years","code":"academic_years","purpose":"Each school year.","fields":[["Year name","name","Text","Y","e.g. 2026-27","src",false],["Start date","start_date","Date","Y","e.g. 01-06-2026","q",false],["End date","end_date","Date","Y","e.g. 31-05-2027","q",false],["Current year","is_current","Yes / No","A","Only one year current at a time","auto",false],["","status","Choice","A","Open / Closed","p",false]],"note":"","remarks":""},{"mod":"Setup","name":"Standards","code":"standards","purpose":"Classes taught in the school.","fields":[["Standard name","name","Text","Y","e.g. 1 … 12 (pre-primary to confirm)","q",false],["Display order","display_order","Number","Y","","p",false],["Stream","stream","Choice","N","Science / Commerce for 11–12","q",false],["","next_standard","Link → Standards","N","Used by promotion","p",false]],"note":"","remarks":""},{"mod":"Setup","name":"Divisions","code":"divisions","purpose":"Divisions of each standard per year.","fields":[["Academic year","academic_year","Link → Academic Years","Y","","p",false],["Standard","standard","Link → Standards","Y","","p",false],["Division","name","Text","Y","e.g. A, B","src",false],["","section","Text","N","Receipt book shows Division and Section — meaning?","q",false],["","class_teacher","Link → Staff","N","","p",false]],"note":"","remarks":""},{"mod":"Setup","name":"Student Categories","code":"student_categories","purpose":"CATEGORY column of class formation sheet.","fields":[["Code","code","Text","Y","","p",false],["Name","name","Text","Y","General, Staff ward, RTE … (list to confirm)","q",false],["Affects fees","affects_fees","Yes / No","Y","Separate fee structure if yes","q",false],["","description","Text","N","","p",false]],"note":"","remarks":""},{"mod":"Setup","name":"NOT REQ","code":"fee_heads","purpose":"Particulars printed on the receipt (section 07).","fields":[["Name","name","Text","Y","e.g. School Fee for the year","src",false],["Group","group","Choice","Y","Admission / Annual / CBSE / Items / Misc / Others","src",false],["Charge type","charge_type","Choice","Y","One-time / Yearly / Per item / Per period / Refundable","p",false],["Refundable","refundable","Yes / No","Y","Yes for Caution Money","src",false],["Extra details","extra_details","Choice","N","Size & colour; Period from–to","src",false],["Receipt print order","print_order","Number","Y","","src",false],["Active","active","Yes / No","A","","p",false]],"note":"","remarks":""},{"mod":"Setup","name":"Fee Structure","code":"fee_structures","purpose":"Amount per standard / category / fee head per year.","fields":[["Academic year","academic_year","Link","Y","","p",false],["Standard","standard","Link","Y","","p",false],["Category","category","Link","N","Blank = all","q",false],["","fee_head","Link","Y","","p",false],["Amount (₹)","amount","Amount","Y","","p",false],["Installment / due date","due_date","Date","N","","q",false],["Late fee rule","late_fee_rule","Text","N","","q",false]],"note":"","remarks":""},{"mod":"Setup","name":"Users","code":"users","purpose":"People who can log in. Passwords stored encrypted.","fields":[["Full name","name","Text","Y","","p",false],["Username","username","Text","Y","Unique","p",false],["Role","role","Choice","Y","Admin / Accountant / Clerk","q",false],["Active","active","Yes / No","A","","p",false],["Last login","last_login","Date & time","A","","auto",false]],"note":"","remarks":""},{"mod":"Students","name":"Students","code":"students","purpose":"Permanent record of each student.","fields":[["GR No.","gr_no","Text","Y","Unique, never reused","src",false],["Surname","surname","Text","Y","","src",false],["First name","first_name","Text","Y","","src",false],["Father's / middle name","middle_name","Text","N","","src",false],["Gender","gender","Choice","Y","","p",false],["Date of birth","dob","Date","Y","","p",false],["Place of birth","birth_place","Text","N","Needed on LC?","q",false],["Father's name","father_name","Text","N","","p",false],["Mother's name","mother_name","Text","N","","p",false],["Mobile 1","mobile_1","Phone","Y","Used for fee reminders","p",false],["Mobile 2","mobile_2","Phone","N","","p",false],["Address","address","Text","Y","","p",false],["Aadhaar number","aadhaar","Text","N","Shown masked","q",true],["Religion / Caste","religion_caste","Text","N","Only if required on LC","q",true],["Category","category","Link","Y","","src",false],["Admission date","admission_date","Date","Y","","p",false],["Admitted in standard","admission_standard","Link","Y","","p",false],["Previous school","previous_school","Text","N","","p",false],["Photo","photo","Image","N","","p",false],["Status","status","Choice","A","Active / Left","auto",false],["Entry source","source","Choice","A","Manual / Google Form","auto",false]],"note":"","remarks":""},{"mod":"Students","name":"Yearly Class Record","code":"student_enrollments","purpose":"Replaces the CLASSFORMATION sheet. One row per student per year.","note":"G.R, S.NO, NAME, DIV, CATEGORY come from here; R.NO, DATE, PAID FEE, TOTAL, PENDING FEE are calculated from receipts.","fields":[["Student","student","Link","Y","","src",false],["Academic year","academic_year","Link","Y","","src",false],["Standard","standard","Link","Y","","src",false],["Division","division","Link","Y","","src",false],["Roll / serial no.","roll_no","Number","N","S.NO column","src",false],["Category (this year)","category","Link","Y","","src",false],["Year status","status","Choice","A","Studying / Promoted / Detained / Left","p",false]],"remarks":""},{"mod":"Students","name":"Google Form Admissions","code":"admission_requests","purpose":"Waiting list of imported Google Form entries.","fields":[["Submitted on","submitted_at","Date & time","A","","auto",false],["Form details","form_data","All student fields","A","","auto",false],["Import batch","import_batch","Number","A","","auto",false],["Possible duplicate","duplicate_flag","Yes / No","A","Same name + DOB + mobile","auto",false],["Review status","status","Choice","A","Pending / Approved / Rejected","p",false],["Reviewed by","reviewed_by","Link","A","","auto",false],["Remarks","remarks","Text","N","","p",false]],"note":"","remarks":""},{"mod":"Students","name":"Left Students Register (LC)","code":"lc_records","purpose":"Students who left; removed from active lists.","fields":[["LC No.","lc_no","Text","A","Format to confirm","q",false],["Student (GR No.)","student","Link","Y","","p",false],["Date of leaving","leaving_date","Date","Y","","p",false],["Date of issue","issue_date","Date","Y","","p",false],["Std & division at leaving","last_class","Auto","A","","auto",false],["Reason for leaving","reason","Text","Y","","p",false],["NA","conduct","Text","N","","q",false],["Progress / last result","progress","Text","N","","q",false],["Fees cleared","fees_cleared","Yes / No","A","Warns if dues pending","auto",false],["NA","caution_refund","Amount","N","","src",false],["Duplicate LC issued","duplicate_count","Number","A","","p",false],["Issued by","issued_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Fees","name":"Student Fee Account","code":"fee_assessments","purpose":"What each student must pay in a year per fee head.","fields":[["Yearly class record","enrollment","Link","Y","","p",false],["NA","fee_head","Link","Y","","p",false],["Amount (from structure)","amount","Amount","A","","auto",false],["","concession","Amount","N","","q",false],["","concession_reason","Text","N","","q",false],["Net payable","net_amount","Amount","A","","auto",false],["Due date","due_date","Date","N","","q",false],["Brought forward","carried_forward","Yes / No","A","From previous year","q",false]],"note":"","remarks":""},{"mod":"Fees","name":"Receipts","code":"receipts","purpose":"Every fee receipt, matching the receipt book.","fields":[["Receipt No.","receipt_no","Number","A","e.g. 3100","src",false],["Receipt date","receipt_date","Date","Y","","src",false],["Academic year","academic_year","Link","A","","auto",false],["Received from (student)","student","Link","Y","","src",false],["Std / Division / Section","class_snapshot","Auto","A","","src",false],["Payment mode","payment_mode","Choice","Y","Cash / Cheque (UPI?)","src",false],["Cheque no.","cheque_no","Text","N","","src",false],["Cheque dated","cheque_date","Date","N","","src",false],["Bank name","bank_name","Text","N","","p",false],["Total (₹)","total","Amount","A","","src",false],["Total in words","total_words","Text","A","","src",false],["Status","status","Choice","A","Valid / Cancelled","p",false],["Cancellation reason","cancel_reason","Text","N","","p",false],["Received by","created_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Fees","name":"NA","code":"receipt_items","purpose":"Particulars rows on a receipt.","fields":[["Receipt","receipt","Link","Y","","src",false],["Fee head","fee_head","Link","Y","","src",false],["Details","details","Text","N","Size / colour / period","src",false],["Quantity","qty","Number","N","","p",false],["Amount (₹)","amount","Amount","Y","","src",false]],"note":"","remarks":""},{"mod":"Fees","name":"Fee Reminders","code":"fee_reminders","purpose":"Every reminder generated.","fields":[["Generated on","created_at","Date","A","","auto",false],["Student","student","Link","Y","","p",false],["Pending amount (₹)","pending_amount","Amount","A","","auto",false],["Type","channel","Choice","Y","Notice / WhatsApp / SMS","p",false],["Message text","message","Text","A","","p",false],["Generated by","created_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Staff","name":"Staff","code":"staff","purpose":"Permanent record of each staff member.","fields":[["Employee code","emp_code","Text","A","","p",false],["Title","title","Choice","Y","Mr. / Ms. / Mrs.","src",false],["Full name","name","Text","Y","","src",false],["Designation","designation","Text","Y","","src",false],["Staff type","staff_type","Choice","Y","Teaching / Non-teaching","q",false],["Gender","gender","Choice","Y","","p",false],["Date of birth","dob","Date","Y","","p",false],["Date of joining","joining_date","Date","Y","","p",false],["Mobile","mobile","Phone","Y","","p",false],["Address","address","Text","N","","p",false],["EPF No.","epf_no","Text","N","","src",true],["UAN","uan","Text","N","","q",true],["PAN","pan","Text","N","","q",true],["Bank account no.","bank_ac","Text","Y","Shown masked","src",true],["Bank name & IFSC","bank_ifsc","Text","N","","q",false],["Status","status","Choice","A","Active / Left","auto",false]],"note":"","remarks":""},{"mod":"Staff","name":"Salary Details","code":"salary_structures","purpose":"Fixed salary values with effective month.","fields":[["Staff","staff","Link","Y","","p",false],["Effective from","effective_from","Month","Y","","p",false],["Basic (₹)","basic","Amount","Y","","src",true],["DA %","da_percent","Percent","Y","Default 257%","src",false],["Consolidated salary (₹)","con_salary","Amount","N","Fixed-pay staff?","q",true],["Conveyance (₹)","conveyance","Amount","N","","src",false],["Special allowance (₹)","special_allowance","Amount","N","","src",false],["Medical allowance (₹)","medical","Amount","N","","src",false],["LTA (₹)","lta","Amount","N","","src",false],["CBSE TR (₹)","cbse_tr","Amount","N","Meaning?","q",false],["EPF applicable","epf_applicable","Yes / No","Y","","q",false],["Voluntary EPF (₹)","vol_epf","Amount","N","","src",false],["LIC premium (₹)","lic","Amount","N","","src",false],["Income tax / month (₹)","income_tax","Amount","N","","q",true],["Gratuity applicable","gratuity_applicable","Yes / No","Y","","q",false],["Deductions","new_field","Text","N","","p",false]],"note":"","remarks":""},{"mod":"Staff","name":"Salary Rules","code":"salary_components","purpose":"Every salary-sheet column and its calculation (section 06).","fields":[["Column name","label","Text","Y","","src",false],["Code","code","Text","Y","","p",false],["Type","kind","Choice","Y","Earning / Deduction / Employer / Info","p",false],["Calculation method","method","Choice","Y","Fixed / % / Paid days / Slab / Monthly / Special","p",false],["Based on","base","Columns","N","","p",false],["Rate / %","rate","Number","N","","src",false],["Effective from","effective_from","Month","Y","","p",false],["Rounding","rounding","Choice","Y","","q",false],["Show on payslip","on_payslip","Yes / No","Y","","p",false],["Show on salary sheet","on_sheet","Yes / No","Y","","p",false],["Order","display_order","Number","Y","","src",false]],"note":"","remarks":""},{"mod":"Staff","name":"Staff Leaving Register","code":"staff_exits","purpose":"Staff who left; removed from active lists and payroll.","fields":[["Staff","staff","Link","Y","","p",false],["Last working day","last_working_day","Date","Y","","p",false],["Reason","reason","Choice","Y","Resigned / Retired / Terminated / Other","p",false],["Notice date","notice_date","Date","N","","q",false],["Final settlement (₹)","final_settlement","Amount","N","","q",true],["Gratuity paid (₹)","gratuity_paid","Amount","N","","q",true],["Leave encashment (₹)","leave_encashment","Amount","N","","q",false],["Experience certificate","exp_cert","Yes / No","N","","p",false],["Remarks","remarks","Text","N","","p",false]],"note":"","remarks":""},{"mod":"Staff","name":"Leave Types","code":"leave_types","purpose":"Kinds of leave and days allowed.","fields":[["Leave name","name","Text","Y","CL, ML, EL (list?)","q",false],["Days allowed per year","days_per_year","Number","Y","","q",false],["Paid leave","paid","Yes / No","Y","","q",false],["Carry forward","carry_forward","Yes / No","Y","","q",false],["Encashable","encashable","Yes / No","Y","ENCHAS column","src",false],["Leave year","leave_year","Text","Y","Jun to May","src",false]],"note":"","remarks":""},{"mod":"Staff","name":"Leave Records","code":"leave_records","purpose":"Each leave taken.","fields":[["Staff","staff","Link","Y","","p",false],["Leave type","leave_type","Link","Y","","p",false],["From date","from_date","Date","Y","","p",false],["To date","to_date","Date","Y","","p",false],["Days","days","Number","A","Half day allowed?","q",false],["Paid / Unpaid","paid","Auto","A","","auto",false],["Reason","reason","Text","N","","p",false],["Approved by","approved_by","Text","N","","p",false]],"note":"","remarks":""},{"mod":"Staff","name":"Leave Balance","code":"leave_balances","purpose":"Calculated view.","fields":[["Staff","staff","Link","A","","auto",false],["Leave year","leave_year","Text","A","","auto",false],["Leave type","leave_type","Link","A","","auto",false],["Allowed / Taken / Balance","balance","Numbers","A","","auto",false],["Unpaid days this month","unpaid_days","Number","A","","auto",false]],"note":"","remarks":""},{"mod":"Staff","name":"Facilities & Charge Types","code":"facilities","purpose":"Facilities whose charges are deducted from salary.","fields":[["Name","name","Text","Y","HR, Water, Electricity, TVC, Clubs, S.Mess, Holi, SMC…","src",false],["Charge type","charge_type","Choice","Y","Fixed monthly / Varies monthly","p",false],["Default amount (₹)","default_amount","Amount","N","","p",false]],"note":"","remarks":""},{"mod":"Staff","name":"Facility Subscriptions","code":"staff_facilities","purpose":"Which staff uses which facility.","fields":[["Staff","staff","Link","Y","","p",false],["Facility","facility","Link","Y","","p",false],["Monthly amount (₹)","amount","Amount","N","","p",false],["From month","from_month","Month","Y","","p",false],["To month","to_month","Month","N","","p",false]],"note":"","remarks":""},{"mod":"Staff","name":"Monthly Charges","code":"monthly_charges","purpose":"Charges that change every month.","fields":[["Month","month","Month","Y","","p",false],["Staff","staff","Link","Y","","p",false],["Facility","facility","Link","Y","","p",false],["Amount (₹)","amount","Amount","Y","","p",false],["Entered by","created_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Payroll","name":"Payroll Months","code":"payroll_runs","purpose":"Draft → Checked → Finalised.","fields":[["Month","month","Month","Y","e.g. OCT-26","src",false],["Monthly days","monthly_days","Number","Y","Calendar or working days?","q",false],["Status","status","Choice","A","Draft / Checked / Finalised","p",false],["Totals","totals","Amount","A","","auto",false],["Gratuity total","gratuity_total","Amount","A","","auto",false],["Prepared by","prepared_by","Link","A","","auto",false],["Finalised by & on","finalised_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Payroll","name":"Payslips","code":"payslips","purpose":"One per staff per month; never changes once finalised.","fields":[["Payroll month","payroll_run","Link","Y","","src",false],["Staff details (copy)","staff_snapshot","Auto","A","","src",true],["Monthly / Paid days","days","Number","A","","src",false],["Unpaid days","unpaid_days","Number","A","","src",false],["EPF wages","epf_wages","Amount","A","","src",false],["All salary columns","lines","Amounts","A","Section 06","src",true],["Total salary","gross","Amount","A","","src",true],["Total deduction","total_deduction","Amount","A","","src",true],["Net payment","net","Amount","A","","src",true],["Gratuity 4.81%","gratuity","Amount","A","","src",false]],"note":"","remarks":""},{"mod":"Finance","name":"Fund Ledger","code":"fund_ledger","purpose":"Audit register of all money in and out. Never edited; corrections are new entries.","fields":[["Entry no.","entry_no","Number","A","","auto",false],["Date","txn_date","Date","Y","","p",false],["Month","month","Month","A","","auto",false],["Entry type","type","Choice","Y","Opening / Fee / Cancel / Salary / Expense / Cash added / Adjustment","p",false],["In / Out","direction","Choice","A","","auto",false],["Amount (₹)","amount","Amount","Y","","p",false],["Linked record","reference","Link","N","","auto",false],["Description","description","Text","Y","","p",false],["Entered by & at","created_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Finance","name":"Expense Categories","code":"expense_categories","purpose":"Groups for school expenses.","fields":[["Name","name","Text","Y","List to confirm","q",false],["Description","description","Text","N","","p",false],["Active","active","Yes / No","A","","p",false]],"note":"","remarks":""},{"mod":"Finance","name":"Expenses","code":"expenses","purpose":"Other school expenses.","fields":[["Date","expense_date","Date","Y","","p",false],["Category","category","Link","Y","","p",false],["Paid to","payee","Text","Y","","p",false],["Description","description","Text","Y","","p",false],["Amount (₹)","amount","Amount","Y","","p",false],["Payment mode","payment_mode","Choice","Y","Cash / Cheque / Bank","p",false],["Bill / voucher no.","voucher_no","Text","N","","p",false],["Bill photo / PDF","attachment","File","N","","p",false],["Status","status","Choice","A","Recorded / Cancelled","p",false],["Entered by","created_by","Link","A","","auto",false]],"note":"","remarks":""},{"mod":"Finance","name":"Monthly Fund Summary","code":"monthly_fund_summary","purpose":"Calculated from the fund ledger.","fields":[["Month","month","Month","A","","auto",false],["Opening balance","opening","Amount","A","Carried from last month","auto",false],["Fees collected","fees_in","Amount","A","","auto",false],["Other money added","other_in","Amount","A","","auto",false],["Salary payable","salary_out","Amount","A","","auto",false],["Expenses","expense_out","Amount","A","","auto",false],["Closing balance","closing","Amount","A","","auto",false],["Shortfall / surplus","coverage","Amount","A","Formula to confirm","q",false]],"note":"","remarks":""},{"mod":"System","name":"Audit Log","code":"audit_log","purpose":"Automatic record of every change.","fields":[["Date & time","at","Date & time","A","","auto",false],["User","user","Link","A","","auto",false],["Action","action","Choice","A","Create / Edit / Cancel / Finalise / Login / Import / Export","auto",false],["Record type & ID","entity","Text","A","","auto",false],["Old / New value","changes","Text","A","","auto",false],["Reason","reason","Text","N","Required for cancellations","p",false]],"note":"","remarks":""},{"mod":"System","name":"Backup History","code":"backup_history","purpose":"Shows that backups are happening.","fields":[["Time","at","Date & time","A","","auto",false],["File name & size","file","Text","A","","auto",false],["Status","status","Choice","A","Success / Failed","auto",false],["Copied to USB / Drive","copied_offsite","Yes / No","N","","p",false]],"note":"","remarks":""}],"salary":[["g","Identification"],["Sr.No.","Info","Row number","Automatic","auto",""],["Name","Info","Staff name with title","From Staff","src",""],["DESIG.","Info","Designation","From Staff","src",""],["g","Earnings"],["Basic","Earning","Basic pay","From Salary Details","src",""],["D.A. 257%","Earning","Dearness allowance","Basic × 257%","src",""],["TOTAL Salary","Total","Basic + DA","Basic + D.A.","p",""],["Con Salary","Earning","Consolidated salary?","Meaning to confirm","q",""],["Monthly days","Info","Days in month","Calendar or working days?","q",""],["Paid Days","Info","Days to be paid","Monthly days − unpaid days","p",""],["E.P.F Wages","Info","EPF wage base","(Basic+DA)*12% for confirm staff\n\nnon confim -> consolidate *12%","q",""],["ARR.","Earning","Arrears","Entered monthly","q",""],["Conveyance","Earning","Conveyance allowance","Fixed; prorated?","q",""],["Spl.all","Earning","Special allowance","Fixed; prorated?","q",""],["CBSE TR","Earning","CBSE allowance?","Meaning to confirm","q",""],["ENCHAS","Earning","Leave encashment (Jun-25 to May-26)","Rule to confirm","q",""],["Medical","Earning","Medical allowance (Jan-24 to Dec-25)","Monthly or block?","q",""],["LTA","Earning","Leave travel allowance","Monthly or block?","q",""],["UNPAID","Earning (−)","Unpaid days deduction","How calculated?","q",""],["Total NET ARR","Total","Total incl. arrears?","Sum − unpaid","q",""],["g","Deductions"],["E.P.F. 12%","Deduction","Employee PF","EPF Wages × 12%","p",""],["EPF Vol.","Deduction","Voluntary PF","Fixed per staff","q",""],["EPF","Deduction","Third EPF column","Meaning to confirm","q",""],["VOL.EPF","Deduction","Voluntary EPF (again?)","Difference to confirm","q",""],["P.T.","Deduction","Professional tax","Gujarat slab table","q",""],["Income Tax","Deduction","TDS","Monthly entry / fixed","q",""],["EDUC 4% Sc.","Deduction","Cess?","Income tax × 4%?","q",""],["L.I.C.","Deduction","LIC premium","Fixed per staff","src",""],["HR","Deduction","House rent","Facility","p",""],["FR","Deduction","Meaning?","—","q",""],["Water Charges","Deduction","Water","Facility","p",""],["Elect Charges","Deduction","Electricity","Monthly entry","p",""],["Tvc","Deduction","TV cable?","Facility","q",""],["Gents Club","Deduction","Club","Facility","p",""],["Ladies Club","Deduction","Club","Facility","p",""],["HOLI","Deduction","Festival contribution?","Facility / one-time","q",""],["SMC","Deduction","Meaning?","—","q",""],["Club","Deduction","Club","Facility","q",""],["S.Mess","Deduction","Staff mess","Facility","p",""],["CBSE TR.","Deduction","CBSE recovery?","Meaning to confirm","q",""],["SCHOOL FEES","Deduction","Staff child's fees","Also create fee receipt?","q",""],["GRA.","Deduction","Gratuity deduction?","Meaning to confirm","q",""],["Staff Club","Deduction","Staff club","Facility","p",""],["Staff Tea Club","Deduction","Tea club","Facility","p",""],["Total Deduction","Total","Sum of deductions","Automatic","p",""],["g","Result"],["Net Payment","Total","Amount paid","Total salary − Total deduction","p",""],["Bank A/C","Info","Salary account","From Staff","src",""],["4.81% Gratuity","Employer","Gratuity provision","(Basic+DA) × 4.81%?","q",""]],"feeHeads":[["1","Admission Fee","One-time",""],["2","School Fee for the year","Yearly",""],["3","Caution Money","Refundable deposit","Refunded at LC after damage deduction"],["4A","CBSE Exam Fee","One-time",""],["4B","CBSE Migration Certificate Fee","One-time",""],["4C","CBSE Registration Fee","One-time",""],["5","School Badges","Per item","Quantity"],["6","Sports Wear","Per item","Size, Colour"],["7","School Belt","Per item",""],["8","School Diary","Per item",""],["9","Birth Date Certificate","Miscellaneous",""],["9","Bonafide Certificate","Miscellaneous",""],["9","Duplicate Progress Card","Miscellaneous",""],["9","Duplicate L.C.","Miscellaneous",""],["9","Admission Form","Miscellaneous",""],["10","Computer Class Fees","Per period","Period from – to"]],"workflows":[["New admission (office)","Open New Student → Enter details → System checks GR No. & duplicates → Save → Create class record → Fee account created"],["Admission via Google Form","Parent fills form → Staff clicks Import → Waiting list → Duplicates highlighted → Review & approve → Becomes student"],["Fee collection","Search student → See pending heads → Select heads & amounts → Cash / cheque details → Save → Print receipt → Fund ledger updated"],["Receipt cancellation","Open receipt → Cancel with reason → Admin approval → Balance restored → Reverse ledger entry → Audit log"],["Fee reminders","Fee dashboard → Filter pending → Select students → Generate notice / message → Print or send"],["Academic year change","Create new year → Copy setup → Edit fees → Promotion wizard → Mark detained / left → Carry forward dues → Close old year"],["Student leaving (LC)","Open student → Issue LC → Check dues & caution money → Enter details → Print LC → Moves to Left register"],["New staff","Enter details → Salary details + effective month → Facilities → Leave balance created → In next payroll"],["Monthly payroll","Enter leaves & charges → Generate draft → Review → Mark checked → Admin finalises → Print payslips → Ledger: salary out"],["Staff leaving","Open staff → Leaving details → Settlement & gratuity → Leaving register → Removed from payroll"],["Monthly fund & expenses","Record expenses → Fees flow in → Dashboard shows coverage → Add cash if shortfall → Month-end carry forward"]],"dashboards":[["🎓","Students","Search by name, GR No., mobile. Filter by year, standard, division, category, status, fees pending."],["👩‍🏫","Staff","Filter by designation, type, status. Salary, leave balance, facilities per staff."],["💰","Fee Tracker","Per standard: due, collected, pending, % collected. Drill down to student."],["🧾","Receipts / Invoices","Filter by date, mode, fee head, standard, status. Day-wise totals. Reprint."],["🏦","Fund & Salary Coverage","Opening balance, fees collected, salary needed, expenses, shortfall / surplus."],["📉","Expenses","By category, month and year."],["🗓️","Leave","Who is on leave, balances, unpaid days."],["🧮","Payroll","Month-wise totals, per-staff breakdown, comparison."],["🔍","Global Search","Students, staff, receipts, LC numbers and expenses."]],"questions":[{"g":"General","items":[{"q":"Who will use the system and with which role?","ref":"Section 02","a":"","done":false},{"q":"Which computer will host the system? RAM, Windows version, free disk space?","ref":"Section 13","a":"","done":false},{"q":"Notices and messages in Gujarati, English or both?","ref":"","a":"","done":false}]},{"g":"Students","items":[{"q":"Which standards and streams does the school have (incl. pre-primary)?","ref":"","a":"","done":false},{"q":"What are the student categories, and do they change the fee?","ref":"CATEGORY column","a":"","done":false},{"q":"Difference between 'Division' and 'Section' on the receipt?","ref":"Receipt book","a":"","done":false},{"q":"Share the Google Form link / question list.","ref":"","a":"","done":false},{"q":"Share a sample LC. Which fields are mandatory?","ref":"","a":"","done":false},{"q":"How is the LC number formed? Restart every year?","ref":"","a":"","done":false},{"q":"At promotion, what happens to pending fees?","ref":"","a":"","done":false}]},{"g":"Fees","items":[{"q":"Yearly fee at once or in installments? Due dates?","ref":"Timeline rules","a":"","done":false},{"q":"Late fee? How much and from when?","ref":"","a":"","done":false},{"q":"Concessions given? Who approves?","ref":"","a":"","done":false},{"q":"Receipt numbers continue from book (3100+) or restart yearly?","ref":"","a":"","done":false},{"q":"Payment modes — cash, cheque, UPI, bank transfer?","ref":"","a":"","done":false},{"q":"Who can cancel a receipt; approval needed?","ref":"","a":"","done":false},{"q":"How is caution money refunded / adjusted at LC?","ref":"","a":"","done":false},{"q":"Item fees (badges, sports wear, belt, diary) fixed per year?","ref":"","a":"","done":false}]},{"g":"Salary & Leave","items":[{"q":"Meaning and calculation of every 'To confirm' column in section 06.","ref":"Section 06","a":"","done":false},{"q":"Monthly days: calendar or working days?","ref":"","a":"","done":false},{"q":"EPF: 12% of which amount? ₹15,000 ceiling? The four EPF columns?","ref":"","a":"","done":false},{"q":"Professional Tax slab table?","ref":"","a":"","done":false},{"q":"Which allowances reduce for unpaid days?","ref":"","a":"","done":false},{"q":"Rounding: each column or only net pay?","ref":"","a":"","done":false},{"q":"Leave types, days allowed, carry-forward, encashment rules?","ref":"","a":"","done":false},{"q":"SCHOOL FEES deduction: auto-create fee receipt for the child?","ref":"","a":"","done":false},{"q":"Gratuity 4.81%: on which amount? Provision or paid?","ref":"","a":"","done":false},{"q":"Can we use 3 past salary sheets (names hidden) for testing?","ref":"","a":"","done":false}]},{"g":"Fund & Expenses","items":[{"q":"Opening cash / bank balance to start from?","ref":"","a":"","done":false},{"q":"Exact formula for 'amount needed this month'?","ref":"Coverage dashboard","a":"","done":false},{"q":"Fee money and salary money in the same account / cash box?","ref":"","a":"","done":false},{"q":"List of expense categories used today.","ref":"","a":"","done":false}]}],"decisions":[["24-10-2026","Draft v0.1 shared for review","Developer"]],"static":{"roles":"\n      <tr><td><br><\/td><td><\/td><td><\/td><td><br><\/td><\/tr>\n    "},"savedAt":1792840954743}</script>
+
+<script>
+/* ============ DEFAULT DATA ============ */
+const DEFAULT={
+meta:{version:"0.2 (Review)",date:"24 Oct 2026",status:"Awaiting school review",year:"2026-27 onward"},
+features:[
+ {ico:"🎓",name:"Students & Admissions",items:[
+  ["New registration (manual)","Admin enters student details; GR No. checked for duplicates."],
+  ["Registration via Google Form","Form responses imported into a waiting list; staff reviews and approves."],
+  ["Yearly class record","Standard, division, roll no. and category stored for each academic year."],
+  ["Student profile","All details, class history, fee history on one page."]]},
+ {ico:"📅",name:"Academic Year Change",items:[
+  ["New academic year setup","Copy standards, divisions and fee structure from last year, then edit."],
+  ["Promotion wizard","Promote a whole class at once; mark detained / left individually."],
+  ["Pending fee carry-forward","Unpaid fees of last year move to the new year's account."]]},
+ {ico:"📄",name:"Leaving Certificate (LC)",items:[
+  ["Issue LC","Generates LC with number; warns if fees pending or caution money not settled."],
+  ["Left Students Register","Separate list of students who left; removed from active lists."],
+  ["Duplicate LC","Reprint marked as duplicate."]]},
+ {ico:"💰",name:"Fees",items:[
+  ["Fee structure per standard & category","Set in Admin panel per academic year."],
+  ["Fee collection & receipt","Multi-head receipt; cash / cheque; partial payments."],
+  ["Paid & pending per student","Always up-to-date balance."],
+  ["Receipt cancellation","With reason and audit trail; never deleted."],
+  ["Due dates / installments / late fee","Follow the school's timeline rules."],
+  ["Fee reminder notices","Printable notice and WhatsApp/SMS draft."]]},
+ {ico:"👩‍🏫",name:"Staff",items:[
+  ["New staff entry","Personal, EPF, bank and salary details with effective date."],
+  ["Salary breakdown","How gross and net are calculated."],
+  ["Staff leaving","Leaving register with settlement; removed from active lists and payroll."],
+  ["Facility charges","Monthly subscriptions (HR, water, electricity, clubs, mess…)."]]},
+ {ico:"🗓️",name:"Leave",items:[
+  ["Leave types & allowance","Days allowed per year per type; leave year Jun–May."],
+  ["Leave entry","Shows balance and marks unpaid days automatically."],
+  ["Unpaid leave in payroll","Unpaid days reduce Paid Days."],
+  ["Leave encashment","Calculated at leave-year end."]]},
+ {ico:"🧾",name:"Payroll",items:[
+  ["Monthly payroll","Generate, review, finalise (locks the month)."],
+  ["Payslips","Print / PDF payslip per staff, month-wise."],
+  ["Salary sheet export","Excel in existing column layout."],
+  ["Configurable salary rules","Each column's calculation editable with effective date."]]},
+ {ico:"🏦",name:"Fund, Expenses & Audit",items:[
+  ["Expense tracker","Expenses with category, voucher no. and bill photo."],
+  ["Fund ledger","Every rupee in and out in one register."],
+  ["Monthly carry-forward","Unused balance carried to next month."],
+  ["Salary coverage dashboard","How much more money is needed this month."],
+  ["Audit log","Who changed what and when; filter by date, month, year."],
+  ["Global search","Find any student, staff, receipt or expense."]]}
+],
+tables:[
+{mod:"Setup",name:"Academic Years",code:"academic_years",purpose:"Each school year.",fields:[
+ ["Year name","name","Text","Y","e.g. 2026-27","src"],["Start date","start_date","Date","Y","e.g. 01-06-2026","q"],["End date","end_date","Date","Y","e.g. 31-05-2027","q"],["Current year","is_current","Yes / No","A","Only one year current at a time","auto"],["Status","status","Choice","A","Open / Closed","p"]]},
+{mod:"Setup",name:"Standards",code:"standards",purpose:"Classes taught in the school.",fields:[
+ ["Standard name","name","Text","Y","e.g. 1 … 12 (pre-primary to confirm)","q"],["Display order","display_order","Number","Y","","p"],["Stream","stream","Choice","N","Science / Commerce for 11–12","q"],["Next standard","next_standard","Link → Standards","N","Used by promotion","p"]]},
+{mod:"Setup",name:"Divisions",code:"divisions",purpose:"Divisions of each standard per year.",fields:[
+ ["Academic year","academic_year","Link → Academic Years","Y","","p"],["Standard","standard","Link → Standards","Y","","p"],["Division","name","Text","Y","e.g. A, B","src"],["Section","section","Text","N","Receipt book shows Division and Section — meaning?","q"],["Class teacher","class_teacher","Link → Staff","N","","p"]]},
+{mod:"Setup",name:"Student Categories",code:"student_categories",purpose:"CATEGORY column of class formation sheet.",fields:[
+ ["Code","code","Text","Y","","p"],["Name","name","Text","Y","General, Staff ward, RTE … (list to confirm)","q"],["Affects fees","affects_fees","Yes / No","Y","Separate fee structure if yes","q"],["Description","description","Text","N","","p"]]},
+{mod:"Setup",name:"Fee Heads",code:"fee_heads",purpose:"Particulars printed on the receipt (section 07).",fields:[
+ ["Name","name","Text","Y","e.g. School Fee for the year","src"],["Group","group","Choice","Y","Admission / Annual / CBSE / Items / Misc / Others","src"],["Charge type","charge_type","Choice","Y","One-time / Yearly / Per item / Per period / Refundable","p"],["Refundable","refundable","Yes / No","Y","Yes for Caution Money","src"],["Extra details","extra_details","Choice","N","Size & colour; Period from–to","src"],["Receipt print order","print_order","Number","Y","","src"],["Active","active","Yes / No","A","","p"]]},
+{mod:"Setup",name:"Fee Structure",code:"fee_structures",purpose:"Amount per standard / category / fee head per year.",fields:[
+ ["Academic year","academic_year","Link","Y","","p"],["Standard","standard","Link","Y","","p"],["Category","category","Link","N","Blank = all","q"],["Fee head","fee_head","Link","Y","","p"],["Amount (₹)","amount","Amount","Y","","p"],["Installment / due date","due_date","Date","N","","q"],["Late fee rule","late_fee_rule","Text","N","","q"]]},
+{mod:"Setup",name:"Users",code:"users",purpose:"People who can log in. Passwords stored encrypted.",fields:[
+ ["Full name","name","Text","Y","","p"],["Username","username","Text","Y","Unique","p"],["Role","role","Choice","Y","Admin / Accountant / Clerk","q"],["Active","active","Yes / No","A","","p"],["Last login","last_login","Date & time","A","","auto"]]},
+{mod:"Students",name:"Students",code:"students",purpose:"Permanent record of each student.",fields:[
+ ["GR No.","gr_no","Text","Y","Unique, never reused","src"],["Surname","surname","Text","Y","","src"],["First name","first_name","Text","Y","","src"],["Father's / middle name","middle_name","Text","N","","src"],["Gender","gender","Choice","Y","","p"],["Date of birth","dob","Date","Y","","p"],["Place of birth","birth_place","Text","N","Needed on LC?","q"],["Father's name","father_name","Text","N","","p"],["Mother's name","mother_name","Text","N","","p"],["Mobile 1","mobile_1","Phone","Y","Used for fee reminders","p"],["Mobile 2","mobile_2","Phone","N","","p"],["Address","address","Text","Y","","p"],["Aadhaar number","aadhaar","Text","N","Shown masked","q,sens"],["Religion / Caste","religion_caste","Text","N","Only if required on LC","q,sens"],["Category","category","Link","Y","","src"],["Admission date","admission_date","Date","Y","","p"],["Admitted in standard","admission_standard","Link","Y","","p"],["Previous school","previous_school","Text","N","","p"],["Photo","photo","Image","N","","p"],["Status","status","Choice","A","Active / Left","auto"],["Entry source","source","Choice","A","Manual / Google Form","auto"]]},
+{mod:"Students",name:"Yearly Class Record",code:"student_enrollments",purpose:"Replaces the CLASSFORMATION sheet. One row per student per year.",note:"G.R, S.NO, NAME, DIV, CATEGORY come from here; R.NO, DATE, PAID FEE, TOTAL, PENDING FEE are calculated from receipts.",fields:[
+ ["Student","student","Link","Y","","src"],["Academic year","academic_year","Link","Y","","src"],["Standard","standard","Link","Y","","src"],["Division","division","Link","Y","","src"],["Roll / serial no.","roll_no","Number","N","S.NO column","src"],["Category (this year)","category","Link","Y","","src"],["Year status","status","Choice","A","Studying / Promoted / Detained / Left","p"]]},
+{mod:"Students",name:"Google Form Admissions",code:"admission_requests",purpose:"Waiting list of imported Google Form entries.",fields:[
+ ["Submitted on","submitted_at","Date & time","A","","auto"],["Form details","form_data","All student fields","A","","auto"],["Import batch","import_batch","Number","A","","auto"],["Possible duplicate","duplicate_flag","Yes / No","A","Same name + DOB + mobile","auto"],["Review status","status","Choice","A","Pending / Approved / Rejected","p"],["Reviewed by","reviewed_by","Link","A","","auto"],["Remarks","remarks","Text","N","","p"]]},
+{mod:"Students",name:"Left Students Register (LC)",code:"lc_records",purpose:"Students who left; removed from active lists.",fields:[
+ ["LC No.","lc_no","Text","A","Format to confirm","q"],["Student (GR No.)","student","Link","Y","","p"],["Date of leaving","leaving_date","Date","Y","","p"],["Date of issue","issue_date","Date","Y","","p"],["Std & division at leaving","last_class","Auto","A","","auto"],["Reason for leaving","reason","Text","Y","","p"],["Conduct","conduct","Text","N","","q"],["Progress / last result","progress","Text","N","","q"],["Fees cleared","fees_cleared","Yes / No","A","Warns if dues pending","auto"],["Caution money refunded (₹)","caution_refund","Amount","N","","src"],["Duplicate LC issued","duplicate_count","Number","A","","p"],["Issued by","issued_by","Link","A","","auto"]]},
+{mod:"Fees",name:"Student Fee Account",code:"fee_assessments",purpose:"What each student must pay in a year per fee head.",fields:[
+ ["Yearly class record","enrollment","Link","Y","","p"],["Fee head","fee_head","Link","Y","","p"],["Amount (from structure)","amount","Amount","A","","auto"],["Concession (₹)","concession","Amount","N","","q"],["Concession reason","concession_reason","Text","N","","q"],["Net payable","net_amount","Amount","A","","auto"],["Due date","due_date","Date","N","","q"],["Brought forward","carried_forward","Yes / No","A","From previous year","q"]]},
+{mod:"Fees",name:"Receipts",code:"receipts",purpose:"Every fee receipt, matching the receipt book.",fields:[
+ ["Receipt No.","receipt_no","Number","A","e.g. 3100","src"],["Receipt date","receipt_date","Date","Y","","src"],["Academic year","academic_year","Link","A","","auto"],["Received from (student)","student","Link","Y","","src"],["Std / Division / Section","class_snapshot","Auto","A","","src"],["Payment mode","payment_mode","Choice","Y","Cash / Cheque (UPI?)","src"],["Cheque no.","cheque_no","Text","N","","src"],["Cheque dated","cheque_date","Date","N","","src"],["Bank name","bank_name","Text","N","","p"],["Total (₹)","total","Amount","A","","src"],["Total in words","total_words","Text","A","","src"],["Status","status","Choice","A","Valid / Cancelled","p"],["Cancellation reason","cancel_reason","Text","N","","p"],["Received by","created_by","Link","A","","auto"]]},
+{mod:"Fees",name:"Receipt Lines",code:"receipt_items",purpose:"Particulars rows on a receipt.",fields:[
+ ["Receipt","receipt","Link","Y","","src"],["Fee head","fee_head","Link","Y","","src"],["Details","details","Text","N","Size / colour / period","src"],["Quantity","qty","Number","N","","p"],["Amount (₹)","amount","Amount","Y","","src"]]},
+{mod:"Fees",name:"Fee Reminders",code:"fee_reminders",purpose:"Every reminder generated.",fields:[
+ ["Generated on","created_at","Date","A","","auto"],["Student","student","Link","Y","","p"],["Pending amount (₹)","pending_amount","Amount","A","","auto"],["Type","channel","Choice","Y","Notice / WhatsApp / SMS","p"],["Message text","message","Text","A","","p"],["Generated by","created_by","Link","A","","auto"]]},
+{mod:"Staff",name:"Staff",code:"staff",purpose:"Permanent record of each staff member.",fields:[
+ ["Employee code","emp_code","Text","A","","p"],["Title","title","Choice","Y","Mr. / Ms. / Mrs.","src"],["Full name","name","Text","Y","","src"],["Designation","designation","Text","Y","","src"],["Staff type","staff_type","Choice","Y","Teaching / Non-teaching","q"],["Gender","gender","Choice","Y","","p"],["Date of birth","dob","Date","Y","","p"],["Date of joining","joining_date","Date","Y","","p"],["Mobile","mobile","Phone","Y","","p"],["Address","address","Text","N","","p"],["EPF No.","epf_no","Text","N","","src,sens"],["UAN","uan","Text","N","","q,sens"],["PAN","pan","Text","N","","q,sens"],["Bank account no.","bank_ac","Text","Y","Shown masked","src,sens"],["Bank name & IFSC","bank_ifsc","Text","N","","q"],["Status","status","Choice","A","Active / Left","auto"]]},
+{mod:"Staff",name:"Salary Details",code:"salary_structures",purpose:"Fixed salary values with effective month.",fields:[
+ ["Staff","staff","Link","Y","","p"],["Effective from","effective_from","Month","Y","","p"],["Basic (₹)","basic","Amount","Y","","src,sens"],["DA %","da_percent","Percent","Y","Default 257%","src"],["Consolidated salary (₹)","con_salary","Amount","N","Fixed-pay staff?","q,sens"],["Conveyance (₹)","conveyance","Amount","N","","src"],["Special allowance (₹)","special_allowance","Amount","N","","src"],["Medical allowance (₹)","medical","Amount","N","","src"],["LTA (₹)","lta","Amount","N","","src"],["CBSE TR (₹)","cbse_tr","Amount","N","Meaning?","q"],["EPF applicable","epf_applicable","Yes / No","Y","","q"],["Voluntary EPF (₹)","vol_epf","Amount","N","","src"],["LIC premium (₹)","lic","Amount","N","","src"],["Income tax / month (₹)","income_tax","Amount","N","","q,sens"],["Gratuity applicable","gratuity_applicable","Yes / No","Y","","q"]]},
+{mod:"Staff",name:"Salary Rules",code:"salary_components",purpose:"Every salary-sheet column and its calculation (section 06).",fields:[
+ ["Column name","label","Text","Y","","src"],["Code","code","Text","Y","","p"],["Type","kind","Choice","Y","Earning / Deduction / Employer / Info","p"],["Calculation method","method","Choice","Y","Fixed / % / Paid days / Slab / Monthly / Special","p"],["Based on","base","Columns","N","","p"],["Rate / %","rate","Number","N","","src"],["Effective from","effective_from","Month","Y","","p"],["Rounding","rounding","Choice","Y","","q"],["Show on payslip","on_payslip","Yes / No","Y","","p"],["Show on salary sheet","on_sheet","Yes / No","Y","","p"],["Order","display_order","Number","Y","","src"]]},
+{mod:"Staff",name:"Staff Leaving Register",code:"staff_exits",purpose:"Staff who left; removed from active lists and payroll.",fields:[
+ ["Staff","staff","Link","Y","","p"],["Last working day","last_working_day","Date","Y","","p"],["Reason","reason","Choice","Y","Resigned / Retired / Terminated / Other","p"],["Notice date","notice_date","Date","N","","q"],["Final settlement (₹)","final_settlement","Amount","N","","q,sens"],["Gratuity paid (₹)","gratuity_paid","Amount","N","","q,sens"],["Leave encashment (₹)","leave_encashment","Amount","N","","q"],["Experience certificate","exp_cert","Yes / No","N","","p"],["Remarks","remarks","Text","N","","p"]]},
+{mod:"Staff",name:"Leave Types",code:"leave_types",purpose:"Kinds of leave and days allowed.",fields:[
+ ["Leave name","name","Text","Y","CL, ML, EL (list?)","q"],["Days allowed per year","days_per_year","Number","Y","","q"],["Paid leave","paid","Yes / No","Y","","q"],["Carry forward","carry_forward","Yes / No","Y","","q"],["Encashable","encashable","Yes / No","Y","ENCHAS column","src"],["Leave year","leave_year","Text","Y","Jun to May","src"]]},
+{mod:"Staff",name:"Leave Records",code:"leave_records",purpose:"Each leave taken.",fields:[
+ ["Staff","staff","Link","Y","","p"],["Leave type","leave_type","Link","Y","","p"],["From date","from_date","Date","Y","","p"],["To date","to_date","Date","Y","","p"],["Days","days","Number","A","Half day allowed?","q"],["Paid / Unpaid","paid","Auto","A","","auto"],["Reason","reason","Text","N","","p"],["Approved by","approved_by","Text","N","","p"]]},
+{mod:"Staff",name:"Leave Balance",code:"leave_balances",purpose:"Calculated view.",fields:[
+ ["Staff","staff","Link","A","","auto"],["Leave year","leave_year","Text","A","","auto"],["Leave type","leave_type","Link","A","","auto"],["Allowed / Taken / Balance","balance","Numbers","A","","auto"],["Unpaid days this month","unpaid_days","Number","A","","auto"]]},
+{mod:"Staff",name:"Facilities & Charge Types",code:"facilities",purpose:"Facilities whose charges are deducted from salary.",fields:[
+ ["Name","name","Text","Y","HR, Water, Electricity, TVC, Clubs, S.Mess, Holi, SMC…","src"],["Charge type","charge_type","Choice","Y","Fixed monthly / Varies monthly","p"],["Default amount (₹)","default_amount","Amount","N","","p"]]},
+{mod:"Staff",name:"Facility Subscriptions",code:"staff_facilities",purpose:"Which staff uses which facility.",fields:[
+ ["Staff","staff","Link","Y","","p"],["Facility","facility","Link","Y","","p"],["Monthly amount (₹)","amount","Amount","N","","p"],["From month","from_month","Month","Y","","p"],["To month","to_month","Month","N","","p"]]},
+{mod:"Staff",name:"Monthly Charges",code:"monthly_charges",purpose:"Charges that change every month.",fields:[
+ ["Month","month","Month","Y","","p"],["Staff","staff","Link","Y","","p"],["Facility","facility","Link","Y","","p"],["Amount (₹)","amount","Amount","Y","","p"],["Entered by","created_by","Link","A","","auto"]]},
+{mod:"Payroll",name:"Payroll Months",code:"payroll_runs",purpose:"Draft → Checked → Finalised.",fields:[
+ ["Month","month","Month","Y","e.g. OCT-26","src"],["Monthly days","monthly_days","Number","Y","Calendar or working days?","q"],["Status","status","Choice","A","Draft / Checked / Finalised","p"],["Totals","totals","Amount","A","","auto"],["Gratuity total","gratuity_total","Amount","A","","auto"],["Prepared by","prepared_by","Link","A","","auto"],["Finalised by & on","finalised_by","Link","A","","auto"]]},
+{mod:"Payroll",name:"Payslips",code:"payslips",purpose:"One per staff per month; never changes once finalised.",fields:[
+ ["Payroll month","payroll_run","Link","Y","","src"],["Staff details (copy)","staff_snapshot","Auto","A","","src,sens"],["Monthly / Paid days","days","Number","A","","src"],["Unpaid days","unpaid_days","Number","A","","src"],["EPF wages","epf_wages","Amount","A","","src"],["All salary columns","lines","Amounts","A","Section 06","src,sens"],["Total salary","gross","Amount","A","","src,sens"],["Total deduction","total_deduction","Amount","A","","src,sens"],["Net payment","net","Amount","A","","src,sens"],["Gratuity 4.81%","gratuity","Amount","A","","src"]]},
+{mod:"Finance",name:"Fund Ledger",code:"fund_ledger",purpose:"Audit register of all money in and out. Never edited; corrections are new entries.",fields:[
+ ["Entry no.","entry_no","Number","A","","auto"],["Date","txn_date","Date","Y","","p"],["Month","month","Month","A","","auto"],["Entry type","type","Choice","Y","Opening / Fee / Cancel / Salary / Expense / Cash added / Adjustment","p"],["In / Out","direction","Choice","A","","auto"],["Amount (₹)","amount","Amount","Y","","p"],["Linked record","reference","Link","N","","auto"],["Description","description","Text","Y","","p"],["Entered by & at","created_by","Link","A","","auto"]]},
+{mod:"Finance",name:"Expense Categories",code:"expense_categories",purpose:"Groups for school expenses.",fields:[
+ ["Name","name","Text","Y","List to confirm","q"],["Description","description","Text","N","","p"],["Active","active","Yes / No","A","","p"]]},
+{mod:"Finance",name:"Expenses",code:"expenses",purpose:"Other school expenses.",fields:[
+ ["Date","expense_date","Date","Y","","p"],["Category","category","Link","Y","","p"],["Paid to","payee","Text","Y","","p"],["Description","description","Text","Y","","p"],["Amount (₹)","amount","Amount","Y","","p"],["Payment mode","payment_mode","Choice","Y","Cash / Cheque / Bank","p"],["Bill / voucher no.","voucher_no","Text","N","","p"],["Bill photo / PDF","attachment","File","N","","p"],["Status","status","Choice","A","Recorded / Cancelled","p"],["Entered by","created_by","Link","A","","auto"]]},
+{mod:"Finance",name:"Monthly Fund Summary",code:"monthly_fund_summary",purpose:"Calculated from the fund ledger.",fields:[
+ ["Month","month","Month","A","","auto"],["Opening balance","opening","Amount","A","Carried from last month","auto"],["Fees collected","fees_in","Amount","A","","auto"],["Other money added","other_in","Amount","A","","auto"],["Salary payable","salary_out","Amount","A","","auto"],["Expenses","expense_out","Amount","A","","auto"],["Closing balance","closing","Amount","A","","auto"],["Shortfall / surplus","coverage","Amount","A","Formula to confirm","q"]]},
+{mod:"System",name:"Audit Log",code:"audit_log",purpose:"Automatic record of every change.",fields:[
+ ["Date & time","at","Date & time","A","","auto"],["User","user","Link","A","","auto"],["Action","action","Choice","A","Create / Edit / Cancel / Finalise / Login / Import / Export","auto"],["Record type & ID","entity","Text","A","","auto"],["Old / New value","changes","Text","A","","auto"],["Reason","reason","Text","N","Required for cancellations","p"]]},
+{mod:"System",name:"Backup History",code:"backup_history",purpose:"Shows that backups are happening.",fields:[
+ ["Time","at","Date & time","A","","auto"],["File name & size","file","Text","A","","auto"],["Status","status","Choice","A","Success / Failed","auto"],["Copied to USB / Drive","copied_offsite","Yes / No","N","","p"]]}
+],
+salary:[
+ ["g","Identification"],
+ ["Sr.No.","Info","Row number","Automatic","auto"],["Name","Info","Staff name with title","From Staff","src"],["DESIG.","Info","Designation","From Staff","src"],
+ ["g","Earnings"],
+ ["Basic","Earning","Basic pay","From Salary Details","src"],["D.A. 257%","Earning","Dearness allowance","Basic × 257%","src"],["TOTAL Salary","Total","Basic + DA","Basic + D.A.","p"],["Con Salary","Earning","Consolidated salary?","Meaning to confirm","q"],["Monthly days","Info","Days in month","Calendar or working days?","q"],["Paid Days","Info","Days to be paid","Monthly days − unpaid days","p"],["E.P.F Wages","Info","EPF wage base","(Basic+DA) × Paid ÷ Monthly, capped ₹15,000?","q"],["ARR.","Earning","Arrears","Entered monthly","q"],["Conveyance","Earning","Conveyance allowance","Fixed; prorated?","q"],["Spl.all","Earning","Special allowance","Fixed; prorated?","q"],["CBSE TR","Earning","CBSE allowance?","Meaning to confirm","q"],["ENCHAS","Earning","Leave encashment (Jun-25 to May-26)","Rule to confirm","q"],["Medical","Earning","Medical allowance (Jan-24 to Dec-25)","Monthly or block?","q"],["LTA","Earning","Leave travel allowance","Monthly or block?","q"],["UNPAID","Earning (−)","Unpaid days deduction","How calculated?","q"],["Total NET ARR","Total","Total incl. arrears?","Sum − unpaid","q"],
+ ["g","Deductions"],
+ ["E.P.F. 12%","Deduction","Employee PF","EPF Wages × 12%","p"],["EPF Vol.","Deduction","Voluntary PF","Fixed per staff","q"],["EPF","Deduction","Third EPF column","Meaning to confirm","q"],["VOL.EPF","Deduction","Voluntary EPF (again?)","Difference to confirm","q"],["P.T.","Deduction","Professional tax","Gujarat slab table","q"],["Income Tax","Deduction","TDS","Monthly entry / fixed","q"],["EDUC 4% Sc.","Deduction","Cess?","Income tax × 4%?","q"],["L.I.C.","Deduction","LIC premium","Fixed per staff","src"],["HR","Deduction","House rent","Facility","p"],["FR","Deduction","Meaning?","—","q"],["Water Charges","Deduction","Water","Facility","p"],["Elect Charges","Deduction","Electricity","Monthly entry","p"],["Tvc","Deduction","TV cable?","Facility","q"],["Gents Club","Deduction","Club","Facility","p"],["Ladies Club","Deduction","Club","Facility","p"],["HOLI","Deduction","Festival contribution?","Facility / one-time","q"],["SMC","Deduction","Meaning?","—","q"],["Club","Deduction","Club","Facility","q"],["S.Mess","Deduction","Staff mess","Facility","p"],["CBSE TR.","Deduction","CBSE recovery?","Meaning to confirm","q"],["SCHOOL FEES","Deduction","Staff child's fees","Also create fee receipt?","q"],["GRA.","Deduction","Gratuity deduction?","Meaning to confirm","q"],["Staff Club","Deduction","Staff club","Facility","p"],["Staff Tea Club","Deduction","Tea club","Facility","p"],["Total Deduction","Total","Sum of deductions","Automatic","p"],
+ ["g","Result"],
+ ["Net Payment","Total","Amount paid","Total salary − Total deduction","p"],["Bank A/C","Info","Salary account","From Staff","src"],["4.81% Gratuity","Employer","Gratuity provision","(Basic+DA) × 4.81%?","q"]
+],
+feeHeads:[["1","Admission Fee","One-time",""],["2","School Fee for the year","Yearly",""],["3","Caution Money","Refundable deposit","Refunded at LC after damage deduction"],["4A","CBSE Exam Fee","One-time",""],["4B","CBSE Migration Certificate Fee","One-time",""],["4C","CBSE Registration Fee","One-time",""],["5","School Badges","Per item","Quantity"],["6","Sports Wear","Per item","Size, Colour"],["7","School Belt","Per item",""],["8","School Diary","Per item",""],["9","Birth Date Certificate","Miscellaneous",""],["9","Bonafide Certificate","Miscellaneous",""],["9","Duplicate Progress Card","Miscellaneous",""],["9","Duplicate L.C.","Miscellaneous",""],["9","Admission Form","Miscellaneous",""],["10","Computer Class Fees","Per period","Period from – to"]],
+workflows:[
+ ["New admission (office)","Open New Student → Enter details → System checks GR No. & duplicates → Save → Create class record → Fee account created"],
+ ["Admission via Google Form","Parent fills form → Staff clicks Import → Waiting list → Duplicates highlighted → Review & approve → Becomes student"],
+ ["Fee collection","Search student → See pending heads → Select heads & amounts → Cash / cheque details → Save → Print receipt → Fund ledger updated"],
+ ["Receipt cancellation","Open receipt → Cancel with reason → Admin approval → Balance restored → Reverse ledger entry → Audit log"],
+ ["Fee reminders","Fee dashboard → Filter pending → Select students → Generate notice / message → Print or send"],
+ ["Academic year change","Create new year → Copy setup → Edit fees → Promotion wizard → Mark detained / left → Carry forward dues → Close old year"],
+ ["Student leaving (LC)","Open student → Issue LC → Check dues & caution money → Enter details → Print LC → Moves to Left register"],
+ ["New staff","Enter details → Salary details + effective month → Facilities → Leave balance created → In next payroll"],
+ ["Monthly payroll","Enter leaves & charges → Generate draft → Review → Mark checked → Admin finalises → Print payslips → Ledger: salary out"],
+ ["Staff leaving","Open staff → Leaving details → Settlement & gratuity → Leaving register → Removed from payroll"],
+ ["Monthly fund & expenses","Record expenses → Fees flow in → Dashboard shows coverage → Add cash if shortfall → Month-end carry forward"]
+],
+dashboards:[
+ ["🎓","Students","Search by name, GR No., mobile. Filter by year, standard, division, category, status, fees pending."],
+ ["👩‍🏫","Staff","Filter by designation, type, status. Salary, leave balance, facilities per staff."],
+ ["💰","Fee Tracker","Per standard: due, collected, pending, % collected. Drill down to student."],
+ ["🧾","Receipts / Invoices","Filter by date, mode, fee head, standard, status. Day-wise totals. Reprint."],
+ ["🏦","Fund & Salary Coverage","Opening balance, fees collected, salary needed, expenses, shortfall / surplus."],
+ ["📉","Expenses","By category, month and year."],
+ ["🗓️","Leave","Who is on leave, balances, unpaid days."],
+ ["🧮","Payroll","Month-wise totals, per-staff breakdown, comparison."],
+ ["🔍","Global Search","Students, staff, receipts, LC numbers and expenses."]
+],
+questions:[
+ ["General",[["Who will use the system and with which role?","Section 02"],["Which computer will host the system? RAM, Windows version, free disk space?","Section 13"],["Notices and messages in Gujarati, English or both?",""]]],
+ ["Students",[["Which standards and streams does the school have (incl. pre-primary)?",""],["What are the student categories, and do they change the fee?","CATEGORY column"],["Difference between 'Division' and 'Section' on the receipt?","Receipt book"],["Share the Google Form link / question list.",""],["Share a sample LC. Which fields are mandatory?",""],["How is the LC number formed? Restart every year?",""],["At promotion, what happens to pending fees?",""]]],
+ ["Fees",[["Yearly fee at once or in installments? Due dates?","Timeline rules"],["Late fee? How much and from when?",""],["Concessions given? Who approves?",""],["Receipt numbers continue from book (3100+) or restart yearly?",""],["Payment modes — cash, cheque, UPI, bank transfer?",""],["Who can cancel a receipt; approval needed?",""],["How is caution money refunded / adjusted at LC?",""],["Item fees (badges, sports wear, belt, diary) fixed per year?",""]]],
+ ["Salary & Leave",[["Meaning and calculation of every 'To confirm' column in section 06.","Section 06"],["Monthly days: calendar or working days?",""],["EPF: 12% of which amount? ₹15,000 ceiling? The four EPF columns?",""],["Professional Tax slab table?",""],["Which allowances reduce for unpaid days?",""],["Rounding: each column or only net pay?",""],["Leave types, days allowed, carry-forward, encashment rules?",""],["SCHOOL FEES deduction: auto-create fee receipt for the child?",""],["Gratuity 4.81%: on which amount? Provision or paid?",""],["Can we use 3 past salary sheets (names hidden) for testing?",""]]],
+ ["Fund & Expenses",[["Opening cash / bank balance to start from?",""],["Exact formula for 'amount needed this month'?","Coverage dashboard"],["Fee money and salary money in the same account / cash box?",""],["List of expense categories used today.",""]]]
+],
+decisions:[["24-10-2026","Draft v0.1 shared for review","Developer"]],
+static:{}
+};
+
+/* ============ STATE ============ */
+const KEY="campusflow-agreement-v1";
+const clone=o=>JSON.parse(JSON.stringify(o));
+function normalize(s){
+  s.features.forEach(m=>m.items.forEach(i=>{if(i.length<3)i[2]=false}));
+  s.tables.forEach(t=>{t.note=t.note||"";t.remarks=t.remarks||"";t.fields.forEach(f=>{
+    if(f.length<7){const tg=String(f[5]||"p").split(",");f[6]=tg.includes("sens");f[5]=tg.find(x=>x&&x!=="sens")||"p";}})});
+  s.salary.forEach(r=>{if(r[0]!=="g"&&r.length<6)r[5]=""});
+  s.questions=s.questions.map(g=>Array.isArray(g)?{g:g[0],items:g[1].map(q=>({q:q[0],ref:q[1]||"",a:"",done:false}))}:g);
+  s.static=s.static||{};
+  return s;
+}
+let STATE;
+(function load(){
+  let emb=null,loc=null;
+  try{const t=document.getElementById('state').textContent.trim();if(t)emb=JSON.parse(t)}catch(e){}
+  try{const t=localStorage.getItem(KEY);if(t)loc=JSON.parse(t)}catch(e){}
+  let pick=emb||loc;
+  if(emb&&loc)pick=(loc.savedAt||0)>(emb.savedAt||0)?loc:emb;
+  STATE=normalize(pick?pick:clone(DEFAULT));
+})();
+
+let saveTimer;
+function save(){
+  STATE.savedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(STATE));flash("Saved ✓")}catch(e){flash("Not saved — download a copy")}
+  updateCounts();
+}
+function flash(m){const s=document.getElementById('savedMsg');s.textContent=m;clearTimeout(saveTimer);saveTimer=setTimeout(()=>s.textContent="",1800)}
+
+/* ============ HELPERS ============ */
+const E=()=>document.body.classList.contains('editing');
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const P=p=>`data-path='${JSON.stringify(p)}'`;
+const ce=(v,p,cls="")=>E()?`<span class="ce ${cls}" contenteditable="true" ${P(p)}>${esc(v)}</span>`:`<span class="${cls}">${esc(v)}</span>`;
+const sel=(v,p,opts)=>`<select class="mini" ${P(p)}>${opts.map(o=>`<option value="${o[0]}"${o[0]===v?" selected":""}>${o[1]}</option>`).join("")}</select>`;
+const xb=fn=>E()?`<button class="xbtn" title="Delete" onclick="${fn}">×</button>`:"";
+const ST={src:["c-src","School records"],p:["c-p","Proposed"],q:["c-q","To confirm"],auto:["c-auto","Automatic"],ok:["c-ok","Agreed ✓"],x:["c-x","Not needed"]};
+const STOPTS=Object.entries(ST).map(([k,v])=>[k,v[1]]);
+const chip=(st,sens)=>`<span class="chip ${(ST[st]||ST.p)[0]}">${(ST[st]||ST.p)[1]}</span>${sens?' <span class="chip c-sens">🔒 Sensitive</span>':""}`;
+const REQ={Y:"Required",A:"Auto",N:"Optional"};
+function setPath(p,v){let o=STATE;for(let i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=v}
+
+document.addEventListener('input',onEdit);document.addEventListener('change',onEdit);
+function onEdit(e){
+  const el=e.target;
+  if(el.dataset&&el.dataset.path){
+    const p=JSON.parse(el.dataset.path);
+    let v=el.type==="checkbox"?el.checked:(["SELECT","TEXTAREA","INPUT"].includes(el.tagName)?el.value:el.innerText.replace(/\n+$/,""));
+    setPath(p,v);
+    if(el.tagName==="SELECT"&&p[0]==="tables"){const tr=el.closest('tr');if(tr)tr.className=v==="x"?"st-x":""}
+    if(p[0]==="questions"&&p[4]==="done")el.closest('.q').classList.toggle('done',v);
+    if(el.tagName==="SELECT"&&p[0]==="salary"){renderSalary()}
+    save();return;
+  }
+  const st=el.closest&&el.closest('[data-ed]');
+  if(st&&e.type==="input"){STATE.static[st.dataset.ed]=st.innerHTML;save()}
+}
+
+/* ============ RENDERERS ============ */
+function renderMeta(){
+  const m=STATE.meta;
+  document.getElementById('meta').innerHTML=[["Version","version"],["Date","date"],["Status","status"],["Academic year in scope","year"]]
+   .map(([l,k])=>`<div>${l}<b>${ce(m[k],["meta",k])}</b></div>`).join("");
+}
+function renderFeatures(){
+  document.getElementById('featureGrid').innerHTML=STATE.features.map((m,mi)=>`
+   <div class="card mod"><div class="mod-head"><div class="mod-ico">${ce(m.ico,["features",mi,"ico"])}</div><h3 style="flex:1">${ce(m.name,["features",mi,"name"])}</h3>${xb(`delModule(${mi})`)}</div>
+   ${m.items.map((it,ii)=>`<div class="feat"><input type="checkbox" ${P(["features",mi,"items",ii,2])} ${it[2]?"checked":""}>
+     <div><div class="t">${ce(it[0],["features",mi,"items",ii,0])}</div><div class="d">${ce(it[1],["features",mi,"items",ii,1])}</div></div>${xb(`delFeat(${mi},${ii})`)}</div>`).join("")}
+   <button class="addbtn ed-only" onclick="addFeat(${mi})">+ Add feature</button></div>`).join("");
+}
+let curMod="All";const openT=new Set();
+function renderModFilters(){
+  const mods=["All",...new Set(STATE.tables.map(t=>t.mod))];if(!mods.includes(curMod))curMod="All";
+  document.getElementById('modFilters').innerHTML=mods.map(m=>`<button class="pill${m===curMod?" on":""}" onclick="curMod='${esc(m)}';renderModFilters();renderTables()">${esc(m)}</button>`).join("");
+}
+function renderTables(){
+  const q=document.getElementById('search').value.toLowerCase().trim();
+  const sf=document.getElementById('stFilter').value;
+  const ed=E();
+  const html=STATE.tables.map((t,ti)=>{
+    if(curMod!=="All"&&t.mod!==curMod)return"";
+    const rows=t.fields.map((f,fi)=>({f,fi})).filter(({f})=>(!q||(t.name+" "+f.slice(0,5).join(" ")).toLowerCase().includes(q))&&(!sf||f[5]===sf));
+    if(!rows.length&&(q||sf))return"";
+    const agreed=t.fields.filter(f=>f[5]==="ok").length;
+    const isOpen=openT.has(ti)||q||sf;
+    return `<details class="card tcard" ${isOpen?"open":""} ontoggle="this.open?openT.add(${ti}):openT.delete(${ti})">
+     <summary><span class="tmod">${esc(t.mod)}</span><span class="tname">${esc(t.name)}</span><code class="tcode">${esc(t.code)}</code><span class="count">${t.fields.length} fields · ${agreed} agreed</span><span class="caret">▶</span></summary>
+     ${ed?`<div class="tmeta"><div><label>Table name</label>${ce(t.name,["tables",ti,"name"])}</div><div><label>Module</label>${ce(t.mod,["tables",ti,"mod"])}</div><div><label>Code</label>${ce(t.code,["tables",ti,"code"])}</div></div>`:""}
+     <div class="tpurpose">${ce(t.purpose,["tables",ti,"purpose"])}</div>
+     ${t.note||ed?`<div class="tnote">📌 ${ce(t.note||(ed?"":""),["tables",ti,"note"])}${ed&&!t.note?'<span style="color:var(--ink-3)"> (note — optional)</span>':""}</div>`:""}
+     ${ed?`<div style="padding:0 22px 14px"><textarea class="remark-ta" placeholder="School's remarks / decisions for this table…" ${P(["tables",ti,"remarks"])}>${esc(t.remarks)}</textarea></div>`:(t.remarks?`<div class="tremark">💬 <b>School remarks:</b> ${esc(t.remarks)}</div>`:"")}
+     <table class="dt"><thead><tr><th>Field</th><th>Type</th><th>Entry</th><th>Description / Example</th><th>Status</th>${ed?"<th></th>":""}</tr></thead><tbody>
+     ${rows.map(({f,fi})=>{const b=["tables",ti,"fields",fi];return `<tr class="${f[5]==="x"?"st-x":""}">
+       <td class="fl">${ce(f[0],[...b,0])}<code>${ce(f[1],[...b,1])}</code></td>
+       <td class="type">${ce(f[2],[...b,2])}</td>
+       <td>${ed?sel(f[3],[...b,3],[["Y","Required"],["N","Optional"],["A","Auto"]]):`<span class="req ${f[3]}">${REQ[f[3]]||f[3]}</span>`}</td>
+       <td>${ce(f[4]||(ed?"":"—"),[...b,4])}</td>
+       <td>${ed?`${sel(f[5],[...b,5],STOPTS)}<br><label class="sensbox"><input type="checkbox" ${P([...b,6])} ${f[6]?"checked":""}>🔒 Sensitive</label>`:chip(f[5],f[6])}</td>
+       ${ed?`<td>${xb(`delField(${ti},${fi})`)}</td>`:""}</tr>`}).join("")}
+     </tbody></table>
+     ${ed?`<button class="addbtn" onclick="addField(${ti})">+ Add field</button> <button class="addbtn" onclick="markAll(${ti},'ok')">Mark all agreed</button> <button class="addbtn" style="color:var(--red)" onclick="delTable(${ti})">Delete table</button>`:""}
+    </details>`}).join("");
+  document.getElementById('tableList').innerHTML=html||'<div class="card" style="color:var(--ink-3)">No fields match.</div>';
+}
+function renderSalary(){
+  const ed=E();
+  document.getElementById('salaryMap').innerHTML='<thead><tr><th>Sheet column</th><th>Type</th><th>Our understanding</th><th>Proposed calculation</th><th>Status</th><th>Client remarks / agreed formula</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>'+
+  STATE.salary.map((r,i)=>r[0]==="g"?`<tr class="grp"><td colspan="${ed?6:6}">${ce(r[1],["salary",i,1])}</td>${ed?`<td>${xb(`delSal(${i})`)}</td>`:""}</tr>`:
+  `<tr class="${r[4]==="x"?"st-x":""}"><td class="col">${ce(r[0],["salary",i,0])}</td><td>${ce(r[1],["salary",i,1])}</td><td>${ce(r[2],["salary",i,2])}</td><td>${ce(r[3],["salary",i,3])}</td>
+   <td>${ed?sel(r[4],["salary",i,4],STOPTS):chip(r[4])}</td><td>${ed?`<textarea class="remark-ta" style="min-width:180px" ${P(["salary",i,5])}>${esc(r[5])}</textarea>`:esc(r[5])}</td>${ed?`<td>${xb(`delSal(${i})`)}</td>`:""}</tr>`).join("")+'</tbody>';
+}
+function renderFeeHeads(){
+  document.getElementById('feeHeads').innerHTML=STATE.feeHeads.map((f,i)=>`<tr><td>${ce(f[0],["feeHeads",i,0])}</td><td>${ce(f[1],["feeHeads",i,1])}</td><td class="type">${ce(f[2],["feeHeads",i,2])}</td><td>${ce(f[3]||(E()?"":"—"),["feeHeads",i,3])}</td><td class="ed-only">${xb(`delFee(${i})`)}</td></tr>`).join("");
+}
+function renderFlows(){
+  const ed=E();
+  document.getElementById('flowGrid').innerHTML=STATE.workflows.map((w,i)=>{
+    const steps=w[1].split("→").map(s=>s.trim()).filter(Boolean);
+    return `<div class="card"><div style="display:flex;gap:8px;align-items:center"><h3 style="flex:1">${ce(w[0],["workflows",i,0])}</h3>${xb(`delFlow(${i})`)}</div>
+    ${ed?`<div style="margin-top:10px">${ce(w[1],["workflows",i,1])}</div><div class="hint">Separate steps with →</div>`:
+    `<div class="flow">${steps.map((s,k)=>`<div class="step"><i>${k+1}</i>${esc(s)}</div>${k<steps.length-1?'<span class="arrow">→</span>':""}`).join("")}</div>`}</div>`}).join("");
+}
+function renderDash(){
+  document.getElementById('dashGrid').innerHTML=STATE.dashboards.map((d,i)=>`<div class="card"><div style="display:flex;justify-content:space-between"><div class="mod-ico">${ce(d[0],["dashboards",i,0])}</div>${xb(`delDash(${i})`)}</div><h3 style="margin-top:10px">${ce(d[1],["dashboards",i,1])}</h3><p style="color:var(--ink-2);font-size:13px;margin:6px 0 0">${ce(d[2],["dashboards",i,2])}</p></div>`).join("");
+}
+let qf="all";
+function setQF(b){qf=b.dataset.qf;document.querySelectorAll('[data-qf]').forEach(x=>x.classList.toggle('on',x===b));renderQuestions()}
+function renderQuestions(){
+  let n=0;const ed=E();
+  document.getElementById('qList').innerHTML=STATE.questions.map((g,gi)=>{
+    const items=g.items.map((q,qi)=>{n++;
+      if(qf==="open"&&q.done||qf==="done"&&!q.done)return"";
+      const b=["questions",gi,"items",qi];
+      return `<div class="q${q.done?" done":""}"><div class="qn">Q${n}</div><div>
+       <div style="display:flex;gap:8px"><div class="qt" style="flex:1">${ce(q.q,[...b,"q"])}</div>${xb(`delQ(${gi},${qi})`)}</div>
+       ${q.ref||ed?`<div class="qw">Ref: ${ce(q.ref,[...b,"ref"])}</div>`:""}
+       <textarea placeholder="School's answer…" ${P([...b,"a"])}>${esc(q.a)}</textarea>
+       <div class="qfoot"><label><input type="checkbox" ${P([...b,"done"])} ${q.done?"checked":""}> Resolved / agreed</label></div>
+      </div></div>`}).join("");
+    return `<div class="qgroup">${ce(g.g,["questions",gi,"g"])}</div>${items}<button class="addbtn ed-only" onclick="addQ(${gi})">+ Add question</button>`}).join("")+
+    `<button class="addbtn ed-only" onclick="addQGroup()">+ Add question group</button>`;
+}
+function renderDecisions(){
+  document.getElementById('decisions').innerHTML=STATE.decisions.map((d,i)=>`<tr>
+   <td><input ${P(["decisions",i,0])} value="${esc(d[0])}" placeholder="dd-mm-yyyy"></td>
+   <td><input ${P(["decisions",i,1])} value="${esc(d[1])}" placeholder="What was decided"></td>
+   <td><input ${P(["decisions",i,2])} value="${esc(d[2])}" placeholder="Name"></td>
+   <td class="ed-only">${xb(`delDecision(${i})`)}</td></tr>`).join("");
+}
+function updateCounts(){
+  let ag=0,cf=0,tot=0;
+  STATE.tables.forEach(t=>t.fields.forEach(f=>{if(f[5]==="x")return;tot++;if(f[5]==="ok")ag++;if(f[5]==="q")cf++}));
+  STATE.salary.forEach(r=>{if(r[0]==="g"||r[4]==="x")return;tot++;if(r[4]==="ok")ag++;if(r[4]==="q")cf++});
+  let qo=0,qt=0;STATE.questions.forEach(g=>g.items.forEach(q=>{qt++;if(!q.done)qo++}));
+  document.getElementById('tcount').textContent=STATE.tables.length;
+  document.getElementById('acount').textContent=`${ag} / ${tot}`;
+  document.getElementById('ccount').textContent=cf;
+  document.getElementById('qcount').textContent=`${qo} / ${qt}`;
+  const pct=Math.round(((ag+(qt-qo))/((tot+qt)||1))*100);
+  document.getElementById('progBar').style.width=pct+"%";
+  document.getElementById('progText').textContent=`${pct}% — ${ag} items agreed, ${qt-qo} questions resolved`;
+}
+function applyStatic(){
+  document.querySelectorAll('[data-ed]').forEach(el=>{
+    const k=el.dataset.ed;if(STATE.static[k]!=null)el.innerHTML=STATE.static[k];
+    if(E())el.setAttribute('contenteditable','true');else el.removeAttribute('contenteditable');
+  });
+}
+function renderAll(){applyStatic();renderMeta();renderFeatures();renderModFilters();renderTables();renderSalary();renderFeeHeads();renderFlows();renderDash();renderQuestions();renderDecisions();updateCounts()}
+
+/* ============ ACTIONS ============ */
+const ok=m=>confirm(m||"Delete this item?");
+function mut(fn){fn();save();renderAll()}
+function toggleEdit(){document.body.classList.toggle('editing');document.getElementById('editBtn').classList.toggle('on',E());document.getElementById('editBtn').textContent=E()?"✓ Done editing":"✏️ Edit mode";renderAll()}
+function addModule(){mut(()=>STATE.features.push({ico:"⭐",name:"New module",items:[["New feature","Description",false]]}))}
+function delModule(i){ok("Delete this module and its features?")&&mut(()=>STATE.features.splice(i,1))}
+function addFeat(i){mut(()=>STATE.features[i].items.push(["New feature","Description",false]))}
+function delFeat(i,j){ok()&&mut(()=>STATE.features[i].items.splice(j,1))}
+function addTable(){mut(()=>{STATE.tables.push({mod:curMod==="All"?"Setup":curMod,name:"New table",code:"new_table",purpose:"Purpose of this table.",note:"",remarks:"",fields:[["New field","new_field","Text","N","","p",false]]});openT.add(STATE.tables.length-1)})}
+function delTable(i){ok("Delete the whole table?")&&mut(()=>{STATE.tables.splice(i,1);openT.clear()})}
+function addField(i){mut(()=>STATE.tables[i].fields.push(["New field","new_field","Text","N","","p",false]))}
+function delField(i,j){ok()&&mut(()=>STATE.tables[i].fields.splice(j,1))}
+function markAll(i,s){mut(()=>STATE.tables[i].fields.forEach(f=>{if(f[5]!=="x")f[5]=s}))}
+function addSal(g){mut(()=>STATE.salary.push(g?["g","New group"]:["NEW","Deduction","Meaning","Calculation","q",""]))}
+function delSal(i){ok()&&mut(()=>STATE.salary.splice(i,1))}
+function addFee(){mut(()=>STATE.feeHeads.push(["","New fee head","One-time",""]))}
+function delFee(i){ok()&&mut(()=>STATE.feeHeads.splice(i,1))}
+function addFlow(){mut(()=>STATE.workflows.push(["New workflow","Step 1 → Step 2 → Step 3"]))}
+function delFlow(i){ok()&&mut(()=>STATE.workflows.splice(i,1))}
+function addDash(){mut(()=>STATE.dashboards.push(["📊","New dashboard","Description"]))}
+function delDash(i){ok()&&mut(()=>STATE.dashboards.splice(i,1))}
+function addQ(g){mut(()=>STATE.questions[g].items.push({q:"New question",ref:"",a:"",done:false}))}
+function delQ(g,i){ok()&&mut(()=>STATE.questions[g].items.splice(i,1))}
+function addQGroup(){mut(()=>STATE.questions.push({g:"New group",items:[{q:"New question",ref:"",a:"",done:false}]}))}
+function addDecision(){const d=new Date();mut(()=>STATE.decisions.push([`${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`,"",""]))}
+function delDecision(i){ok()&&mut(()=>STATE.decisions.splice(i,1))}
+
+function downloadCopy(){
+  STATE.savedAt=Date.now();
+  const wasEd=E();if(wasEd)toggleEdit();
+  const doc=document.documentElement.cloneNode(true);
+  doc.querySelector('#state').textContent=JSON.stringify(STATE).replace(/<\//g,"<\\/");
+  ["featureGrid","tableList","salaryMap","feeHeads","flowGrid","dashGrid","qList","decisions","meta","modFilters"].forEach(id=>{const el=doc.querySelector('#'+id);if(el)el.innerHTML=""});
+  doc.querySelector('body').classList.remove('editing');
+  const html="<!DOCTYPE html>\n"+doc.outerHTML;
+  const v=String(STATE.meta.version||"").split(" ")[0].replace(/[^\w.-]/g,"");
+  dl(new Blob([html],{type:"text/html"}),`CampusFlow_Agreement_v${v||"draft"}_${new Date().toISOString().slice(0,10)}.html`);
+  if(wasEd)toggleEdit();flash("Downloaded ✓");
+}
+function exportJSON(){dl(new Blob([JSON.stringify(STATE,null,2)],{type:"application/json"}),`campusflow-agreement-data-${new Date().toISOString().slice(0,10)}.json`)}
+function importJSON(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{STATE=normalize(JSON.parse(r.result));save();renderAll();flash("Imported ✓")}catch(e){alert("This file could not be read.")}};r.readAsText(f);inp.value=""}
+function resetAll(){if(!confirm("Reset everything to the original draft? All edits in this browser will be lost (download a copy first if needed)."))return;try{localStorage.removeItem(KEY)}catch(e){}STATE=normalize(clone(DEFAULT));document.querySelectorAll('[data-ed]').forEach(el=>{});location.reload()}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+function printDoc(){const wasEd=E();if(wasEd)toggleEdit();document.querySelectorAll('.tcard').forEach(d=>d.open=true);setTimeout(()=>{window.print();if(wasEd)toggleEdit()},150)}
+window.addEventListener('beforeprint',()=>document.querySelectorAll('.tcard').forEach(d=>d.open=true));
+
+/* nav highlight */
+const links=[...document.querySelectorAll('#nav a')];
+const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id))}),{rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('section').forEach(s=>obs.observe(s));
+
+renderAll();
+</script>
+
+
+</body></html>
