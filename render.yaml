@@ -21,3 +21,5 @@ services:
         value: "-Xmx384m -XX:+UseG1GC"
       - key: CAMPUSFLOW_SCHOOL_NAME
         value: "Birlasagar Higher Secondary School"
+      - key: CAMPUSFLOW_SIGNUP_ENABLED
+        value: "true" # demo only: lets reviewers create an account on the sign-in page

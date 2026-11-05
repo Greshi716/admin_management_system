@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { problemOf } from '../../../core/http/api-problem';
 
@@ -14,7 +14,7 @@ const WRONG_CREDENTIALS = 'The username or password is not correct.';
  */
 @Component({
   selector: 'app-sign-in',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './sign-in.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -31,6 +31,7 @@ export class SignInComponent {
   protected readonly busy = signal(false);
   protected readonly wrongCredentials = signal<string | null>(null);
   protected readonly notice = this.store.notice;
+  protected readonly signupEnabled = signal(false);
 
   private readonly pausedUntil = signal<number | null>(null);
   private readonly now = signal(Date.now());
@@ -53,6 +54,7 @@ export class SignInComponent {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.resumeTimer));
+    this.store.signupEnabled().subscribe((enabled) => this.signupEnabled.set(enabled));
     // Asking who is signed in also makes the server set the XSRF-TOKEN cookie that the sign-in POST must send back,
     // and sends an admin who is already signed in straight to the app.
     this.store.ensureLoaded().subscribe({

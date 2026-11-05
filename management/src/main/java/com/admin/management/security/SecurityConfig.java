@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -42,11 +43,14 @@ class SecurityConfig {
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository,
-			Environment environment) throws Exception {
+			Environment environment, UserRepository users, PasswordEncoder encoder, LoginAttemptService attempts)
+			throws Exception {
 		// Only the test profile has /api/test-support; elsewhere the pattern matches nothing.
 		String[] open = environment.acceptsProfiles(Profiles.of("test"))
-				? new String[] { "/api/auth/login", TestSupportController.PATH } : new String[] { "/api/auth/login" };
+				? new String[] { "/api/auth/login", "/api/auth/signup", "/api/auth/config", TestSupportController.PATH }
+				: new String[] { "/api/auth/login", "/api/auth/signup", "/api/auth/config" };
 		http.csrf((csrf) -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+			.ignoringRequestMatchers(BasicAuthFilter::hasBasicHeader)
 			.csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))
 			.securityContext((context) -> context.securityContextRepository(contextRepository))
 			.authorizeHttpRequests((requests) -> requests.requestMatchers(open)
@@ -62,6 +66,7 @@ class SecurityConfig {
 			.httpBasic((basic) -> basic.disable())
 			.logout((logout) -> logout.disable())
 			// The token cookie must be written on the first response, or the first sign-in POST fails with 403.
+			.addFilterAfter(new BasicAuthFilter(users, encoder, attempts), BasicAuthenticationFilter.class)
 			.addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
 		return http.build();
 	}

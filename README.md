@@ -339,6 +339,8 @@ From `.specify/memory/constitution.md`:
 
 The Docker image caps the JVM at `-Xmx384m` to stay friendly to low-memory machines.
 
+**Demo signup (F6):** `render.yaml` sets `CAMPUSFLOW_SIGNUP_ENABLED=true`, which adds a "Create account" link on the sign-in page (new accounts are Admin). It is off by default; never turn it on with real school data. For API testing, send HTTP Basic: `curl -u username:password https://<your-app>.onrender.com/api/auth/me`.
+
 Developer-only operations (correcting a promotion, voiding a receipt, resetting the admin password) are documented in [`docs/runbooks`](docs/runbooks/README.md). They are never available in the UI and require a backup first.
 
 ---
