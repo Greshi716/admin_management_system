@@ -63,6 +63,7 @@ Project-level decisions that extend or change the Product Agreement (`docs/agree
 | 2026-10-31 | Carry-forward adds to existing amount (FR-020): carry-forward of unpaid year fee adds to any existing `fee_brought_forward.amount` (`new_amount = existing + unpaid_year_fee`), audited with before and after amounts. Status: **confirmed by the owner 2026-10-31 / built in F4**. | F4 |
 | 2026-10-31 | Developer correction function `correct_promotion` (FR-025): PostgreSQL function `correct_promotion(item_id, reason, done_by)` run via `psql` by developer to reverse a promotion item and lower `fee_brought_forward` with audit entry; never called by application. Status: **confirmed by the owner 2026-10-31 / built in F4**. | F4 |
 | 2026-10-31 | Stream on class record (FR-012): `student_enrollments.stream` stores 'Science' or 'Commerce' on the yearly class record for Std 11 and 12 (one standard row each). Status: **confirmed by the owner 2026-10-31 / built in F4**. | F4 |
+| 2026-11-05 | Demo signup (F6, FR-016): a "Create account" screen exists only when `CAMPUSFLOW_SIGNUP_ENABLED=true` (set in `render.yaml` for the Render demo, off by default). New accounts are Admin, so this amends the one-Admin rule (F0 FR-003) for the demo only; the school install keeps a single Admin. An HTTP Basic header is also accepted on `/api` with the same 5-failure pause. No schema change. Status: **requested by the owner 2026-11-05**. | F6 |
 
 ## Open items
 
