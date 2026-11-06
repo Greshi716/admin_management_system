@@ -192,7 +192,8 @@ test.describe('students list and profile', () => {
 
     const row = page.locator('tbody tr').first();
     await expect(row).toContainText('-Z');
-    await expect(row.getByTestId('record-year')).toHaveText(earlier.name);
+    // F4: a student not yet promoted into the current year is tagged instead of showing the earlier year.
+    await expect(row.getByTestId('not-promoted-yet-tag')).toBeVisible();
 
     await search(page).fill('E2E-04');
     await expect(page.getByText('of 1 rows')).toBeVisible();

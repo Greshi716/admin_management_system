@@ -30,12 +30,12 @@ test.describe('the shell (F1 US4)', () => {
     await clearMasterData(page);
   });
 
-  test('FR-014: the top bar shows exactly the tabs Students, Finance and Setup and no unbuilt module', async ({ page }) => {
+  test('FR-014: the top bar shows exactly the tabs Approvals, Students, Finance and Setup and no unbuilt module', async ({ page }) => {
     await page.goto('/');
 
     const tabs = page.getByRole('navigation', { name: 'Main' }).getByRole('link');
-    await expect(tabs).toHaveText(['Students', 'Finance', 'Setup']);
-    for (const unbuilt of ['Dashboard', 'Approvals', 'Staff', 'Reports']) {
+    await expect(tabs).toHaveText(['Approvals', 'Students', 'Finance', 'Setup']);
+    for (const unbuilt of ['Dashboard', 'Staff', 'Reports']) {
       await expect(page.getByRole('navigation', { name: 'Main' }).getByText(unbuilt)).toHaveCount(0);
     }
     await expect(page.getByTestId('current-year')).toBeVisible();
@@ -132,7 +132,7 @@ test.describe('the shell (F1 US4)', () => {
   test('F1 FR-015 as changed by F3: the Students list and the profile have no promote, roll number or LC items (they now show fees, F3 FR-014, FR-015)', async ({ page }) => {
     const master = await createStudentMasterData(page);
     const student = await createStudent(page, studentInput(1, master));
-    const absent = ['Prepare LC', 'Promote', 'Left students (LC)', 'Roll'];
+    const absent = ['Prepare LC', 'Left students (LC)', 'Roll']; // F4 added the "Promote students" button to the list
 
     for (const path of ['/students', `/students/${student.id}`]) {
       await page.goto(path);
