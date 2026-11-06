@@ -13,13 +13,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -61,7 +57,7 @@ class AuthController {
 
 	private final CredentialsFile credentials;
 
-	private final SecurityContextRepository contextRepository;
+	private final SessionStarter sessions;
 
 	private final ObjectProvider<CurrentAcademicYearProvider> academicYear;
 
@@ -69,7 +65,7 @@ class AuthController {
 
 	AuthController(UserRepository users, PasswordEncoder encoder, LoginAttemptService attempts,
 			AccountService accounts, AuditService audit, CredentialsFile credentials,
-			SecurityContextRepository contextRepository, ObjectProvider<CurrentAcademicYearProvider> academicYear,
+			SessionStarter sessions, ObjectProvider<CurrentAcademicYearProvider> academicYear,
 			@Value("${server.servlet.session.timeout}") Duration idleTimeout) {
 		this.users = users;
 		this.encoder = encoder;
@@ -77,7 +73,7 @@ class AuthController {
 		this.accounts = accounts;
 		this.audit = audit;
 		this.credentials = credentials;
-		this.contextRepository = contextRepository;
+		this.sessions = sessions;
 		this.academicYear = academicYear;
 		this.idleTimeout = idleTimeout;
 		this.unknownUserHash = encoder.encode("not-a-real-password");
@@ -101,7 +97,7 @@ class AuthController {
 				.orElseGet(AuthController::badCredentials);
 		}
 		attempts.recordSuccess(username);
-		startSession(found.get(), request, response);
+		sessions.start(found.get(), request, response);
 		return ResponseEntity.ok(me(users.findByUsername(username).orElseThrow()));
 	}
 
@@ -139,16 +135,8 @@ class AuthController {
 		return ResponseEntity.noContent().build();
 	}
 
-	private void startSession(User user, HttpServletRequest request, HttpServletResponse response) {
-		if (request.getSession(false) != null) {
-			request.changeSessionId();
-		}
-		Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(user.getUsername(), null,
-				AuthorityUtils.createAuthorityList("ROLE_" + user.getRole()));
-		SecurityContext context = SecurityContextHolder.createEmptyContext();
-		context.setAuthentication(authentication);
-		SecurityContextHolder.setContext(context);
-		contextRepository.saveContext(context, request, response);
+	Me meOf(User user) {
+		return me(user);
 	}
 
 	private Me me(User user) {

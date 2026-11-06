@@ -116,7 +116,7 @@ test.describe('table behaviours', () => {
 
     expect(download.suggestedFilename()).toMatch(/^standards-\d{4}-\d{2}-\d{2}\.xlsx$/);
     const sheet = readFirstSheet(await download.path());
-    expect(sheet[0]).toEqual(['Name', 'Display order', 'Stream', 'Active']);
+    expect(sheet[0]).toEqual(['Name', 'Display order', 'Stream', 'Uses stream', 'Active']);
     expect(sheet.slice(1).map((row) => row[0])).toEqual(onScreen);
   });
 
@@ -130,7 +130,7 @@ test.describe('table behaviours', () => {
       page.getByTestId('export').click(),
     ]);
 
-    expect(readFirstSheet(await download.path())).toEqual([['Name', 'Display order', 'Stream', 'Active']]);
+    expect(readFirstSheet(await download.path())).toEqual([['Name', 'Display order', 'Stream', 'Uses stream', 'Active']]);
   });
 
   test('FR-026, FR-030: a reversed date range on the audit log shows the message and no rows', async ({ page }) => {

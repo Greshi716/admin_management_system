@@ -1,0 +1,56 @@
+<main class="flex min-h-screen items-center justify-center bg-page p-6">
+  <form
+    class="w-full max-w-md rounded-card border border-border bg-surface p-10 shadow-xl shadow-accent/10"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    novalidate
+  >
+    <h1 class="mb-1 text-3xl font-bold tracking-tight">Create account</h1>
+    <p class="mb-6 text-muted">Demo only. Use made-up details; do not enter real school data.</p>
+
+    <label class="mb-1 block text-sm font-semibold" for="name">Name</label>
+    <input id="name" class="input mb-1 w-full" formControlName="name" autocomplete="name" [attr.aria-invalid]="!!error('name')" />
+    <p class="mb-3 min-h-5 text-sm text-error-text" data-testid="error-name">{{ error('name') }}</p>
+
+    <label class="mb-1 block text-sm font-semibold" for="username">Username</label>
+    <input
+      id="username"
+      class="input mb-1 w-full"
+      formControlName="username"
+      autocomplete="username"
+      autocapitalize="off"
+      spellcheck="false"
+      [attr.aria-invalid]="!!error('username')"
+    />
+    <p class="mb-3 min-h-5 text-sm text-error-text" data-testid="error-username">{{ error('username') }}</p>
+
+    <label class="mb-1 block text-sm font-semibold" for="password">Password</label>
+    <div class="mb-1 flex gap-2">
+      <input
+        id="password"
+        class="input min-w-0 flex-1"
+        formControlName="password"
+        autocomplete="new-password"
+        [type]="showPassword() ? 'text' : 'password'"
+        [attr.aria-invalid]="!!error('password')"
+      />
+      <button type="button" class="btn btn-secondary btn-outlined" (click)="toggleShowPassword()">{{ showPassword() ? 'Hide' : 'Show' }}</button>
+    </div>
+    <p class="mb-3 min-h-5 text-sm text-error-text" data-testid="error-password">{{ error('password') }}</p>
+
+    <label class="mb-1 block text-sm font-semibold" for="confirmPassword">Confirm password</label>
+    <input
+      id="confirmPassword"
+      class="input mb-1 w-full"
+      formControlName="confirmPassword"
+      autocomplete="new-password"
+      [type]="showPassword() ? 'text' : 'password'"
+      [attr.aria-invalid]="!!error('confirmPassword')"
+    />
+    <p class="mb-4 min-h-5 text-sm text-error-text" data-testid="error-confirmPassword">{{ error('confirmPassword') }}</p>
+
+    <button type="submit" class="btn btn-primary w-full" [class.btn-loading]="busy()" [disabled]="busy()">Create account</button>
+
+    <p class="mt-6 text-sm text-muted">Already have an account? <a routerLink="/sign-in" class="font-semibold text-accent">Sign in</a></p>
+  </form>
+</main>

@@ -4,6 +4,11 @@ import { currentYearGuard } from './core/auth/current-year.guard';
 
 export const routes: Routes = [
   {
+    path: 'sign-up',
+    title: 'Create account',
+    loadComponent: () => import('./features/auth/sign-up/sign-up.component').then((m) => m.SignUpComponent),
+  },
+  {
     path: 'sign-in',
     title: 'Sign in',
     loadComponent: () => import('./features/auth/sign-in/sign-in.component').then((m) => m.SignInComponent),

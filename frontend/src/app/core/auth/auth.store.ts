@@ -6,6 +6,8 @@ import { Me } from './me';
 const ME_URL = '/api/auth/me';
 const LOGIN_URL = '/api/auth/login';
 const LOGOUT_URL = '/api/auth/logout';
+const CONFIG_URL = '/api/auth/config';
+const SIGNUP_URL = '/api/auth/signup';
 const DEFAULT_IDLE_SECONDS = 600;
 
 /**
@@ -49,6 +51,24 @@ export class AuthStore {
           return of(false);
         }
         return throwError(() => error);
+      }),
+    );
+  }
+
+  /** Whether the demo "Create account" screen is on (F6 FR-003). A failed call counts as off. */
+  signupEnabled(): Observable<boolean> {
+    return this.http.get<{ signupEnabled: boolean }>(CONFIG_URL).pipe(
+      map((config) => config.signupEnabled),
+      catchError(() => of(false)),
+    );
+  }
+
+  signup(body: { name: string; username: string; password: string; confirmPassword: string }): Observable<Me> {
+    return this.http.post<Me>(SIGNUP_URL, body).pipe(
+      tap((me) => {
+        this.current.set(me);
+        this.asked.set(true);
+        this.notice.set(null);
       }),
     );
   }

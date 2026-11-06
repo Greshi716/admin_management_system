@@ -20,6 +20,7 @@ describe('SignInComponent (FR-001, FR-004, FR-044)', () => {
     navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     fixture = TestBed.createComponent(SignInComponent);
     fixture.detectChanges();
+    controller.expectOne('/api/auth/config').flush({ signupEnabled: false });
     controller.expectOne('/api/auth/me').flush(null, { status: 401, statusText: 'Unauthorized' });
   });
 

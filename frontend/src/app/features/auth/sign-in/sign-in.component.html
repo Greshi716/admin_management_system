@@ -74,6 +74,11 @@
       <button type="submit" class="btn btn-primary w-full" [class.btn-loading]="busy()" [disabled]="busy() || paused()">Sign in</button>
 
       <p class="mt-6 text-sm text-muted">Forgot your password? Contact the developer.</p>
+      @if (signupEnabled()) {
+        <p class="mt-2 text-sm text-muted">
+          New here? <a routerLink="/sign-up" class="font-semibold text-accent" data-testid="create-account-link">Create account</a>
+        </p>
+      }
     </form>
   </main>
 </div>
